@@ -308,3 +308,25 @@ end #};
 immutable JNIEnv
     JNINativeInterface_::Ptr{JNINativeInterface}
 end
+
+immutable JNIInvokeInterface #struct JNIInvokeInterface_ {
+    reserved0::Ptr{Void} #void *reserved0;
+    reserved1::Ptr{Void} #vvoid *reserved1;
+    reserved2::Ptr{Void} #vvoid *reserved2;
+
+    DestroyJavaVM::Ptr{Void} #jint (JNICALL *DestroyJavaVM)(JavaVM *vm);
+
+    AttachCurrentThread::Ptr{Void} #jint (JNICALL *AttachCurrentThread)(JavaVM *vm, void **penv, void *args);
+
+    DetachCurrentThread::Ptr{Void} #jint (JNICALL *DetachCurrentThread)(JavaVM *vm);
+
+    GetEnv::Ptr{Void} #jint (JNICALL *GetEnv)(JavaVM *vm, void **penv, jint version);
+
+    AttachCurrentThreadAsDaemon::Ptr{Void} #jint (JNICALL *AttachCurrentThreadAsDaemon)(JavaVM *vm, void **penv, void *args);
+end
+
+immutable JavaVM
+    JNIInvokeInterface_::Ptr{JNIInvokeInterface}
+end
+
+

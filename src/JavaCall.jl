@@ -43,14 +43,6 @@ typealias jobject Ptr{Void}
 libjvm=dlopen("/Library/Java/JavaVirtualMachines/jdk1.7.0_45.jdk/Contents/Home/jre/lib/server/libjvm")
 create = dlsym(libjvm, :JNI_CreateJavaVM)
 
-# typedef struct JavaVMInitArgs {
-#     jint version;
-
-#     jint nOptions;
-#     JavaVMOption *options;
-#     jboolean ignoreUnrecognized;
-# } JavaVMInitArgs;
-
 immutable JavaVMInitArgs
 	version::Cint
 	nOptions::Cint
@@ -58,10 +50,6 @@ immutable JavaVMInitArgs
 	ignoreUnrecognized::Cchar
 end
 
-# typedef struct JavaVMOption {
-#     char *optionString;
-#     void *extraInfo;
-# } JavaVMOption;
 
 immutable JavaVMOption 
 	optionString::Ptr{Uint8}
@@ -71,23 +59,43 @@ end
 include("jnienv.jl")
 
 
-function initjava{T<:String}(opts::Array{T, 1}) 
-	opt = Array(Ptr{Void}, 1)
-	opt[1]=pointer_from_objref(JavaVMOption(convert(Ptr{Uint8}, "-Djava.class.path=/Users/aviks/dev"), C_NULL))
-	ppjvm=Array(Ptr{Void},1)
+function init{T<:String}(opts::Array{T, 1}) 
+	opt = Array(Ptr{Void}, length(opts))
+	for i in 1:length(opts)
+		opt[i]=pointer_from_objref(JavaVMOption(convert(Ptr{Uint8}, opts[i]), C_NULL))
+	end
+	ppjvm=Array(Ptr{JavaVM},1)
 	ppenv=Array(Ptr{JNIEnv},1)
-	vm_args = JavaVMInitArgs(JNI_VERSION_1_6, convert(Cint, 1), pointer_from_objref(opt), JNI_TRUE)
+	vm_args = JavaVMInitArgs(JNI_VERSION_1_6, convert(Cint, length(opts)), pointer_from_objref(opt), JNI_TRUE)
 
-	ccall(create, Cint, (Ptr{Ptr{Void}}, Ptr{Ptr{JNIEnv}}, Ptr{JavaVMInitArgs}), ppjvm, ppenv, &vm_args)
+	res = ccall(create, Cint, (Ptr{Ptr{JavaVM}}, Ptr{Ptr{JNIEnv}}, Ptr{JavaVMInitArgs}), ppjvm, ppenv, &vm_args)
+	if res < 0; error("Unable to initialise Java VM"); end
 	global penv = ppenv[1]
 	global pjvm = ppjvm[1]
 	jnienv=unsafe_load(penv)
+	jvm = unsafe_load(pjvm)
+	global jvmfunc = unsafe_load(jvm.JNIInvokeInterface_)
 	global jnifunc = unsafe_load(jnienv.JNINativeInterface_) #The JNI Function table
 	@assert ccall(jnifunc.GetVersion, Cint, (Ptr{JNIEnv},), penv) == JNI_VERSION_1_6
 end
 
+function destroy()
+	if (!isdefined(JavaCall, :penv) || penv == C_NULL) ; error("Called destroy without initialising Java VM"); end
+	res = ccall(jvmfunc.DestroyJavaVM, Cint, (Ptr{Void},), pjvm)
+	if res < 0; error("Unable to destroy Java VM"); end
+	global penv=C_NULL; global pjvm=C_NULL; 
+end
 
-immutable JString
+immutable JClass{T}
+	name::UTF8String
+	ptr::Ptr{Void}
+end
+
+JClass(T, name, ptr) = JClass{T}(name,ptr)
+
+abstract JObject
+
+immutable JString <: JObject
 	ptr::Ptr{Void}
 end
 
@@ -99,16 +107,14 @@ function JString(str::String)
 		return JString(jstring)
 	end
 end
-
-
-immutable JClass{T}
-	name::UTF8String
-	ptr::Ptr{Void}
+# Convert a reference to a java.lang.String into a Julia string. Copies the underlying byte buffer
+function bytestring(jstr::JString)  #jstr must be a jstring obtained via a JNI call
+	pIsCopy = Array(jbyte, 1)
+	buf::Ptr{Uint8} = ccall(jnifunc.GetStringUTFChars, Ptr{Uint8}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{jbyte}), penv, jstr.ptr, pIsCopy)
+	s=bytestring(buf)
+	ccall(jnifunc.ReleaseStringUTFChars, Void, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}), penv, jstr.ptr, buf)
+	return s
 end
-
-JClass(T, name, ptr) = JClass{T}(name,ptr)
-
-abstract JObject
 
 
 # function JClass(clazz::String)
@@ -143,17 +149,14 @@ macro jvimport(clazz)
 
 end
 
-jnew{T<:JObject} (typ::Type{T}, argtype::Tuple, args...) = jcall(typ, "<init>", Ptr{Void}, argtypes, args...)	
+function jnew{T<:JObject} (typ::Type{T}, argtype::Tuple, args...) 
+	sig = getMethodSignature(Void, argtypes...)
+	jmethodId = ccall(jnifunc.GetStaticMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, METACLASS_CACHE[typ].ptr, utf8("<init>"), sig)
+	
+	_jcall(obj, jmethodId, "NewObject", T, argtypes, args...)
 
-
-# Convert a reference to a java.lang.String into a Julia string. Copies the underlying byte buffer
-function bytestring(jstr::JString)  #jstr must be a jstring obtained via a JNI call
-	pIsCopy = Array(jbyte, 1)
-	buf::Ptr{Uint8} = ccall(jnifunc.GetStringUTFChars, Ptr{Uint8}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{jbyte}), penv, jstr.ptr, pIsCopy)
-	s=bytestring(buf)
-	ccall(jnifunc.ReleaseStringUTFChars, Void, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}), penv, jstr.ptr, buf)
-	return s
 end
+
 
 function javaerror()
 	isexception = ccall(jnifunc.ExceptionCheck, jboolean, (Ptr{JNIEnv},), penv )
@@ -164,7 +167,7 @@ function javaerror()
 		if jthrow==C_NULL ; error ("Java Exception thrown, but no details could be retrieved"); end
 		jclass = ccall(jnifunc.GetObjectClass, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}), penv, jthrow)
 		if jthrow==C_NULL ; error ("Java Exception thrown, but no details could be retrieved");end
-		msg = ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, jclass, utf8("getMessage"), utf8("()Ljava/lang/String;"))
+		msg = jcall(jthrow, "getMessage", JString, ())
 		ccall(jnifunc.ExceptionClear, Void, (Ptr{JNIEnv},), penv )
 
 		error(string("Error calling Java: ",bytestring(JString(msg))))
@@ -195,6 +198,7 @@ staticCallMethod(rettype::Type{jboolean}) = jnifunc.CallStaticByteMethod
 staticCallMethod(rettype::Type{JObject}) = jnifunc.CallStaticObjectMethod
 
 
+# Call static methods
 function jcall{T}(class::Type{T}, method::String, rettype::Type, argtypes::Tuple, args... )
 	sig = getMethodSignature(rettype, argtypes...)
 
@@ -212,11 +216,16 @@ function jcall{T}(class::Type{T}, method::String, rettype::Type, argtypes::Tuple
 
 end
 
+# Call instance methods
 function jcall(obj::JObject, method::String, rettype::Type, argtypes::Tuple, args... )
 	sig = getMethodSignature(rettype, argtypes...)
 	jmethodId = ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, obj.ptr, utf8(method), sig)
 	callMethod = callStaticMethod(rettype)
 
+	_jcall(obj, jmethodId, callmethod, rettype, argtypes, args...)
+end
+
+function _jcall(obj, jmethodId, callmethod, rettype, argtypes, args...)
 	sargtypes = [symbol(string(real_jtype(x))) for x in argtypes]
 	argtuple = Expr(:tuple, :Ptr{JNIEnv}, :Ptr{Void}, :Ptr{Void}, sargtypes...)
 	realArgs = convert_args(argtypes, args...)
@@ -228,7 +237,7 @@ function jcall(obj::JObject, method::String, rettype::Type, argtypes::Tuple, arg
 
 end
 
-
+# Get the JNI/C type for a particular Java type
 function real_jtype(rettype)
 	if issubtype(rettype, JObject) || issubtype(rettype, JString) || issubtype(rettype, Array) || issubtype(rettype, JClass)
 		realret = Ptr{Void}
@@ -239,38 +248,10 @@ function real_jtype(rettype)
 end
 
 function convert_args(argtypes::Tuple, args...)
-	convertedArgs = {convert(argtypes[i], args[i]) for i in length(args)}
-	# realArgs = Array(Ptr{Void},length(convertedArgs))
-	# fill!(realArgs, C_NULL)
-	# for i in 1:length(realArgs)
-	# 	if argtypes[i] <: JObject || argtypes[i] <: JClass || argtypes[i] <: JString
-	# 		realArgs[i] = convertedArgs[i].ptr
-	# 	else 
-	# 		realArgs[i] = convertedArgs[i]
-	# 	end
-	# end
-
-	# return realArgs
+	convertedArgs = {convert(argtypes[i], args[i]) for i in 1:length(args)}
 end
 
 
-
-
-function _jcall(obj::JObject, method::Ptr{Void}, rettype::Type, argtypes::Tuple, args)
-	callMethod = callStaticMethod(rettype)
-	
-	if isa(rettype, JObject) || isa(rettype, JString) || isa(rettype, Array) || isa(rettype, JClass)
-		realret = Ptr{Void}
-	else 
-		realret = retType
-	end
-
-	result = ccall(callMethod, realret, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void} ), 
-										penv, obj.ptr, method,realArgs)
-
-	return jv_convert_result(rettype, result)
-
-end
 
 jv_convert_result{T<:JString}(rettype::Type{T}, result) = bytestring(JString(result))
 jv_convert_result{T<:Array}(rettype::Type{T}, result) = result
