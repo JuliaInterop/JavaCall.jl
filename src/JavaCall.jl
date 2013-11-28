@@ -1,5 +1,4 @@
 module JavaCall
-using Debug
 export JObject, JClass, JString, jint, jlong, jbyte, jboolean, jchar, jshort, jfloat, jdouble,
 	   @jvimport, jcall
 
@@ -166,9 +165,7 @@ function jnew{T<:JObject} (typ::Type{T}, argtypes::Tuple, args...)
 	if (jmethodId == C_NULL) 
 		error("No constructor for $typ with signature $sig")
 	end 
-	result = _jcall(METACLASS_CACHE[typ], jmethodId, jnifunc.NewObject, typ, argtypes, args...)
-	if result==C_NULL; get_error(); end
-	return T(METACLASS_CACHE[typ], result)
+	return  _jcall(METACLASS_CACHE[typ], jmethodId, jnifunc.NewObject, typ, argtypes, args...)
 end
 
 
@@ -224,6 +221,7 @@ function jcall{T}(class::Type{T}, method::String, rettype::Type, argtypes::Tuple
 	sig = getMethodSignature(rettype, argtypes...)
 
 	jmethodId = ccall(jnifunc.GetStaticMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, METACLASS_CACHE[class].ptr, utf8(method), sig)
+	if jmethodId==C_NULL; get_error(); end
 	callmethod = staticCallMethod(rettype)
 
 	_jcall(METACLASS_CACHE[class], jmethodId, callmethod, rettype, argtypes, args...)
@@ -234,6 +232,7 @@ end
 function jcall(obj::JObject, method::String, rettype::Type, argtypes::Tuple, args... )
 	sig = getMethodSignature(rettype, argtypes...)
 	jmethodId = ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, obj.metaclass.ptr, utf8(method), sig)
+	if jmethodId==C_NULL; get_error(); end
 	callmethod = callMethod(rettype)
 
 	_jcall(obj, jmethodId, callmethod, rettype, argtypes, args...)
@@ -257,6 +256,7 @@ function _jcall(obj, jmethodId, callmethod, rettype, argtypes, args...)
 	# println(callmethod); println(realret); dump(argtuple); println(realArgs);
 	result = eval( :(ccall( $(callmethod), $(realret), $(argtuple), $(penv), $(obj.ptr), $(jmethodId), $(realArgs...))))
 
+	if result==C_NULL; get_error(); end
 	return jv_convert_result(rettype, result)
 
 end
@@ -288,6 +288,7 @@ end
 
 
 jv_convert_result{T<:JString}(rettype::Type{T}, result) = bytestring(JString(result))
+jv_convert_result{T<:JObject}(rettype::Type{T}, result) = T(METACLASS_CACHE[rettype], result)
 jv_convert_result{T<:Array}(rettype::Type{T}, result) = result
 jv_convert_result(rettype, result) = result
 
@@ -330,7 +331,7 @@ end
 
 getSignature(arg::Type{JString}) = return "Ljava/lang/String;"
 # Void is bottom type, so the following method is matched
-getSignature{T<:JObject}(arg::Type{T}) = return  is(arg, Void)?"V":string("L", METACLASS_CACHE[arg].names, ";")
+getSignature{T<:JObject}(arg::Type{T}) = return  is(arg, Void)?"V":string("L", METACLASS_CACHE[arg].name, ";")
 
 # Pointer to pointer to pointers to pointers alert! Hurrah for unsafe load
 function init{T<:String}(opts::Array{T, 1}) 

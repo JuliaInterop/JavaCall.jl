@@ -17,5 +17,12 @@ jnu = @jvimport "java.net.URL"
 gurl = jnu((JString,), "http://www.google.com")
 @test "www.google.com"==jcall(gurl, "getHost", JString,())
 
+jni=@jvimport "java.net.URI"
+guri=jcall(gurl, "toURI", jni,())
+@test typeof(guri)==jni
+
+h=jcall(guri, "hashCode", jint,())
+typeof(h)==jint
+
 # At the end, unload the JVM before exiting
 JavaCall.destroy()
