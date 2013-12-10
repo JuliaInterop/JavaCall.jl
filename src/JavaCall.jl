@@ -2,6 +2,9 @@ module JavaCall
 export JObject, JClass, JString, jint, jlong, jbyte, jboolean, jchar, jshort, jfloat, jdouble,
 	   @jvimport, jcall
 
+# using Debug
+using Memoize
+
 import Base.bytestring, Base.convert
 
 const JNI_VERSION_1_1 =  convert(Cint, 0x00010001)
@@ -36,34 +39,45 @@ typealias jshort Cshort
 typealias jfloat Cfloat
 typealias jdouble Cdouble
 typealias jsize jint
+jprimitive = Union(jboolean, jchar, jshort, jfloat, jdouble, jint, jlong)
+
 # typealias jobject Ptr{Void}
 
 
 function findjvm()
 	javahomes = {}
-	try 
-		push!(javahomes, ENV["JAVA_HOME"])
-	end
-	@osx_only try 
-		push!(javahomes, chomp(readall(`/usr/libexec/java_home`)))
-	end
-	@unix_only push!(javahomes, "/usr")
+	libpaths = {}
 
-	libpaths = {""}
-	for n in javahomes
-		push!(libpaths, "$(n)/lib/")
-		push!(libpaths, "$(n)/jre/lib/")
-		push!(libpaths, "$n/jre/lib/server/")
-		push!(libpaths, "$n/lib/server")
+	try 
+		push!(libpath, ENV["JAVA_LIB"])
+	catch 
+		try 
+			push!(javahomes, ENV["JAVA_HOME"])
+		end
+		@osx_only try 
+			push!(javahomes, chomp(readall(`/usr/libexec/java_home`)))
+		end
+		@unix_only push!(javahomes, "/usr")
+
+		libpaths = {""}
+		for n in javahomes
+			push!(libpaths, joinpath(n, "lib"))
+			push!(libpaths, joinpath(n, "jre", "lib"))
+			push!(libpaths, joinpath(n, "jre", "lib", "server"))
+			push!(libpaths, joinpath(n, "lib", "server"))
+			@linux_only if WORD_SIZE==64; push!(libpaths, joinpath(n, "lib", "amd64")); end
+			@linux_only if WORD_SIZE==32; push!(libpaths, joinpath(n, "lib", "i386")); end
+
+		end
 	end
 	for n in libpaths
 		try 
-			global libjvm = dlopen("$(n)libjvm")
+			global libjvm = dlopen(joinpath(n, "libjvm"))
 			println("Found libjvm @ $n")
 			return
 		end
 	end
-	error ("Cannot find libjvm in: $(libpaths)Try setting the JAVA_HOME environment variable")
+	error ("Cannot find libjvm in: $(libpaths)To override the search, set the JAVA_LIB environment variable to the directory containing libjvm.{so,dll,dylib}")
 end
 
 findjvm()
@@ -71,17 +85,16 @@ findjvm()
 # libjvm=dlopen("/Library/Java/JavaVirtualMachines/jdk1.7.0_45.jdk/Contents/Home/jre/lib/server/libjvm")
 create = dlsym(libjvm, :JNI_CreateJavaVM)
 
-immutable JavaVMInitArgs
-	version::Cint
-	nOptions::Cint
-	options::Ptr{Void}
-	ignoreUnrecognized::Cchar
-end
-
-
 immutable JavaVMOption 
 	optionString::Ptr{Uint8}
 	extraInfo::Ptr{Void}
+end
+
+immutable JavaVMInitArgs
+	version::Cint
+	nOptions::Cint
+	options::Ptr{JavaVMOption}
+	ignoreUnrecognized::Cchar
 end
 
 include("jnienv.jl")
@@ -152,7 +165,7 @@ macro jvimport(clazz)
 		$(esc(symbol(juliaClazz)))(argtypes::Tuple, args...) = jnew($(esc(symbol(juliaClazz))), argtypes, args...)
 
 		jclass = eval(Expr(:ccall, :(JavaCall.jnifunc.FindClass), :(Ptr{Void}), :(Ptr{JavaCall.JNIEnv},Ptr{Uint8}), :(JavaCall.penv), $modifiedClazz))  
-		if (jclass == C_NULL); error(string("Unable to create java class ", $(modifiedClazz))); end 
+		if (jclass == C_NULL); error(string("Unable to load java class: ", $(modifiedClazz))); end 
 		METACLASS_CACHE[$(esc(symbol(juliaClazz)))] = JClass($(esc(symbol(juliaClazz))), $(modifiedClazz), jclass)
 		$(esc(symbol(juliaClazz)))
 	end
@@ -165,7 +178,7 @@ function jnew{T<:JObject} (typ::Type{T}, argtypes::Tuple, args...)
 	if (jmethodId == C_NULL) 
 		error("No constructor for $typ with signature $sig")
 	end 
-	return  _jcall(METACLASS_CACHE[typ], jmethodId, jnifunc.NewObject, typ, argtypes, args...)
+	return  _jcall(METACLASS_CACHE[typ], jmethodId, jnifunc.NewObjectA, typ, argtypes, args...)
 end
 
 
@@ -193,27 +206,36 @@ function get_error()
 end
 
 
-callMethod(rettype::Type{Array}) = jnifunc.CallObjectMethod
-callMethod(rettype::Type{jint}) = jnifunc.CallIntMethod
-callMethod(rettype::Type{jlong}) = jnifunc.CallLongMethod
-callMethod(rettype::Type{jshort}) = jnifunc.CallShortMethod
-callMethod(rettype::Type{jfloat}) = jnifunc.CallFloatMethod
-callMethod(rettype::Type{jdouble}) = jnifunc.CallDoubleMethod
-callMethod(rettype::Type{jchar}) = jnifunc.CallCharMethod
-callMethod(rettype::Type{jboolean}) = jnifunc.CallByteMethod
-callMethod{T<:JObject}(rettype::Type{T}) = jnifunc.CallObjectMethod
-callMethod(rettype::Type{JString}) = jnifunc.CallObjectMethod
+callMethod(rettype::Type{Array}) = jnifunc.CallObjectMethodA
+callMethod(rettype::Type{jint}) = jnifunc.CallIntMethodA
+callMethod(rettype::Type{jlong}) = jnifunc.CallLongMethodA
+callMethod(rettype::Type{jshort}) = jnifunc.CallShortMethodA
+callMethod(rettype::Type{jfloat}) = jnifunc.CallFloatMethodA
+callMethod(rettype::Type{jdouble}) = jnifunc.CallDoubleMethodA
+callMethod(rettype::Type{jchar}) = jnifunc.CallCharMethodA
+callMethod(rettype::Type{jboolean}) = jnifunc.CallByteMethodA
+callMethod{T<:JObject}(rettype::Type{T}) = jnifunc.CallObjectMethodA
 
-staticCallMethod(rettype::Type{Array}) = jnifunc.CallStaticObjectMethod
-staticCallMethod(rettype::Type{jint}) = jnifunc.CallStaticIntMethod
-staticCallMethod(rettype::Type{jlong}) = jnifunc.CallStaticLongMethod
-staticCallMethod(rettype::Type{jshort}) = jnifunc.CallStaticShortMethod
-staticCallMethod(rettype::Type{jfloat}) = jnifunc.CallStaticFloatMethod
-staticCallMethod(rettype::Type{jdouble}) = jnifunc.CallStaticDoubleMethod
-staticCallMethod(rettype::Type{jchar}) = jnifunc.CallStaticCharMethod
-staticCallMethod(rettype::Type{jboolean}) = jnifunc.CallStaticByteMethod
-staticCallMethod{T<:JObject}(rettype::Type{T}) = jnifunc.CallStaticObjectMethod
-staticCallMethod(rettype::Type{JString}) = jnifunc.CallStaticObjectMethod
+staticCallMethod(rettype::Type{Array}) = jnifunc.CallStaticObjectMethodA
+staticCallMethod(rettype::Type{jint}) = jnifunc.CallStaticIntMethodA
+staticCallMethod(rettype::Type{jlong}) = jnifunc.CallStaticLongMethodA
+staticCallMethod(rettype::Type{jshort}) = jnifunc.CallStaticShortMethodA
+staticCallMethod(rettype::Type{jfloat}) = jnifunc.CallStaticFloatMethodA
+staticCallMethod(rettype::Type{jdouble}) = jnifunc.CallStaticDoubleMethodA
+staticCallMethod(rettype::Type{jchar}) = jnifunc.CallStaticCharMethodA
+staticCallMethod(rettype::Type{jboolean}) = jnifunc.CallStaticByteMethodA
+staticCallMethod{T<:JObject}(rettype::Type{T}) = jnifunc.CallStaticObjectMethodA
+
+
+arrayCallMethod(rettype::Type{Array}) = jnifunc.GetObjectArrayElement
+arrayCallMethod(rettype::Type{jint}) = jnifunc.GetIntArrayElement
+arrayCallMethod(rettype::Type{jlong}) = jnifunc.GetLongArrayElement
+arrayCallMethod(rettype::Type{jshort}) = jnifunc.GetShortArrayElement
+arrayCallMethod(rettype::Type{jfloat}) = jnifunc.GetFloatArrayElement
+arrayCallMethod(rettype::Type{jdouble}) = jnifunc.GetDoubleArrayElement
+arrayCallMethod(rettype::Type{jchar}) = jnifunc.GetCharArrayElement
+arrayCallMethod(rettype::Type{jboolean}) = jnifunc.GetByteArrayElement
+arrayCallMethod{T<:JObject}(rettype::Type{T}) = jnifunc.GetObjectArrayElement
 
 
 # Call static methods
@@ -252,18 +274,28 @@ function _jcall(obj, jmethodId, callmethod, rettype, argtypes, args...)
 	argtuple = Expr(:tuple, :(Ptr{JNIEnv}), :(Ptr{Void}), :(Ptr{Void}), sargtypes...)
 	realArgs = convert_args(argtypes, args...)
 	realret = real_jtype(rettype)
-	# result = eval( :(ccall(callMethod, $(realret), (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void} ), $(penv), $(obj.ptr), $(jmethodId), $(realArgs))))
 	# println(callmethod); println(realret); dump(argtuple); println(realArgs);
-	result = eval( :(ccall( $(callmethod), $(realret), $(argtuple), $(penv), $(obj.ptr), $(jmethodId), $(realArgs...))))
+
+	#result = eval( :(ccall( $(callmethod), $(realret), $(argtuple), $(penv), $(obj.ptr), $(jmethodId), $(realArgs...))))
+
+	#result = ccall(callmethod, realret, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), penv, obj.ptr, jmethodId, realArgs)
+
+	result = eval( :(ccall( $(callmethod), $(realret), (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), $(penv), $(obj.ptr), $(jmethodId), $(realArgs))))
 
 	if result==C_NULL; get_error(); end
 	return jv_convert_result(rettype, result)
 
 end
 
+# jvalue(v::Integer) = int64(v) << (64-8*sizeof(v))
+jvalue(v::Integer) = int64(v)
+jvalue(v::Float32) = jvalue(reinterpret(Int32, v))
+jvalue(v::Float64) = jvalue(reinterpret(Int64, v))
+jvalue(v::Ptr) = jvalue(int(v))
+
 # Get the JNI/C type for a particular Java type
 function real_jtype(rettype)
-	if issubtype(rettype, JObject) || issubtype(rettype, JString) || issubtype(rettype, Array) || issubtype(rettype, JClass)
+	if issubtype(rettype, JObject) || issubtype(rettype, Array) || issubtype(rettype, JClass)
 		realret = Ptr{Void}
 	else 
 		realret = rettype
@@ -271,26 +303,86 @@ function real_jtype(rettype)
 	return realret
 end
 
+
 function convert_args(argtypes::Tuple, args...)
-	convertedArgs = Array(Any, length(args))
+	convertedArgs = Array(Int64, length(args))
 	for i in 1:length(args)
-		if (is(argtypes[i], JString))
-			convertedArgs[i] = convert(JString, args[i]).ptr
-		elseif issubtype(argtypes[i], JObject) 
-			convertedArgs[i] = args[i].ptr
-		else 
-			convertedArgs[i] = convert(argtypes[i], args[i])
-		end
+		convertedArgs[i] = jvalue(convert_arg(argtypes[i], args[i]))
 	end
 	return convertedArgs
 end
 
+convert_arg(argtype::Type{JString}, arg) = convert(JString, arg).ptr
+convert_arg(argtype::Type, arg) = convert(argtype, arg)
+convert_arg{T<:JObject}(argtype::Type{T}, arg) = convert(T, arg).ptr
+function convert_arg{T, N}(argtype::Type{Array{T,N}})
+
+end
 
 
 jv_convert_result{T<:JString}(rettype::Type{T}, result) = bytestring(JString(result))
 jv_convert_result{T<:JObject}(rettype::Type{T}, result) = T(METACLASS_CACHE[rettype], result)
-jv_convert_result{T<:Array}(rettype::Type{T}, result) = result
 jv_convert_result(rettype, result) = result
+function jv_convert_result{T<:jprimitive,N}(rettype::Type{Array{T,N}}, result) 
+	sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, d)
+	arraymethod = arrayCallMethod(T)
+	release_arraymethod = arrayReleaseCallMethod(T)
+	jtype = real_jtype(T)
+	r = Expr(:curly, :Ptr, symbol(string(T)))
+	arr = eval( :(ccall(arraymethod, $(rettype), (Ptr{JNIEnv}, Ptr{Void}, Ptr{jboolean} ), penv, result, C_NULL )) )
+	jl_arr = pointer_to_array(arr, sz, false)
+	jl_arr = copy(jl_arr)
+	release_tuple = Expr(:tuple, :(Ptr{JNIEnv}), r, symbol(string(T)), :jint)
+	eval(:(ccall($(release_arraymethod), Void, $(release_tuple), $(penv), $(arr), $(convert(Cint,0))  )))
+end
+
+function jv_convert_result{T<:JObject,N}(rettype::Type{Array{T,N}}, result) 
+	sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, d)
+
+	d=result
+	s={}
+	for i=1:N
+		if d==C_NULL 
+			push!(s,int64(0))
+			continue
+		else 
+			sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, d)
+			push!(s, int64(sz))
+		end 
+		d=ccall(jnifunc.GetObjectArrayElement, Ptr{Void}, (Ptr{JNIEnv},Ptr{Void}, Cint), penv, d, 0)
+	end
+	ret = Array(T, tuple(s))
+
+
+	if N == 1
+		d=result 
+		for i=1:s[1]
+			a=ccall(jnifunc.GetObjectArrayElement, Ptr{Void}, (Ptr{JNIEnv},Ptr{Void}, Cint), penv, d, 0)
+			ret[i] = convert_result(T, a)
+		end 
+	end 
+
+	if N == 2
+		d=result 
+		for i=1:s[1]
+			d=
+			for j=1:s[2]
+				a=ccall(jnifunc.GetObjectArrayElement, Ptr{Void}, (Ptr{JNIEnv},Ptr{Void}, Cint), penv, d, i-1)
+				ret[i] = convert_result(T, a)
+			end
+		end 
+	end
+
+	arraymethod = arrayCallMethod(T)
+	release_arraymethod = arrayReleaseCallMethod(T)
+	jtype = real_jtype(T)
+	r = Expr(:curly, :Ptr, symbol(string(T)))
+	arr = eval( :(ccall(arraymethod, $(rettype), (Ptr{JNIEnv}, Ptr{Void}, Ptr{jboolean} ), penv, result, C_NULL )) )
+	jl_arr = pointer_to_array(arr, sz, false)
+	jl_arr = copy(jl_arr)
+	release_tuple = Expr(:tuple, :(Ptr{JNIEnv}), r, symbol(string(T)), :jint)
+	eval(:(ccall($(release_arraymethod), Void, $(release_tuple), $(penv), $(arr), $(convert(Cint,0))  )))
+end
 
 
 function getMethodSignature(rettype, argtypes...)
@@ -335,13 +427,13 @@ getSignature{T<:JObject}(arg::Type{T}) = return  is(arg, Void)?"V":string("L", M
 
 # Pointer to pointer to pointers to pointers alert! Hurrah for unsafe load
 function init{T<:String}(opts::Array{T, 1}) 
-	opt = Array(Ptr{Void}, length(opts))
+	opt = Array(JavaVMOption, length(opts))
 	for i in 1:length(opts)
-		opt[i]=pointer_from_objref(JavaVMOption(convert(Ptr{Uint8}, opts[i]), C_NULL))
+		opt[i]=JavaVMOption(convert(Ptr{Uint8}, opts[i]), C_NULL)
 	end
 	ppjvm=Array(Ptr{JavaVM},1)
 	ppenv=Array(Ptr{JNIEnv},1)
-	vm_args = JavaVMInitArgs(JNI_VERSION_1_6, convert(Cint, length(opts)), pointer_from_objref(opt), JNI_TRUE)
+	vm_args = JavaVMInitArgs(JNI_VERSION_1_6, convert(Cint, length(opts)), convert(Ptr{JavaVMOption},opt), JNI_FALSE)
 
 	res = ccall(create, Cint, (Ptr{Ptr{JavaVM}}, Ptr{Ptr{JNIEnv}}, Ptr{JavaVMInitArgs}), ppjvm, ppenv, &vm_args)
 	if res < 0; error("Unable to initialise Java VM: $(res)"); end
@@ -354,8 +446,8 @@ function init{T<:String}(opts::Array{T, 1})
 	@assert ccall(jnifunc.GetVersion, Cint, (Ptr{JNIEnv},), penv) == JNI_VERSION_1_6
 
 	# Load base classes
-	JavaCall.eval(:(@jvimport "java.lang.String"))
-	JavaCall.eval(:(@jvimport "java.lang.Exception"))
+	# JavaCall.eval(:(@jvimport "java.lang.String"))
+	# JavaCall.eval(:(@jvimport "java.lang.Exception"))
 	
 end
 
