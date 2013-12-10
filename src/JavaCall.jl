@@ -281,7 +281,7 @@ function _jcall(obj, jmethodId, callmethod, rettype, argtypes, args...)
 	# result = eval( :(ccall( $(callmethod), $(realret), (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), $(penv), $(obj.ptr), $(jmethodId), $(realArgs))))
 	result = __jcall(obj, callmethod, realret, jmethodId, realArgs)
 	if result==C_NULL; get_error(); end
-	return jv_convert_result(rettype, result)
+	return convert_result(rettype, result)
 
 end
 
@@ -329,10 +329,10 @@ function convert_arg{T, N}(argtype::Type{Array{T,N}})
 end
 
 
-jv_convert_result{T<:JString}(rettype::Type{T}, result) = bytestring(JString(result))
-jv_convert_result{T<:JObject}(rettype::Type{T}, result) = T(result)
-jv_convert_result(rettype, result) = result
-function jv_convert_result{T<:jprimitive,N}(rettype::Type{Array{T,1}}, result) 
+convert_result{T<:JString}(rettype::Type{T}, result) = bytestring(JString(result))
+convert_result{T<:JObject}(rettype::Type{T}, result) = T(result)
+convert_result(rettype, result) = result
+function jv_convert_result{T<:jprimitive}(rettype::Type{Array{T,1}}, result) 
 	sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, d)
 	arraymethod = arrayCallMethod(T)
 	release_arraymethod = arrayReleaseCallMethod(T)
@@ -345,42 +345,15 @@ function jv_convert_result{T<:jprimitive,N}(rettype::Type{Array{T,1}}, result)
 	eval(:(ccall($(release_arraymethod), Void, $(release_tuple), $(penv), $(arr), $(convert(Cint,0))  )))
 end
 
-function jv_convert_result{T<:JObject,N}(rettype::Type{Array{T,N}}, result) 
+function convert_result{T}(rettype::Type{Array{JObject{T},1}}, result) 
 	sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, d)
 
-	d=result
-	s={}
-	for i=1:N
-		if d==C_NULL 
-			push!(s,int64(0))
-			continue
-		else 
-			sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, d)
-			push!(s, int64(sz))
-		end 
-		d=ccall(jnifunc.GetObjectArrayElement, Ptr{Void}, (Ptr{JNIEnv},Ptr{Void}, Cint), penv, d, 0)
-	end
-	ret = Array(T, tuple(s))
+	ret = Array(JObject{T}, 1)
 
-
-	if N == 1
-		d=result 
-		for i=1:s[1]
-			a=ccall(jnifunc.GetObjectArrayElement, Ptr{Void}, (Ptr{JNIEnv},Ptr{Void}, Cint), penv, d, 0)
-			ret[i] = convert_result(T, a)
-		end 
+	for i=1:sz
+		a=ccall(jnifunc.GetObjectArrayElement, Ptr{Void}, (Ptr{JNIEnv},Ptr{Void}, Cint), penv, result, i-1)
+		ret[i] = convert_result(T, a)
 	end 
-
-	if N == 2
-		d=result 
-		for i=1:s[1]
-			d=
-			for j=1:s[2]
-				a=ccall(jnifunc.GetObjectArrayElement, Ptr{Void}, (Ptr{JNIEnv},Ptr{Void}, Cint), penv, d, i-1)
-				ret[i] = convert_result(T, a)
-			end
-		end 
-	end
 
 	arraymethod = arrayCallMethod(T)
 	release_arraymethod = arrayReleaseCallMethod(T)

@@ -11,3 +11,4 @@ before_install:
 script:
   - julia -e 'Pkg.init(); run(`ln -s $(pwd()) $(Pkg.dir("JavaCall"))`); Pkg.pin("JavaCall"); Pkg.resolve()'
   - julia -e 'using JavaCall; @assert isdefined(:JavaCall); @assert typeof(JavaCall) === Module'
+  - julia test/runtests.jl
