@@ -64,9 +64,8 @@ function findjvm()
 			push!(libpaths, joinpath(n, "lib"))
 			push!(libpaths, joinpath(n, "jre", "lib"))
 			push!(libpaths, joinpath(n, "jre", "lib", "server"))
-			push!(libpaths, joinpath(n, "lib", "server"))
-			@linux_only if WORD_SIZE==64; push!(libpaths, joinpath(n, "lib", "amd64")); end
-			@linux_only if WORD_SIZE==32; push!(libpaths, joinpath(n, "lib", "i386")); end
+			@linux_only if WORD_SIZE==64; push!(libpaths, joinpath(n, "jre", "lib", "amd64", "server")); end
+			@linux_only if WORD_SIZE==32; push!(libpaths, joinpath(n, "jre", "lib", "i386", "server")); end
 
 		end
 	end
@@ -333,7 +332,7 @@ end
 jv_convert_result{T<:JString}(rettype::Type{T}, result) = bytestring(JString(result))
 jv_convert_result{T<:JObject}(rettype::Type{T}, result) = T(result)
 jv_convert_result(rettype, result) = result
-function jv_convert_result{T<:jprimitive,N}(rettype::Type{Array{T,N}}, result) 
+function jv_convert_result{T<:jprimitive,N}(rettype::Type{Array{T,1}}, result) 
 	sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, d)
 	arraymethod = arrayCallMethod(T)
 	release_arraymethod = arrayReleaseCallMethod(T)
@@ -431,11 +430,9 @@ function getSignature(arg::Type)
 	end
 end
 
-getSignature(arg::Type{JString}) = return "Ljava/lang/String;"
-# Void is bottom type, so the following method is matched
 getSignature{T}(arg::Type{JObject{T}}) = return  is(arg, Void)?"V":string("L", javaclassname(T), ";")
 
-# Pointer to pointer to pointers to pointers alert! Hurrah for unsafe load
+# Pointer to pointer to pointer to pointer alert! Hurrah for unsafe load
 function init{T<:String}(opts::Array{T, 1}) 
 	opt = Array(JavaVMOption, length(opts))
 	for i in 1:length(opts)
@@ -454,10 +451,6 @@ function init{T<:String}(opts::Array{T, 1})
 	global jvmfunc = unsafe_load(jvm.JNIInvokeInterface_)
 	global jnifunc = unsafe_load(jnienv.JNINativeInterface_) #The JNI Function table
 	@assert ccall(jnifunc.GetVersion, Cint, (Ptr{JNIEnv},), penv) == JNI_VERSION_1_6
-
-	# Load base classes
-	# JavaCall.eval(:(@jvimport "java.lang.String"))
-	# JavaCall.eval(:(@jvimport "java.lang.Exception"))
 	
 end
 
