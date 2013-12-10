@@ -108,22 +108,31 @@ function destroy()
 end
 
 immutable JClass{T}
-	name::UTF8String
 	ptr::Ptr{Void}
 end
 
-JClass(T, name, ptr) = JClass{T}(name,ptr)
+JClass(T, ptr) = JClass{T}(ptr)
 
-abstract JObject
-
-immutable JString <: JObject
+immutable JObject{T}
 	ptr::Ptr{Void}
+	metaclass::JClass{T}
+
+	function JObject(ptr)
+		new(ptr, getMetaClass(T))
+	end 
+
+	JObject(argtypes::Tuple, args...) = jnew(T, argtypes, args...)
+
 end
+
+JObject(T, ptr) = JObject{T}(ptr)
+
+typealias JString JObject{:java!lang!String}
 
 function JString(str::String)
 	jstring = ccall(jnifunc.NewStringUTF, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Uint8}), penv, utf8(str))
 	if jstring == C_NULL
-		javaerror()
+		get_error()
 	else 
 		return JString(jstring)
 	end
@@ -140,47 +149,33 @@ end
 convert{T<:String}(::Type{JString}, str::T) = JString(str)
 
 
-# function JClass(clazz::String)
-# 	modifiedClazz = utf8(replace(clazz, '.', '/'))
-# 	jclass = ccall(jnifunc.FindClass, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Uint8}), penv, modifiedClazz)
-# 	return JClass(modifiedClazz, jclass)
-# end
-
-# new{T<:JClass}(clazz::T, argtypes::Tuple, args...) = jcall(clazz, "<init>", Void, argtypes, args...)
 global const METACLASS_CACHE = Dict{Type, JClass}()
 
 macro jvimport(clazz)
-	modifiedClazz = utf8(replace(string(clazz), '.', '/'))
-	juliaClazz = string("jv_",replace(modifiedClazz, '/', '_'))
-	if juliaClazz in JavaCall.METACLASS_CACHE
-		return
-	end 
-
-	quote
-		immutable $(symbol(juliaClazz)) <: JObject
-			metaclass::JClass
-			ptr::Ptr{Void}
-		end
-
-		$(esc(symbol(juliaClazz)))(argtypes::Tuple, args...) = jnew($(esc(symbol(juliaClazz))), argtypes, args...)
-
-		jclass = eval(Expr(:ccall, :(JavaCall.jnifunc.FindClass), :(Ptr{Void}), :(Ptr{JavaCall.JNIEnv},Ptr{Uint8}), :(JavaCall.penv), $modifiedClazz))  
-		if (jclass == C_NULL); error(string("Unable to load java class: ", $(modifiedClazz))); end 
-		METACLASS_CACHE[$(esc(symbol(juliaClazz)))] = JClass($(esc(symbol(juliaClazz))), $(modifiedClazz), jclass)
-		$(esc(symbol(juliaClazz)))
+	juliaClazz = utf8(replace(clazz, '.', '!'))
+	quote 
+	   JObject{(Base.symbol($juliaClazz))}
 	end
 
 end
 
-function jnew{T<:JObject} (typ::Type{T}, argtypes::Tuple, args...) 
+function jnew(T::Symbol, argtypes::Tuple, args...) 
 	sig = getMethodSignature(Void, argtypes...)
-	jmethodId = ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, METACLASS_CACHE[typ].ptr, utf8("<init>"), sig)
+	jmethodId = ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, getMetaClass(T).ptr, utf8("<init>"), sig)
 	if (jmethodId == C_NULL) 
 		error("No constructor for $typ with signature $sig")
 	end 
-	return  _jcall(METACLASS_CACHE[typ], jmethodId, jnifunc.NewObjectA, typ, argtypes, args...)
+	return  _jcall(getMetaClass(T), jmethodId, jnifunc.NewObjectA, JObject{T}, argtypes, args...)
 end
 
+@memoize function getMetaClass(class::Symbol)
+	jclass=javaclassname(class)
+	jclassptr = ccall(JavaCall.jnifunc.FindClass, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Uint8}), penv, jclass)
+	if jclassptr == C_NULL; error("Class Not Found $jclass"); end
+	return JClass(class, jclassptr)
+end
+
+javaclassname(class::Symbol) = utf8(replace(string(class), '!', '/'))
 
 function get_error()
 	isexception = ccall(jnifunc.ExceptionCheck, jboolean, (Ptr{JNIEnv},), penv )
@@ -214,7 +209,7 @@ callMethod(rettype::Type{jfloat}) = jnifunc.CallFloatMethodA
 callMethod(rettype::Type{jdouble}) = jnifunc.CallDoubleMethodA
 callMethod(rettype::Type{jchar}) = jnifunc.CallCharMethodA
 callMethod(rettype::Type{jboolean}) = jnifunc.CallByteMethodA
-callMethod{T<:JObject}(rettype::Type{T}) = jnifunc.CallObjectMethodA
+callMethod{T}(rettype::Type{JObject{T}}) = jnifunc.CallObjectMethodA
 
 staticCallMethod(rettype::Type{Array}) = jnifunc.CallStaticObjectMethodA
 staticCallMethod(rettype::Type{jint}) = jnifunc.CallStaticIntMethodA
@@ -224,7 +219,7 @@ staticCallMethod(rettype::Type{jfloat}) = jnifunc.CallStaticFloatMethodA
 staticCallMethod(rettype::Type{jdouble}) = jnifunc.CallStaticDoubleMethodA
 staticCallMethod(rettype::Type{jchar}) = jnifunc.CallStaticCharMethodA
 staticCallMethod(rettype::Type{jboolean}) = jnifunc.CallStaticByteMethodA
-staticCallMethod{T<:JObject}(rettype::Type{T}) = jnifunc.CallStaticObjectMethodA
+staticCallMethod{T}(rettype::Type{JObject{T}}) = jnifunc.CallStaticObjectMethodA
 
 
 arrayCallMethod(rettype::Type{Array}) = jnifunc.GetObjectArrayElement
@@ -235,18 +230,18 @@ arrayCallMethod(rettype::Type{jfloat}) = jnifunc.GetFloatArrayElement
 arrayCallMethod(rettype::Type{jdouble}) = jnifunc.GetDoubleArrayElement
 arrayCallMethod(rettype::Type{jchar}) = jnifunc.GetCharArrayElement
 arrayCallMethod(rettype::Type{jboolean}) = jnifunc.GetByteArrayElement
-arrayCallMethod{T<:JObject}(rettype::Type{T}) = jnifunc.GetObjectArrayElement
+arrayCallMethod{T}(rettype::Type{JObject{T}}) = jnifunc.GetObjectArrayElement
 
 
 # Call static methods
-function jcall{T}(class::Type{T}, method::String, rettype::Type, argtypes::Tuple, args... )
+function jcall{T}(typ::Type{JObject{T}}, method::String, rettype::Type, argtypes::Tuple, args... )
 	sig = getMethodSignature(rettype, argtypes...)
 
-	jmethodId = ccall(jnifunc.GetStaticMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, METACLASS_CACHE[class].ptr, utf8(method), sig)
+	jmethodId = ccall(jnifunc.GetStaticMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, getMetaClass(T).ptr, utf8(method), sig)
 	if jmethodId==C_NULL; get_error(); end
 	callmethod = staticCallMethod(rettype)
 
-	_jcall(METACLASS_CACHE[class], jmethodId, callmethod, rettype, argtypes, args...)
+	_jcall(getMetaClass(T), jmethodId, callmethod, rettype, argtypes, args...)
 
 end
 
@@ -262,6 +257,10 @@ end
 
 function _jcall(obj, jmethodId, callmethod, rettype, argtypes, args...)
 	# sargtypes = [symbol(string(real_jtype(x))) for x in argtypes]
+	
+	@assert obj.ptr != C_NULL
+	@assert jmethodId != C_NULL
+	@assert callmethod != C_NULL
 	sargtypes = Array(Any, length(argtypes))
 	for i in 1:length(argtypes)
 		s=real_jtype(argtypes[i])
@@ -280,12 +279,23 @@ function _jcall(obj, jmethodId, callmethod, rettype, argtypes, args...)
 
 	#result = ccall(callmethod, realret, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), penv, obj.ptr, jmethodId, realArgs)
 
-	result = eval( :(ccall( $(callmethod), $(realret), (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), $(penv), $(obj.ptr), $(jmethodId), $(realArgs))))
-
+	# result = eval( :(ccall( $(callmethod), $(realret), (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), $(penv), $(obj.ptr), $(jmethodId), $(realArgs))))
+	result = __jcall(obj, callmethod, realret, jmethodId, realArgs)
 	if result==C_NULL; get_error(); end
 	return jv_convert_result(rettype, result)
 
 end
+
+for i in (:jboolean, :jchar, :jshort, :jint, :jlong, :jfloat, :jdouble)
+	m = quote
+		__jcall(obj, callmethod::Ptr{Void}, realret::Type{$(i)}, jmethodId::Ptr{Void}, realArgs::Array{Int64, 1} ) =  
+				ccall(callmethod, $i , (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), penv, obj.ptr, jmethodId, realArgs)
+	end
+	eval(m)
+end
+
+__jcall(obj, callmethod::Ptr{Void}, realret::Type{Ptr{Void}}, jmethodId::Ptr{Void}, realArgs::Array{Int64, 1} ) =  
+				ccall(callmethod, Ptr{Void} , (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), penv, obj.ptr, jmethodId, realArgs)
 
 # jvalue(v::Integer) = int64(v) << (64-8*sizeof(v))
 jvalue(v::Integer) = int64(v)
@@ -321,7 +331,7 @@ end
 
 
 jv_convert_result{T<:JString}(rettype::Type{T}, result) = bytestring(JString(result))
-jv_convert_result{T<:JObject}(rettype::Type{T}, result) = T(METACLASS_CACHE[rettype], result)
+jv_convert_result{T<:JObject}(rettype::Type{T}, result) = T(result)
 jv_convert_result(rettype, result) = result
 function jv_convert_result{T<:jprimitive,N}(rettype::Type{Array{T,N}}, result) 
 	sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, d)
@@ -423,7 +433,7 @@ end
 
 getSignature(arg::Type{JString}) = return "Ljava/lang/String;"
 # Void is bottom type, so the following method is matched
-getSignature{T<:JObject}(arg::Type{T}) = return  is(arg, Void)?"V":string("L", METACLASS_CACHE[arg].name, ";")
+getSignature{T}(arg::Type{JObject{T}}) = return  is(arg, Void)?"V":string("L", javaclassname(T), ";")
 
 # Pointer to pointer to pointers to pointers alert! Hurrah for unsafe load
 function init{T<:String}(opts::Array{T, 1}) 
