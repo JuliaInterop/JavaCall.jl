@@ -126,7 +126,8 @@ end
 
 JObject(T, ptr) = JObject{T}(ptr)
 
-typealias JString JObject{:java!lang!String}
+typealias JString JObject{symbol("java.lang.String")}
+typealias jobject JObject{symbol("java.lang.Object")}
 
 function JString(str::String)
 	jstring = ccall(jnifunc.NewStringUTF, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Uint8}), penv, utf8(str))
@@ -146,14 +147,24 @@ function bytestring(jstr::JString)  #jstr must be a jstring obtained via a JNI c
 end
 
 convert{T<:String}(::Type{JString}, str::T) = JString(str)
+convert{T<:String}(::Type{jobject}, str::T) = convert(jobject, JString(str))
+convert{T}(::Type{jobject}, obj::JObject{T}) = jobject(obj.ptr)
 
 
 global const METACLASS_CACHE = Dict{Type, JClass}()
 
-macro jvimport(clazz)
-	juliaClazz = utf8(replace(clazz, '.', '!'))
+macro jvimport(class)
+	if isa(class, Expr)
+		juliaclass=sprint(Base.show_unquoted, class)
+	elseif  isa(class, Symbol)
+		juliaclass=string(class)
+	elseif isa(class, String) 
+		juliaclass=class
+	else 
+		error("Macro parameter is of type $(typeof(class))!!")
+	end
 	quote 
-	   JObject{(Base.symbol($juliaClazz))}
+	   JObject{(Base.symbol($juliaclass))}
 	end
 
 end
@@ -169,12 +180,14 @@ end
 
 @memoize function getMetaClass(class::Symbol)
 	jclass=javaclassname(class)
-	jclassptr = ccall(JavaCall.jnifunc.FindClass, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Uint8}), penv, jclass)
+	jclassptr = ccall(jnifunc.FindClass, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Uint8}), penv, jclass)
 	if jclassptr == C_NULL; error("Class Not Found $jclass"); end
 	return JClass(class, jclassptr)
 end
 
-javaclassname(class::Symbol) = utf8(replace(string(class), '!', '/'))
+getMetaClass{T}(::Type{JObject{T}}) = getMetaClass(T)
+
+javaclassname(class::Symbol) = utf8(replace(string(class), '.', '/'))
 
 function get_error()
 	isexception = ccall(jnifunc.ExceptionCheck, jboolean, (Ptr{JNIEnv},), penv )
@@ -200,27 +213,6 @@ function get_error()
 end
 
 
-callMethod(rettype::Type{Array}) = jnifunc.CallObjectMethodA
-callMethod(rettype::Type{jint}) = jnifunc.CallIntMethodA
-callMethod(rettype::Type{jlong}) = jnifunc.CallLongMethodA
-callMethod(rettype::Type{jshort}) = jnifunc.CallShortMethodA
-callMethod(rettype::Type{jfloat}) = jnifunc.CallFloatMethodA
-callMethod(rettype::Type{jdouble}) = jnifunc.CallDoubleMethodA
-callMethod(rettype::Type{jchar}) = jnifunc.CallCharMethodA
-callMethod(rettype::Type{jboolean}) = jnifunc.CallByteMethodA
-callMethod{T}(rettype::Type{JObject{T}}) = jnifunc.CallObjectMethodA
-
-staticCallMethod(rettype::Type{Array}) = jnifunc.CallStaticObjectMethodA
-staticCallMethod(rettype::Type{jint}) = jnifunc.CallStaticIntMethodA
-staticCallMethod(rettype::Type{jlong}) = jnifunc.CallStaticLongMethodA
-staticCallMethod(rettype::Type{jshort}) = jnifunc.CallStaticShortMethodA
-staticCallMethod(rettype::Type{jfloat}) = jnifunc.CallStaticFloatMethodA
-staticCallMethod(rettype::Type{jdouble}) = jnifunc.CallStaticDoubleMethodA
-staticCallMethod(rettype::Type{jchar}) = jnifunc.CallStaticCharMethodA
-staticCallMethod(rettype::Type{jboolean}) = jnifunc.CallStaticByteMethodA
-staticCallMethod{T}(rettype::Type{JObject{T}}) = jnifunc.CallStaticObjectMethodA
-
-
 arrayCallMethod(rettype::Type{Array}) = jnifunc.GetObjectArrayElement
 arrayCallMethod(rettype::Type{jint}) = jnifunc.GetIntArrayElement
 arrayCallMethod(rettype::Type{jlong}) = jnifunc.GetLongArrayElement
@@ -238,9 +230,8 @@ function jcall{T}(typ::Type{JObject{T}}, method::String, rettype::Type, argtypes
 
 	jmethodId = ccall(jnifunc.GetStaticMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, getMetaClass(T).ptr, utf8(method), sig)
 	if jmethodId==C_NULL; get_error(); end
-	callmethod = staticCallMethod(rettype)
 
-	_jcall(getMetaClass(T), jmethodId, callmethod, rettype, argtypes, args...)
+	_jcall(getMetaClass(T), jmethodId, C_NULL, rettype, argtypes, args...)
 
 end
 
@@ -249,52 +240,54 @@ function jcall(obj::JObject, method::String, rettype::Type, argtypes::Tuple, arg
 	sig = getMethodSignature(rettype, argtypes...)
 	jmethodId = ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, obj.metaclass.ptr, utf8(method), sig)
 	if jmethodId==C_NULL; get_error(); end
-	callmethod = callMethod(rettype)
 
-	_jcall(obj, jmethodId, callmethod, rettype, argtypes, args...)
+	_jcall(obj, jmethodId, C_NULL, rettype,  argtypes, args...)
 end
 
-function _jcall(obj, jmethodId, callmethod, rettype, argtypes, args...)
-	# sargtypes = [symbol(string(real_jtype(x))) for x in argtypes]
-	
-	@assert obj.ptr != C_NULL
-	@assert jmethodId != C_NULL
-	@assert callmethod != C_NULL
-	sargtypes = Array(Any, length(argtypes))
-	for i in 1:length(argtypes)
-		s=real_jtype(argtypes[i])
-		if is(s, Ptr{Void})
-			sargtypes[i]=:(Ptr{Void})
-		else 
-			sargtypes[i] = symbol(string(s))
-		end
-	end
-	argtuple = Expr(:tuple, :(Ptr{JNIEnv}), :(Ptr{Void}), :(Ptr{Void}), sargtypes...)
-	realArgs = convert_args(argtypes, args...)
-	realret = real_jtype(rettype)
-	# println(callmethod); println(realret); dump(argtuple); println(realArgs);
+# function _jcall(obj, jmethodId, callmethod, rettype, argtypes::Tuple, args...)
+# 	realArgs = convert_args(argtypes, args...)
+# 	realret = real_jtype(rettype)
+# 	result = __jcall(obj, realret, jmethodId, callmethod, realArgs)
+# 	if result==C_NULL; get_error(); end
+# 	return convert_result(rettype, result)
 
-	#result = eval( :(ccall( $(callmethod), $(realret), $(argtuple), $(penv), $(obj.ptr), $(jmethodId), $(realArgs...))))
+# end
 
-	#result = ccall(callmethod, realret, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), penv, obj.ptr, jmethodId, realArgs)
-
-	# result = eval( :(ccall( $(callmethod), $(realret), (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), $(penv), $(obj.ptr), $(jmethodId), $(realArgs))))
-	result = __jcall(obj, callmethod, realret, jmethodId, realArgs)
-	if result==C_NULL; get_error(); end
-	return convert_result(rettype, result)
-
-end
-
-for i in (:jboolean, :jchar, :jshort, :jint, :jlong, :jfloat, :jdouble)
+#Generate these methods to satisfy ccall's compile time constant requirement
+for (x, y, z) in [ (:jboolean, :(jnifunc.CallBooleanMethodA), :(jnifunc.CallStaticBooleanMethodA)),
+					(:jchar, :(jnifunc.CallCharMethodA), :(jnifunc.CallStaticCharMethodA)),
+					(:jshort, :(jnifunc.CallShortMethodA), :(jnifunc.CallStaticShortMethodA)),
+					(:jint, :(jnifunc.CallIntMethodA), :(jnifunc.CallStaticShortMethodA)), 
+					(:jlong, :(jnifunc.CallLongMethodA), :(jnifunc.CallStaticLongMethodA)),
+					(:jfloat, :(jnifunc.CallFloatMethodA), :(jnifunc.CallStaticFloatMethodA)),
+					(:jdouble, :(jnifunc.CallDoubleMethodA), :(jnifunc.CallStaticDoubleMethodA)) ]
 	m = quote
-		__jcall(obj, callmethod::Ptr{Void}, realret::Type{$(i)}, jmethodId::Ptr{Void}, realArgs::Array{Int64, 1} ) =  
-				ccall(callmethod, $i , (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), penv, obj.ptr, jmethodId, realArgs)
+		function _jcall(obj,  jmethodId::Ptr{Void}, callmethod::Ptr{Void}, rettype::Type{$(x)}, argtypes::Tuple, args... ) 
+			 	if callmethod == C_NULL
+			 		callmethod = ifelse( typeof(obj)<:JObject, $y , $z )
+			 	end
+			 	@assert callmethod != C_NULL
+			 	@assert obj.ptr != C_NULL
+				@assert jmethodId != C_NULL
+				result = ccall(callmethod, $x , (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), penv, obj.ptr, jmethodId, convert_args(argtypes, args...))
+				if result==C_NULL; get_error(); end
+				return convert_result(rettype, result)
+		end
 	end
 	eval(m)
 end
 
-__jcall(obj, callmethod::Ptr{Void}, realret::Type{Ptr{Void}}, jmethodId::Ptr{Void}, realArgs::Array{Int64, 1} ) =  
-				ccall(callmethod, Ptr{Void} , (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), penv, obj.ptr, jmethodId, realArgs)
+function _jcall{T}(obj,  jmethodId::Ptr{Void}, callmethod::Ptr{Void}, rettype::Type{JObject{T}}, argtypes::Tuple, args... ) 
+		if callmethod == C_NULL
+			callmethod = ifelse( typeof(obj)<:JObject, jnifunc.CallObjectMethodA , jnifunc.CallStaticObjectMethodA )
+		end
+		@assert callmethod != C_NULL
+		@assert obj.ptr != C_NULL
+		@assert jmethodId != C_NULL
+		result = ccall(callmethod, Ptr{Void} , (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), penv, obj.ptr, jmethodId, convert_args(argtypes, args...))
+		if result==C_NULL; get_error(); end
+		return convert_result(rettype, result)
+end
 
 # jvalue(v::Integer) = int64(v) << (64-8*sizeof(v))
 jvalue(v::Integer) = int64(v)
@@ -305,11 +298,11 @@ jvalue(v::Ptr) = jvalue(int(v))
 # Get the JNI/C type for a particular Java type
 function real_jtype(rettype)
 	if issubtype(rettype, JObject) || issubtype(rettype, Array) || issubtype(rettype, JClass)
-		realret = Ptr{Void}
+		jnitype = Ptr{Void}
 	else 
-		realret = rettype
+		jnitype = rettype
 	end
-	return realret
+	return jnitype
 end
 
 
@@ -324,15 +317,41 @@ end
 convert_arg(argtype::Type{JString}, arg) = convert(JString, arg).ptr
 convert_arg(argtype::Type, arg) = convert(argtype, arg)
 convert_arg{T<:JObject}(argtype::Type{T}, arg) = convert(T, arg).ptr
-function convert_arg{T, N}(argtype::Type{Array{T,N}})
 
+for (x, y, z) in [ (:jboolean, :(jnifunc.NewBooleanArray), :(jnifunc.SetBooleanArrayRegion)),
+					(:jchar, :(jnifunc.NewCharArray), :(jnifunc.SetCharArrayRegion)),
+					(:jshort, :(jnifunc.NewShortArray), :(jnifunc.SetShortArrayRegion)),
+					(:jint, :(jnifunc.NewIntArray), :(jnifunc.SetShortArrayRegion)), 
+					(:jlong, :(jnifunc.NewLongArray), :(jnifunc.SetLongArrayRegion)),
+					(:jfloat, :(jnifunc.NewFloatArray), :(jnifunc.SetFloatArrayRegion)),
+					(:jdouble, :(jnifunc.NewDoubleArray), :(jnifunc.SetDoubleArrayRegion)) ]
+ 	m = quote 
+  		function convert_arg(argtype::Type{Array{$x,1}}, arg)
+			carg = convert(argtype, arg)
+			sz=length(carg)
+			arrayptr = ccall($y, Ptr{Void}, (Ptr{JNIEnv}, jint), penv, sz)
+			ccall($z, Void, (Ptr{JNIEnv}, Ptr{Void}, jint, jint, Ptr{$x}), penv, arrayptr, 0, sz, carg)
+			return arrayptr
+		end
+	end
+	eval( m)
 end
 
+function convert_arg{T<:JObject}(argtype::Type{Array{T,1}}, arg)
+	carg = convert(argtype, arg)
+	sz=length(carg)
+	init=carg[1]
+	arrayptr = ccall(jnifunc.NewObjectArray, Ptr{Void}, (Ptr{JNIEnv}, jint, Ptr{Void}, Ptr{Void}), penv, sz, getMetaClass(T).ptr, init.ptr)
+	for i=1:sz 
+		ccall(jnifunc.SetObjectArrayElement, Void, (Ptr{JNIEnv}, Ptr{Void}, jint, Ptr{Void}), penv, arrayptr, i, carg[i].ptr)
+	end
+	return arrayptr
+end
 
 convert_result{T<:JString}(rettype::Type{T}, result) = bytestring(JString(result))
 convert_result{T<:JObject}(rettype::Type{T}, result) = T(result)
 convert_result(rettype, result) = result
-function jv_convert_result{T<:jprimitive}(rettype::Type{Array{T,1}}, result) 
+function convert_result{T<:jprimitive}(rettype::Type{Array{T,1}}, result) 
 	sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, d)
 	arraymethod = arrayCallMethod(T)
 	release_arraymethod = arrayReleaseCallMethod(T)
@@ -381,9 +400,6 @@ end
 
 
 function getSignature(arg::Type)
-	if is(Array, arg) 
-		return string("[", getSignature(eltype(arg)))
-	end
 	if is(arg, jboolean)
 		return "Z"
 	elseif is(arg, jbyte)
@@ -400,10 +416,12 @@ function getSignature(arg::Type)
 		return "D"
 	elseif is(arg, Void) 
 		return "V"
+	elseif issubtype(arg, Array) 
+		return string("[", getSignature(eltype(arg)))
 	end
 end
 
-getSignature{T}(arg::Type{JObject{T}}) = return  is(arg, Void)?"V":string("L", javaclassname(T), ";")
+getSignature{T}(arg::Type{JObject{T}}) = string("L", javaclassname(T), ";")
 
 # Pointer to pointer to pointer to pointer alert! Hurrah for unsafe load
 function init{T<:String}(opts::Array{T, 1}) 
