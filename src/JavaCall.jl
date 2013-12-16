@@ -332,8 +332,8 @@ function convert_arg{T<:JObject}(argtype::Type{Array{T,1}}, arg)
 	sz=length(carg)
 	init=carg[1]
 	arrayptr = ccall(jnifunc.NewObjectArray, Ptr{Void}, (Ptr{JNIEnv}, jint, Ptr{Void}, Ptr{Void}), penv, sz, getMetaClass(T).ptr, init.ptr)
-	for i=1:sz 
-		ccall(jnifunc.SetObjectArrayElement, Void, (Ptr{JNIEnv}, Ptr{Void}, jint, Ptr{Void}), penv, arrayptr, i, carg[i].ptr)
+	for i=2:sz 
+		ccall(jnifunc.SetObjectArrayElement, Void, (Ptr{JNIEnv}, Ptr{Void}, jint, Ptr{Void}), penv, arrayptr, i-1, carg[i].ptr)
 	end
 	return arrayptr
 end
@@ -363,13 +363,13 @@ for (x, y, z) in [ (:jboolean, :(jnifunc.GetBooleanArrayElements), :(jnifunc.Rel
 end
 
 function convert_result{T}(rettype::Type{Array{JObject{T},1}}, result) 
-	sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, d)
+	sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, result)
 
-	ret = Array(JObject{T}, 1)
+	ret = Array(JObject{T}, sz)
 
 	for i=1:sz
 		a=ccall(jnifunc.GetObjectArrayElement, Ptr{Void}, (Ptr{JNIEnv},Ptr{Void}, jint), penv, result, i-1)
-		ret[i] = convert_result(T, a)
+		ret[i] = JObject{T}(a)
 	end 
 	return ret
 end
