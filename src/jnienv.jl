@@ -32,7 +32,7 @@ immutable JNINativeInterface #struct JNINativeInterface_ {
 
     NewGlobalRef::Ptr{Void} #jobject ( *NewGlobalRef) (JNIEnv *env, jobject lobj);
     DeleteGlobalRef::Ptr{Void} #void ( *DeleteGlobalRef) (JNIEnv *env, jobject gref);
-    DelteLocalRef::Ptr{Void} #void ( *DeleteLocalRef) (JNIEnv *env, jobject obj);
+    DeleteLocalRef::Ptr{Void} #void ( *DeleteLocalRef) (JNIEnv *env, jobject obj);
     IsSameObject::Ptr{Void} #jboolean ( *IsSameObject) (JNIEnv *env, jobject obj1, jobject obj2);
     NewLocalRef::Ptr{Void} #jobject ( *NewLocalRef) (JNIEnv *env, jobject ref);
     EnsureLocalCapacity::Ptr{Void} #jint ( *EnsureLocalCapacity) (JNIEnv *env, jint capacity);

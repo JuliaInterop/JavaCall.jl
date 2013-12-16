@@ -1,6 +1,6 @@
 module JavaCall
-export JObject, JClass, JString, jint, jlong, jbyte, jboolean, jchar, jshort, jfloat, jdouble,
-	   @jvimport, jcall
+export JObject, JClass, JString, jint, jlong, jbyte, jboolean, jchar, jshort, jfloat, jdouble, jobject, 
+	   @jvimport, jcall, deleteref
 
 # using Debug
 using Memoize
@@ -99,25 +99,20 @@ end
 include("jnienv.jl")
 
 
-function destroy()
-	if (!isdefined(JavaCall, :penv) || penv == C_NULL) ; error("Called destroy without initialising Java VM"); end
-	res = ccall(jvmfunc.DestroyJavaVM, Cint, (Ptr{Void},), pjvm)
-	if res < 0; error("Unable to destroy Java VM"); end
-	global penv=C_NULL; global pjvm=C_NULL; 
-end
-
 immutable JClass{T}
 	ptr::Ptr{Void}
 end
 
 JClass(T, ptr) = JClass{T}(ptr)
 
-immutable JObject{T}
+type JObject{T}
 	ptr::Ptr{Void}
 	metaclass::JClass{T}
 
 	function JObject(ptr)
-		new(ptr, getMetaClass(T))
+		j=new(ptr, getMetaClass(T))
+		finalizer(j, deleteref)
+		return j
 	end 
 
 	JObject(argtypes::Tuple, args...) = jnew(T, argtypes, args...)
@@ -148,7 +143,7 @@ end
 
 convert{T<:String}(::Type{JString}, str::T) = JString(str)
 convert{T<:String}(::Type{jobject}, str::T) = convert(jobject, JString(str))
-convert{T}(::Type{jobject}, obj::JObject{T}) = jobject(obj.ptr)
+convert{T,S}(::Type{JObject{T}}, obj::JObject{S}) = JObject{T}(obj.ptr)
 
 
 global const METACLASS_CACHE = Dict{Type, JClass}()
@@ -213,17 +208,6 @@ function get_error()
 end
 
 
-arrayCallMethod(rettype::Type{Array}) = jnifunc.GetObjectArrayElement
-arrayCallMethod(rettype::Type{jint}) = jnifunc.GetIntArrayElement
-arrayCallMethod(rettype::Type{jlong}) = jnifunc.GetLongArrayElement
-arrayCallMethod(rettype::Type{jshort}) = jnifunc.GetShortArrayElement
-arrayCallMethod(rettype::Type{jfloat}) = jnifunc.GetFloatArrayElement
-arrayCallMethod(rettype::Type{jdouble}) = jnifunc.GetDoubleArrayElement
-arrayCallMethod(rettype::Type{jchar}) = jnifunc.GetCharArrayElement
-arrayCallMethod(rettype::Type{jboolean}) = jnifunc.GetByteArrayElement
-arrayCallMethod{T}(rettype::Type{JObject{T}}) = jnifunc.GetObjectArrayElement
-
-
 # Call static methods
 function jcall{T}(typ::Type{JObject{T}}, method::String, rettype::Type, argtypes::Tuple, args... )
 	sig = getMethodSignature(rettype, argtypes...)
@@ -244,14 +228,7 @@ function jcall(obj::JObject, method::String, rettype::Type, argtypes::Tuple, arg
 	_jcall(obj, jmethodId, C_NULL, rettype,  argtypes, args...)
 end
 
-# function _jcall(obj, jmethodId, callmethod, rettype, argtypes::Tuple, args...)
-# 	realArgs = convert_args(argtypes, args...)
-# 	realret = real_jtype(rettype)
-# 	result = __jcall(obj, realret, jmethodId, callmethod, realArgs)
-# 	if result==C_NULL; get_error(); end
-# 	return convert_result(rettype, result)
 
-# end
 
 #Generate these methods to satisfy ccall's compile time constant requirement
 for (x, y, z) in [ (:jboolean, :(jnifunc.CallBooleanMethodA), :(jnifunc.CallStaticBooleanMethodA)),
@@ -277,7 +254,7 @@ for (x, y, z) in [ (:jboolean, :(jnifunc.CallBooleanMethodA), :(jnifunc.CallStat
 	eval(m)
 end
 
-function _jcall{T}(obj,  jmethodId::Ptr{Void}, callmethod::Ptr{Void}, rettype::Type{JObject{T}}, argtypes::Tuple, args... ) 
+function _jcall(obj,  jmethodId::Ptr{Void}, callmethod::Ptr{Void}, rettype::Type, argtypes::Tuple, args... ) 
 		if callmethod == C_NULL
 			callmethod = ifelse( typeof(obj)<:JObject, jnifunc.CallObjectMethodA , jnifunc.CallStaticObjectMethodA )
 		end
@@ -288,6 +265,19 @@ function _jcall{T}(obj,  jmethodId::Ptr{Void}, callmethod::Ptr{Void}, rettype::T
 		if result==C_NULL; get_error(); end
 		return convert_result(rettype, result)
 end
+# #The following method body is the same as the preceeding, but required to fully specify the Array type parameters
+# function _jcall{T,N}(obj,  jmethodId::Ptr{Void}, callmethod::Ptr{Void}, rettype::Type{Array{T,N}}, argtypes::Tuple, args... ) 
+# 		if callmethod == C_NULL
+# 			callmethod = ifelse( typeof(obj)<:JObject, jnifunc.CallObjectMethodA , jnifunc.CallStaticObjectMethodA )
+# 		end
+# 		@assert callmethod != C_NULL
+# 		@assert obj.ptr != C_NULL
+# 		@assert jmethodId != C_NULL
+# 		result = ccall(callmethod, Ptr{Void} , (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), penv, obj.ptr, jmethodId, convert_args(argtypes, args...))
+# 		if result==C_NULL; get_error(); end
+# 		return convert_result(rettype, result)
+# end
+
 
 # jvalue(v::Integer) = int64(v) << (64-8*sizeof(v))
 jvalue(v::Integer) = int64(v)
@@ -351,17 +341,25 @@ end
 convert_result{T<:JString}(rettype::Type{T}, result) = bytestring(JString(result))
 convert_result{T<:JObject}(rettype::Type{T}, result) = T(result)
 convert_result(rettype, result) = result
-function convert_result{T<:jprimitive}(rettype::Type{Array{T,1}}, result) 
-	sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, d)
-	arraymethod = arrayCallMethod(T)
-	release_arraymethod = arrayReleaseCallMethod(T)
-	jtype = real_jtype(T)
-	r = Expr(:curly, :Ptr, symbol(string(T)))
-	arr = eval( :(ccall(arraymethod, $(rettype), (Ptr{JNIEnv}, Ptr{Void}, Ptr{jboolean} ), penv, result, C_NULL )) )
-	jl_arr = pointer_to_array(arr, sz, false)
-	jl_arr = copy(jl_arr)
-	release_tuple = Expr(:tuple, :(Ptr{JNIEnv}), r, symbol(string(T)), :jint)
-	eval(:(ccall($(release_arraymethod), Void, $(release_tuple), $(penv), $(arr), $(convert(Cint,0))  )))
+
+for (x, y, z) in [ (:jboolean, :(jnifunc.GetBooleanArrayElements), :(jnifunc.ReleaseBooleanArrayElements)),
+					(:jchar, :(jnifunc.GetCharArrayElements), :(jnifunc.ReleaseCharArrayElements)),
+					(:jshort, :(jnifunc.GetShortArrayElements), :(jnifunc.ReleaseShortArrayElements)),
+					(:jint, :(jnifunc.GetIntArrayElements), :(jnifunc.ReleaseIntArrayElements)), 
+					(:jlong, :(jnifunc.GetLongArrayElements), :(jnifunc.ReleaseLongArrayElements)),
+					(:jfloat, :(jnifunc.GetFloatArrayElements), :(jnifunc.ReleaseFloatArrayElements)),
+					(:jdouble, :(jnifunc.GetDoubleArrayElements), :(jnifunc.ReleaseDoubleArrayElements)) ]
+	m=quote
+		function convert_result(rettype::Type{Array{$(x),1}}, result)
+			sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, result)
+			arr = ccall($(y), Ptr{$(x)}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{jboolean} ), penv, result, C_NULL ) 
+			jl_arr::Array = pointer_to_array(arr, int(sz), false)
+			jl_arr = deepcopy(jl_arr)
+			ccall($(z), Void, (Ptr{JNIEnv},Ptr{Void}, Ptr{$(x)}, jint), penv, result, arr, 0)  
+			return jl_arr
+		end
+	end
+	eval(m)
 end
 
 function convert_result{T}(rettype::Type{Array{JObject{T},1}}, result) 
@@ -370,19 +368,10 @@ function convert_result{T}(rettype::Type{Array{JObject{T},1}}, result)
 	ret = Array(JObject{T}, 1)
 
 	for i=1:sz
-		a=ccall(jnifunc.GetObjectArrayElement, Ptr{Void}, (Ptr{JNIEnv},Ptr{Void}, Cint), penv, result, i-1)
+		a=ccall(jnifunc.GetObjectArrayElement, Ptr{Void}, (Ptr{JNIEnv},Ptr{Void}, jint), penv, result, i-1)
 		ret[i] = convert_result(T, a)
 	end 
-
-	arraymethod = arrayCallMethod(T)
-	release_arraymethod = arrayReleaseCallMethod(T)
-	jtype = real_jtype(T)
-	r = Expr(:curly, :Ptr, symbol(string(T)))
-	arr = eval( :(ccall(arraymethod, $(rettype), (Ptr{JNIEnv}, Ptr{Void}, Ptr{jboolean} ), penv, result, C_NULL )) )
-	jl_arr = pointer_to_array(arr, sz, false)
-	jl_arr = copy(jl_arr)
-	release_tuple = Expr(:tuple, :(Ptr{JNIEnv}), r, symbol(string(T)), :jint)
-	eval(:(ccall($(release_arraymethod), Void, $(release_tuple), $(penv), $(arr), $(convert(Cint,0))  )))
+	return ret
 end
 
 
@@ -422,6 +411,19 @@ function getSignature(arg::Type)
 end
 
 getSignature{T}(arg::Type{JObject{T}}) = string("L", javaclassname(T), ";")
+immutable JavaVMAttachArgs 
+    version::Cint      #/* must be JNI_VERSION_1_2 */
+    name::Ptr{Void}   #/* the name of the thread as a modified UTF-8 string, or NULL */
+    group::Ptr{Void}   #;/* global ref of a ThreadGroup object, or NULL */
+end
+
+function deleteref(x::JObject)
+	if x.ptr == C_NULL; return; end
+	if (penv==C_NULL); return; end
+	ccall(jnifunc.DeleteLocalRef, Void, (Ptr{JNIEnv}, Ptr{Void}), penv, x.ptr)
+	x.ptr=C_NULL #Safety in case this function is called direcly, rather than at finalize 
+	return
+end 
 
 # Pointer to pointer to pointer to pointer alert! Hurrah for unsafe load
 function init{T<:String}(opts::Array{T, 1}) 
@@ -431,7 +433,7 @@ function init{T<:String}(opts::Array{T, 1})
 	end
 	ppjvm=Array(Ptr{JavaVM},1)
 	ppenv=Array(Ptr{JNIEnv},1)
-	vm_args = JavaVMInitArgs(JNI_VERSION_1_6, convert(Cint, length(opts)), convert(Ptr{JavaVMOption},opt), JNI_FALSE)
+	vm_args = JavaVMInitArgs(JNI_VERSION_1_6, convert(Cint, length(opts)), convert(Ptr{JavaVMOption},opt), JNI_TRUE)
 
 	res = ccall(create, Cint, (Ptr{Ptr{JavaVM}}, Ptr{Ptr{JNIEnv}}, Ptr{JavaVMInitArgs}), ppjvm, ppenv, &vm_args)
 	if res < 0; error("Unable to initialise Java VM: $(res)"); end
@@ -443,6 +445,13 @@ function init{T<:String}(opts::Array{T, 1})
 	global jnifunc = unsafe_load(jnienv.JNINativeInterface_) #The JNI Function table
 	@assert ccall(jnifunc.GetVersion, Cint, (Ptr{JNIEnv},), penv) == JNI_VERSION_1_6
 	
+end
+
+function destroy()
+	if (!isdefined(JavaCall, :penv) || penv == C_NULL) ; error("Called destroy without initialising Java VM"); end
+	res = ccall(jvmfunc.DestroyJavaVM, Cint, (Ptr{Void},), pjvm)
+	if res < 0; error("Unable to destroy Java VM"); end
+	global penv=C_NULL; global pjvm=C_NULL; 
 end
 
 
