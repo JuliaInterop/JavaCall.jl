@@ -4,8 +4,6 @@ using JavaCall
 # JavaCall.init(["-Djava.class.path=$(joinpath(Pkg.dir(), "JavaCall", "test"))"])
 JavaCall.init(["-verbose:jni", "-verbose:gc","-Djava.class.path=$(joinpath(Pkg.dir(), "JavaCall", "test"))"])
 
-
-
 a=JString("how are you")
 @test a.ptr != C_NULL
 @test 11==ccall(JavaCall.jnifunc.GetStringUTFLength, jint, (Ptr{JavaCall.JNIEnv}, Ptr{Void}), JavaCall.penv, a.ptr)
@@ -20,6 +18,12 @@ T = @jvimport Test
 @test float64(10.02) == jcall(T, "testDouble", jdouble, (jdouble,), 10.02) #Yes, == for floats is correct here!
 @test float32(10.02) == jcall(T, "testFloat", jfloat, (jfloat,), 10.02)  #Yes, == for floats is correct here!
 @test 10 == jcall(T, "testInt", jint, (jint,), 10)
+
+# Test calling static methods
+jlm = @jvimport "java.lang.Math"
+@test_approx_eq 1.0 jcall(jlm, "sin", jdouble, (jdouble,), pi/2)
+@test_approx_eq 1.0 jcall(jlm, "min", jdouble, (jdouble,jdouble), 1,2)
+@test 1 == jcall(jlm, "abs", jint, (jint,), -1)
 
 #Test instance creation
 jnu = @jvimport java.net.URL
