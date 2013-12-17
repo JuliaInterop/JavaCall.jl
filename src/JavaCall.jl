@@ -143,7 +143,17 @@ end
 
 convert{T<:String}(::Type{JString}, str::T) = JString(str)
 convert{T<:String}(::Type{jobject}, str::T) = convert(jobject, JString(str))
-convert{T,S}(::Type{JObject{T}}, obj::JObject{S}) = JObject{T}(obj.ptr)
+#Cast java object from S to T 
+function convert{T,S}(::Type{JObject{T}}, obj::JObject{S}) 
+	if (ccall(jnifunc.IsAssignableFrom, jboolean, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, getMetaClass(S).ptr, getMetaClass(T).ptr ) == JNI_TRUE)   #Safe static cast
+			return JObject{T}(obj.ptr)
+	end 
+	realClass = ccall(jnifunc.GetObjectClass, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void} ), penv, obj.ptr)
+	if (ccall(jnifunc.IsAssignableFrom, jboolean, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, realClass, getMetaClass(T).ptr ) == JNI_TRUE)  #dynamic cast
+			return JObject{T}(obj.ptr)
+	end 
+	error("Cannot cast java object from $S to $T")
+end
 
 
 global const METACLASS_CACHE = Dict{Type, JClass}()
