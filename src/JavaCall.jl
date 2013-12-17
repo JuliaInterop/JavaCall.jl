@@ -81,7 +81,6 @@ end
 
 findjvm()
 
-# libjvm=dlopen("/Library/Java/JavaVirtualMachines/jdk1.7.0_45.jdk/Contents/Home/jre/lib/server/libjvm")
 create = dlsym(libjvm, :JNI_CreateJavaVM)
 
 immutable JavaVMOption 
@@ -107,10 +106,9 @@ JClass(T, ptr) = JClass{T}(ptr)
 
 type JObject{T}
 	ptr::Ptr{Void}
-	metaclass::JClass{T}
 
 	function JObject(ptr)
-		j=new(ptr, getMetaClass(T))
+		j=new(ptr)
 		finalizer(j, deleteref)
 		return j
 	end 
@@ -155,9 +153,6 @@ function convert{T,S}(::Type{JObject{T}}, obj::JObject{S})
 	error("Cannot cast java object from $S to $T")
 end
 
-
-global const METACLASS_CACHE = Dict{Type, JClass}()
-
 macro jvimport(class)
 	if isa(class, Expr)
 		juliaclass=sprint(Base.show_unquoted, class)
@@ -191,6 +186,7 @@ end
 end
 
 getMetaClass{T}(::Type{JObject{T}}) = getMetaClass(T)
+getMetaClass{T}(::JObject{T}) = getMetaClass(T)
 
 javaclassname(class::Symbol) = utf8(replace(string(class), '.', '/'))
 
@@ -232,7 +228,7 @@ end
 # Call instance methods
 function jcall(obj::JObject, method::String, rettype::Type, argtypes::Tuple, args... )
 	sig = getMethodSignature(rettype, argtypes...)
-	jmethodId = ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, obj.metaclass.ptr, utf8(method), sig)
+	jmethodId = ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, getMetaClass(obj).ptr, utf8(method), sig)
 	if jmethodId==C_NULL; get_error(); end
 
 	_jcall(obj, jmethodId, C_NULL, rettype,  argtypes, args...)
