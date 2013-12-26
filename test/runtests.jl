@@ -41,7 +41,7 @@ typeof(h)==jint
 # Arrays
 j_u_arrays = @jvimport java.util.Arrays
 @test 3 == jcall(j_u_arrays, "binarySearch", jint, (Array{jint,1}, jint), [10,20,30,40,50,60], 40)
-@test 2 == jcall(j_u_arrays, "binarySearch", jint, (Array{jobject,1}, jobject), ["123","abc","uvw","xyz"], "uvw")
+@test 2 == jcall(j_u_arrays, "binarySearch", jint, (Array{JObject,1}, JObject), ["123","abc","uvw","xyz"], "uvw")
 
 a=jcall(j_u_arrays, "copyOf", Array{jint, 1}, (Array{jint, 1}, jint), [1,2,3], 3)
 @test typeof(a) == Array{jint, 1}
@@ -49,7 +49,7 @@ a=jcall(j_u_arrays, "copyOf", Array{jint, 1}, (Array{jint, 1}, jint), [1,2,3], 3
 @test a[2] == int32(2)
 @test a[3] == int32(3)
 
-a=jcall(j_u_arrays, "copyOf", Array{jobject, 1}, (Array{jobject, 1}, jint), ["a","b","c"], 3)
+a=jcall(j_u_arrays, "copyOf", Array{JObject, 1}, (Array{JObject, 1}, jint), ["a","b","c"], 3)
 @test 3==length(a)
 @test "a"==bytestring(convert(JString, a[1]))
 @test "b"==bytestring(convert(JString, a[2]))
