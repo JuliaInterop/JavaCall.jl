@@ -41,8 +41,6 @@ typealias jdouble Cdouble
 typealias jsize jint
 jprimitive = Union(jboolean, jchar, jshort, jfloat, jdouble, jint, jlong)
 
-# typealias JObject Ptr{Void}
-
 
 function findjvm()
 	javahomes = {}
@@ -239,7 +237,7 @@ end
 for (x, y, z) in [ (:jboolean, :(jnifunc.CallBooleanMethodA), :(jnifunc.CallStaticBooleanMethodA)),
 					(:jchar, :(jnifunc.CallCharMethodA), :(jnifunc.CallStaticCharMethodA)),
 					(:jshort, :(jnifunc.CallShortMethodA), :(jnifunc.CallStaticShortMethodA)),
-					(:jint, :(jnifunc.CallIntMethodA), :(jnifunc.CallStaticShortMethodA)), 
+					(:jint, :(jnifunc.CallIntMethodA), :(jnifunc.CallStaticIntMethodA)), 
 					(:jlong, :(jnifunc.CallLongMethodA), :(jnifunc.CallStaticLongMethodA)),
 					(:jfloat, :(jnifunc.CallFloatMethodA), :(jnifunc.CallStaticFloatMethodA)),
 					(:jdouble, :(jnifunc.CallDoubleMethodA), :(jnifunc.CallStaticDoubleMethodA)) ]
@@ -403,11 +401,6 @@ function getSignature(arg::Type)
 end
 
 getSignature{T}(arg::Type{JavaObject{T}}) = string("L", javaclassname(T), ";")
-immutable JavaVMAttachArgs 
-    version::Cint      #/* must be JNI_VERSION_1_2 */
-    name::Ptr{Void}   #/* the name of the thread as a modified UTF-8 string, or NULL */
-    group::Ptr{Void}   #;/* global ref of a ThreadGroup object, or NULL */
-end
 
 function deleteref(x::JavaObject)
 	if x.ptr == C_NULL; return; end

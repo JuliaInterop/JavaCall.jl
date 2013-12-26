@@ -14,10 +14,14 @@ b=ccall(JavaCall.jnifunc.GetStringUTFChars, Ptr{Uint8}, (Ptr{JavaCall.JNIEnv}, P
 T = @jvimport Test
 @test 10 == jcall(T, "testInt", jint, (jint,), 10)
 @test 10 == jcall(T, "testLong", jlong, (jlong,), 10)
+@test typemax(jint) == jcall(T, "testInt", jint, (jint,), typemax(jint))
+@test typemax(jlong) == jcall(T, "testLong", jlong, (jlong,), typemax(jlong))
 @test "Hello Java"==jcall(T, "testString", JString, (JString,), "Hello Java")
-@test float64(10.02) == jcall(T, "testDouble", jdouble, (jdouble,), 10.02) #Yes, == for floats is correct here!
-@test float32(10.02) == jcall(T, "testFloat", jfloat, (jfloat,), 10.02)  #Yes, == for floats is correct here!
-@test 10 == jcall(T, "testInt", jint, (jint,), 10)
+@test float64(10.02) == jcall(T, "testDouble", jdouble, (jdouble,), 10.02) #Comparing exact float representations hence ==
+@test float32(10.02) == jcall(T, "testFloat", jfloat, (jfloat,), 10.02)  
+@test realmax(jdouble) == jcall(T, "testDouble", jdouble, (jdouble,), realmax(jdouble)) 
+@test realmax(jfloat) == jcall(T, "testFloat", jfloat, (jfloat,), realmax(jfloat))  
+
 
 # Test calling static methods
 jlm = @jvimport "java.lang.Math"
