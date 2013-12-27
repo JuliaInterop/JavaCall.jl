@@ -100,6 +100,7 @@ immutable JClass{T}
 	ptr::Ptr{Void}
 end
 
+#The metaclass, sort of equivalent to a java.lang.Class<T>
 JClass(T, ptr) = JClass{T}(ptr)
 
 type JavaObject{T}
