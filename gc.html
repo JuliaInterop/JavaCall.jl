@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>JavaCall.jl -- Call Java from Julia</title>
+
+    <link rel="stylesheet" href="res/styles.css">
+    <link rel="stylesheet" href="res/pygment_trac.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <style TYPE="text/css">
+      code.has-jax {font: inherit; font-size: 100%; background: inherit; border: inherit;}
+    </style>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({
+          tex2jax: {
+              inlineMath: [['$','$'], ['\\(','\\)']],
+              skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'header'] // removed 'code' entry
+          }
+      });
+      MathJax.Hub.Queue(function() {
+          var all = MathJax.Hub.getAllJax(), i;
+          for(i = 0; i < all.length; i += 1) {
+              all[i].SourceElement().parentNode.className += ' has-jax';
+          }
+      });
+    </script>  
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>JavaCall.jl</h1>
+        <p>Call Java Programs from Julia </p>
+
+        <ul>
+          <li><a href="https://github.com/aviks/JavaCall.jl/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/aviks/JavaCall.jl/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/aviks/JavaCall.jl">View On <strong>GitHub</strong></a></li>
+        </ul>
+        <div class="menu">
+        <ul >
+           <li><a href="index.html">Home</a></li>
+           <li><a href="types.html">Types</a></li>
+           <li><a href="methods.html">Methods</a></li>
+           <li><a href="gc.html">GC</a></li>
+           <li><a href="faq.html">Troubleshooting and FAQs</a></li>
+        </ul>
+      </div>
+      </header>
+      <section>
+	<h1 id="toc_3">Memory management and Garbage Collection</h1>
+
+<p>In the typical use, memory management and garbage collection is automatic over both the Julia and Java runtimes. </p>
+
+<p>All objects returned from Java via the JNI interface has a local reference automatically created in the JVM, to prevent it from being garbage collected. On the Julia side, these object references are wrapped in a JavaObject object. Each JavaObject instance is associated with a finalizer, that deletes the java local reference to the java object when the julia wrapper goes out of reference. This enables the java object to be garbage collected when no longer needed on the Julia side. </p>
+
+<p>One importance caveat to remember is that the memory pressure on the Java and Julia heaps are different. Thus, even if a Julia object has gone out of reference, the Julia runtime may not run the garbage collector for a long time. Which keeps the java objects in memory, even when no longer required. If you are allocating large amount of Java objects, the JVM may run out of heap before the Julia runtime decides to run a garbage collection cycle. </p>
+
+<p>If you are facing this problem, the simple workaround is to manually run the Julia garbage collector, via the <code>gc()</code> call, occasionally. </p>
+
+<p>Any <code>Class</code> objects referenced in Julia (which includes a reference to objects of that class) is never freed. This is usually not a problem, since they do not usually consume large amounts of memory. That is, unless you are generating many anonymous classes (for example, via proxy objects). You may need to increase your <code>PermGen</code> space if this is a problem for you. </p>
+
+<p>There are possibly some leaks still left in the system, please report issues as you find them. </p>
+
+      </section>
+      <footer>
+        <p></p>
+        <p><small>This project is maintained by <a href="http://www.sengupta.net/musings/">Avik Sengupta</a>. <br /> Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="res/scale.fix.js"></script>
+    <script type="text/javascript">
+            var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+            document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+          </script>
+          <script type="text/javascript">
+            try {
+              var pageTracker = _gat._getTracker("UA-37085988-1");
+            pageTracker._trackPageview();
+            } catch(err) {}
+    </script>
+  </body>
+</html>

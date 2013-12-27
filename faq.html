@@ -53,7 +53,16 @@
       </div>
       </header>
       <section>
-	{{content}}
+	<h1 id="toc_0">Troubleshooting and Frequently Asked Questions</h1>
+
+<h3 id="toc_1">ERROR: jnifunc not defined</h3>
+
+<p>You are attempting to call Java methods without initialising the JVM. Call <code>JavaCall.init(...)</code> first. </p>
+
+<h3 id="toc_2">Cannot find libjvm in:</h3>
+
+<p>The JVM dynamic library cannot be found. It is called <code>libjvm.so</code>, <code>libjvm.dylib</code> or <code>jvm.dll</code> depending on your system. Check that you have <code>JAVA_HOME</code> environment variable defined. If you do, verify the search logic in the code, and please file a pull request with an amemded version that can find your library. As a workaround, you can set the <code>JAVA_LIB</code> environment variable to point to the location of the library file. </p>
+
       </section>
       <footer>
         <p></p>

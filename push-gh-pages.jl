@@ -1,6 +1,6 @@
 #Adapted from https://github.com/github/developer.github.com/blob/master/Rakefile#L21-L48
 
-cd(julia_pkgdir()*"/JavaCall/doc")
+cd(Pkg.dir()*"/JavaCall/doc")
 
 last_commit=readchomp(`git --no-pager log -1 --pretty=format:"%h:%s"`)
 
