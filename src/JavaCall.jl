@@ -241,7 +241,8 @@ for (x, y, z) in [ (:jboolean, :(jnifunc.CallBooleanMethodA), :(jnifunc.CallStat
 					(:jint, :(jnifunc.CallIntMethodA), :(jnifunc.CallStaticIntMethodA)), 
 					(:jlong, :(jnifunc.CallLongMethodA), :(jnifunc.CallStaticLongMethodA)),
 					(:jfloat, :(jnifunc.CallFloatMethodA), :(jnifunc.CallStaticFloatMethodA)),
-					(:jdouble, :(jnifunc.CallDoubleMethodA), :(jnifunc.CallStaticDoubleMethodA)) ]
+					(:jdouble, :(jnifunc.CallDoubleMethodA), :(jnifunc.CallStaticDoubleMethodA)),
+					(:Void, :(jnifunc.CallVoidMethodA), :(jnifunc.CallStaticVoidMethodA)) ]
 	m = quote
 		function _jcall(obj,  jmethodId::Ptr{Void}, callmethod::Ptr{Void}, rettype::Type{$(x)}, argtypes::Tuple, args... ) 
 			 	if callmethod == C_NULL
@@ -252,6 +253,7 @@ for (x, y, z) in [ (:jboolean, :(jnifunc.CallBooleanMethodA), :(jnifunc.CallStat
 				@assert jmethodId != C_NULL
 				result = ccall(callmethod, $x , (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), penv, obj.ptr, jmethodId, convert_args(argtypes, args...))
 				if result==C_NULL; get_error(); end
+				if result == nothing; return; end
 				return convert_result(rettype, result)
 		end
 	end
@@ -411,8 +413,23 @@ function deleteref(x::JavaObject)
 	return
 end 
 
+@unix_only const sep = ":"
+@windows_only const sep = ";"
+cp=Array(String, 0)
+opts=Array(String, 0)
+addClassPath(s::String) = isloaded()?warn("JVM already initialised. This call has no effect"): push!(cp, s)
+addOpts(s::String) = isloaded()?warn("JVM already initialised. This call has no effect"): push!(opts, s)
+
+init() = init(vcat(opts, reduce((x,y)->string(x,sep,y),"-Djava.class.path=$(cp[1])",cp[2:end]) ))
+
+isloaded() = isdefined(JavaCall, :jnifunc) && isdefined(JavaCall, :penv) && penv != C_NULL 
+
+assertloaded() = isloaded()?nothing:error("JVM not initialised. Please run init()")
+assertnotloaded() = isloaded()?error("JVM already initialised"):nothing
+
 # Pointer to pointer to pointer to pointer alert! Hurrah for unsafe load
 function init{T<:String}(opts::Array{T, 1}) 
+	assertnotloaded()
 	opt = Array(JavaVMOption, length(opts))
 	for i in 1:length(opts)
 		opt[i]=JavaVMOption(convert(Ptr{Uint8}, opts[i]), C_NULL)
