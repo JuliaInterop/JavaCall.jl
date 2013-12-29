@@ -1,6 +1,6 @@
 module JavaCall
 export JavaObject, JClass, JString, jint, jlong, jbyte, jboolean, jchar, jshort, jfloat, jdouble, JObject, 
-	   @jvimport, jcall, deleteref
+	   @jvimport, jcall, isnull
 
 # using Debug
 using Memoize
@@ -131,6 +131,7 @@ function JString(str::String)
 end
 # Convert a reference to a java.lang.String into a Julia string. Copies the underlying byte buffer
 function bytestring(jstr::JString)  #jstr must be a jstring obtained via a JNI call
+	if isnull(jstr); return ""; end #Return empty string to keep type stability. But this is questionable
 	pIsCopy = Array(jbyte, 1)
 	buf::Ptr{Uint8} = ccall(jnifunc.GetStringUTFChars, Ptr{Uint8}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{jbyte}), penv, jstr.ptr, pIsCopy)
 	s=bytestring(buf)
@@ -145,6 +146,7 @@ function convert{T,S}(::Type{JavaObject{T}}, obj::JavaObject{S})
 	if (ccall(jnifunc.IsAssignableFrom, jboolean, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, getMetaClass(S).ptr, getMetaClass(T).ptr ) == JNI_TRUE)   #Safe static cast
 			return JavaObject{T}(obj.ptr)
 	end 
+	if isnull(obj) ; error("Cannot convert NULL"); end
 	realClass = ccall(jnifunc.GetObjectClass, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void} ), penv, obj.ptr)
 	if (ccall(jnifunc.IsAssignableFrom, jboolean, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, realClass, getMetaClass(T).ptr ) == JNI_TRUE)  #dynamic cast
 			return JavaObject{T}(obj.ptr)
@@ -177,6 +179,8 @@ function jnew(T::Symbol, argtypes::Tuple, args...)
 	return  _jcall(getMetaClass(T), jmethodId, jnifunc.NewObjectA, JavaObject{T}, argtypes, args...)
 end
 
+isnull(obj::JavaObject) = obj.ptr == C_NULL
+
 @memoize function getMetaClass(class::Symbol)
 	jclass=javaclassname(class)
 	jclassptr = ccall(jnifunc.FindClass, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Uint8}), penv, jclass)
@@ -207,7 +211,7 @@ function get_error()
 
 		error(string("Error calling Java: ",msg))
 	else 
-		error("Error calling Java, but no exception details could be retrieved from the JVM")
+		return #No exception pending, legitimate NULL returned from Java
 	end
 end
 

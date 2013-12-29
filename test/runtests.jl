@@ -22,6 +22,9 @@ T = @jvimport Test
 @test realmax(jdouble) == jcall(T, "testDouble", jdouble, (jdouble,), realmax(jdouble)) 
 @test realmax(jfloat) == jcall(T, "testFloat", jfloat, (jfloat,), realmax(jfloat))  
 
+c=JString(C_NULL)
+@test isnull(c)
+@test "" == jcall(T, "testString", JString, (JString,), c)
 
 # Test calling static methods
 jlm = @jvimport "java.lang.Math"
