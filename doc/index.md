@@ -58,7 +58,9 @@ julia> jcall(j_u_arrays, "binarySearch", jint, (Array{jint,1}, jint), [10,20,30,
 
 *   Currently, only a low level interface is available, via `jcall`. As a result, this package is best suited for writing libraries that wrap around existing java packages. Writing user code direcly using this interface might be a bit tedious at present. A high level interface using reflection will eventually be built. 
 
-*    Field access is not yet supported. It is unclear if a `Javabeans` style access (i.e. conflating field and getter/setter) is useful. 
+*    Field access is not yet supported. It is unclear if a `Javabeans` style access (i.e. conflating field and getter/setter) is useful.
+
+*    While basic memory management has been implemented, there is likely to be some remaining memory leaks in this system. While this should be stable enough for scripting style tasks, more testing is neede before deplying this to long running tasks 
 
 
 
