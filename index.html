@@ -101,7 +101,8 @@
 <ul>
 <li><p>Multidimensional arrays, either as arguments or return values are not supported. Since Java uses Array-of-Arrays, unlike Julia&#39;s  true multidimensional arrays, supporting them is non-trivial, though certainly feasible.  </p></li>
 <li><p>Currently, only a low level interface is available, via <code>jcall</code>. As a result, this package is best suited for writing libraries that wrap around existing java packages. Writing user code direcly using this interface might be a bit tedious at present. A high level interface using reflection will eventually be built. </p></li>
-<li><p>Field access is not yet supported. It is unclear if a <code>Javabeans</code> style access (i.e. conflating field and getter/setter) is useful. </p></li>
+<li><p>Field access is not yet supported. It is unclear if a <code>Javabeans</code> style access (i.e. conflating field and getter/setter) is useful.</p></li>
+<li><p>While basic memory management has been implemented, there is likely to be some remaining memory leaks in this system. While this should be stable enough for scripting style tasks, more testing is neede before deplying this to long running tasks </p></li>
 </ul>
 
       </section>
