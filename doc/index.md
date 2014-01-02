@@ -6,7 +6,7 @@ layout: default
 
 The JavaCall package allows calling Java programs from within Julia code. It uses the Java Native Interface ([JNI][]) to call into an in-process Java Virtual Machine (JVM). The primary entry point to Java is the `jcall` function. This is modeled on the Julia `ccall` function, and takes as input the receiver object (or type for static methods), the method name, the output type, a tuple of the method parameter types, and the parameters themselves. 
 
-This package has been tested using Oracle JDK 7 on MacOSX and Ubuntu on 64 bits. It _should_ work on Windows. However, it is unlikely to work on a 32 bit processor without further work. 
+This package has been tested using Oracle JDK 7 on MacOSX and Ubuntu on 64 bits. It _should_ work on Windows. However, it is unlikely to work on a 32 bit processor without further work. It will not work with the Apple 1.6 JDK since that is a 32 bit environment, and Julia is typically built as a 64 bit executable on OSX. 
 
 [JNI]: http://docs.oracle.com/javase/1.5.0/docs/guide/jni/spec/jniTOC.html
 
