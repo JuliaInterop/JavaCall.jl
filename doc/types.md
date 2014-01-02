@@ -23,10 +23,10 @@ The Java primitive types are aliased to their corresponding types in Julia. When
 
 Any java object (as opposed to a primitive) is referenced in JNI via a pointer. In Julia this is a `Ptr{Void}`. The pointer to an object is wrapped into an instance of the `JavaObject{T}` composite type. The type parameter `T` is a symbol, and is the name of the Java class that the object belongs to. Thus, a java object of class `java.net.URL` will be stored in Julia as an instance of the composite type `JavaObject(:java.net.URL)` 
 
-Java class identifiers (such as the `java.net.URL` above) cannot be expressed in Julia as a literal symbol, since the `.` is the composite field access operator. To express the required type, you will therefore have to write `JavaObject{symbol("java.net.URL")}`. This can get tedious very quickly. Therefore a `@jvimport` macro is provided, which can covert a bare java type literal into the property parameterised `JavaObject` type. This type can then be aliased to a user defined name.
+Java class identifiers (such as the `java.net.URL` above) cannot be expressed in Julia as a literal symbol, since the `.` is the composite field access operator. To express the required type, you will therefore have to write `JavaObject{symbol("java.net.URL")}`. This can get tedious very quickly. Therefore a `@jimport` macro is provided, which can covert a bare java type literal into the property parameterised `JavaObject` type. This type can then be aliased to a user defined name.
 
 ```julia
-j_l_math = @jvimport java.lang.Math
+j_l_math = @jimport java.lang.Math
 ```
 
 Some commonly used Java types have pre defined Julia aliases to make them easier to type

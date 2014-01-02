@@ -24,10 +24,10 @@ Note that only one JVM can be initialised within a process. Hence, the `init` fu
 
 ##Referencing types
 
-As described in the [types][types.html] section, the @jvimport macro returns the Julia type that corresponds to the relevant Java class. This Julia type can the be used a proxy for the Java type, and can be used for instantiating objects of that class, or calling static methods on it. 
+As described in the [types][types.html] section, the @jimport macro returns the Julia type that corresponds to the relevant Java class. This Julia type can the be used a proxy for the Java type, and can be used for instantiating objects of that class, or calling static methods on it. 
 ```julia
-jlm = @jvimport "java.lang.Math"
-jnu = @jvimport java.net.URL
+jlm = @jimport "java.lang.Math"
+jnu = @jimport java.net.URL
 ```
 
 ##Calling Static Methods
@@ -60,7 +60,7 @@ jcall(gurl, "getHost", JString,()) #"wwww.google.com"
 Java arrays are referenced as Julia `Arrays` of the relevant (aliased) Java types. Hence a Java `int[]` is `Array{jint, 1}` in Julia. And similar for all other primitive types. All arrays of non-primitive Java objects are `Array{JavaObject{T}, 1}` in Julia, where `T` is the name of the relevant Java class. 
 
 ```julia
-j_u_arrays = @jvimport java.util.Arrays
+j_u_arrays = @jimport java.util.Arrays
 jcall(j_u_arrays, "binarySearch", jint, (Array{jint,1}, jint), [10,20,30,40,50,60], 40)
 jcall(j_u_arrays, "binarySearch", jint, (Array{JavaObject,1}, JavaObject), ["123","abc","uvw","xyz"], "uvw")
 jcall(j_u_arrays, "copyOf", Array{jint, 1}, (Array{jint, 1}, jint), [1,2,3], 3)

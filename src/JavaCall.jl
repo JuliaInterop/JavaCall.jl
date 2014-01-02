@@ -1,6 +1,6 @@
 module JavaCall
 export JavaObject, JClass, JString, jint, jlong, jbyte, jboolean, jchar, jshort, jfloat, jdouble, JObject, 
-	   @jvimport, jcall, isnull
+	   @jimport, jcall, isnull
 
 # using Debug
 using Memoize
@@ -154,7 +154,7 @@ function convert{T,S}(::Type{JavaObject{T}}, obj::JavaObject{S})
 	error("Cannot cast java object from $S to $T")
 end
 
-macro jvimport(class)
+macro jimport(class)
 	if isa(class, Expr)
 		juliaclass=sprint(Base.show_unquoted, class)
 	elseif  isa(class, Symbol)

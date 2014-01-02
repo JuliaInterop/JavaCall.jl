@@ -11,7 +11,7 @@ b=ccall(JavaCall.jnifunc.GetStringUTFChars, Ptr{Uint8}, (Ptr{JavaCall.JNIEnv}, P
 @test bytestring(b) == "how are you"
 
 # Test parameter passing
-T = @jvimport Test
+T = @jimport Test
 @test 10 == jcall(T, "testInt", jint, (jint,), 10)
 @test 10 == jcall(T, "testLong", jlong, (jlong,), 10)
 @test typemax(jint) == jcall(T, "testInt", jint, (jint,), typemax(jint))
@@ -27,18 +27,18 @@ c=JString(C_NULL)
 @test "" == jcall(T, "testString", JString, (JString,), c)
 
 # Test calling static methods
-jlm = @jvimport "java.lang.Math"
+jlm = @jimport "java.lang.Math"
 @test_approx_eq 1.0 jcall(jlm, "sin", jdouble, (jdouble,), pi/2)
 @test_approx_eq 1.0 jcall(jlm, "min", jdouble, (jdouble,jdouble), 1,2)
 @test 1 == jcall(jlm, "abs", jint, (jint,), -1)
 
 #Test instance creation
-jnu = @jvimport java.net.URL
+jnu = @jimport java.net.URL
 gurl = jnu((JString,), "http://www.google.com")
 @test "www.google.com"==jcall(gurl, "getHost", JString,())
 
 #Test instance methods
-jni=@jvimport java.net.URI
+jni=@jimport java.net.URI
 guri=jcall(gurl, "toURI", jni,())
 @test typeof(guri)==jni
 
@@ -46,7 +46,7 @@ h=jcall(guri, "hashCode", jint,())
 typeof(h)==jint
 
 # Arrays
-j_u_arrays = @jvimport java.util.Arrays
+j_u_arrays = @jimport java.util.Arrays
 @test 3 == jcall(j_u_arrays, "binarySearch", jint, (Array{jint,1}, jint), [10,20,30,40,50,60], 40)
 @test 2 == jcall(j_u_arrays, "binarySearch", jint, (Array{JObject,1}, JObject), ["123","abc","uvw","xyz"], "uvw")
 
