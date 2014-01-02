@@ -74,10 +74,10 @@
 
 <h2 id="toc_11">Referencing types</h2>
 
-<p>As described in the [types][types.html] section, the @jvimport macro returns the Julia type that corresponds to the relevant Java class. This Julia type can the be used a proxy for the Java type, and can be used for instantiating objects of that class, or calling static methods on it. <br>
+<p>As described in the [types][types.html] section, the @jimport macro returns the Julia type that corresponds to the relevant Java class. This Julia type can the be used a proxy for the Java type, and can be used for instantiating objects of that class, or calling static methods on it. <br>
 <code>julia<br>
-jlm = @jvimport &quot;java.lang.Math&quot;<br>
-jnu = @jvimport java.net.URL<br>
+jlm = @jimport &quot;java.lang.Math&quot;<br>
+jnu = @jimport java.net.URL<br>
 </code></p>
 
 <h2 id="toc_12">Calling Static Methods</h2>
@@ -106,7 +106,7 @@ jnu = @jvimport java.net.URL<br>
 <h2 id="toc_15">Calling Array Methods</h2>
 
 <p>Java arrays are referenced as Julia <code>Arrays</code> of the relevant (aliased) Java types. Hence a Java <code>int[]</code> is <code>Array{jint, 1}</code> in Julia. And similar for all other primitive types. All arrays of non-primitive Java objects are <code>Array{JavaObject{T}, 1}</code> in Julia, where <code>T</code> is the name of the relevant Java class. </p>
-<div class="highlight"><pre><code class="julia"><span class="n">j_u_arrays</span> <span class="o">=</span> <span class="p">@</span><span class="n">jvimport</span> <span class="n">java</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">Arrays</span>
+<div class="highlight"><pre><code class="julia"><span class="n">j_u_arrays</span> <span class="o">=</span> <span class="p">@</span><span class="n">jimport</span> <span class="n">java</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">Arrays</span>
 <span class="n">jcall</span><span class="p">(</span><span class="n">j_u_arrays</span><span class="p">,</span> <span class="s">&quot;binarySearch&quot;</span><span class="p">,</span> <span class="n">jint</span><span class="p">,</span> <span class="p">(</span><span class="n">Array</span><span class="p">{</span><span class="n">jint</span><span class="p">,</span><span class="mi">1</span><span class="p">},</span> <span class="n">jint</span><span class="p">),</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span><span class="mi">20</span><span class="p">,</span><span class="mi">30</span><span class="p">,</span><span class="mi">40</span><span class="p">,</span><span class="mi">50</span><span class="p">,</span><span class="mi">60</span><span class="p">],</span> <span class="mi">40</span><span class="p">)</span>
 <span class="n">jcall</span><span class="p">(</span><span class="n">j_u_arrays</span><span class="p">,</span> <span class="s">&quot;binarySearch&quot;</span><span class="p">,</span> <span class="n">jint</span><span class="p">,</span> <span class="p">(</span><span class="n">Array</span><span class="p">{</span><span class="n">JavaObject</span><span class="p">,</span><span class="mi">1</span><span class="p">},</span> <span class="n">JavaObject</span><span class="p">),</span> <span class="p">[</span><span class="s">&quot;123&quot;</span><span class="p">,</span><span class="s">&quot;abc&quot;</span><span class="p">,</span><span class="s">&quot;uvw&quot;</span><span class="p">,</span><span class="s">&quot;xyz&quot;</span><span class="p">],</span> <span class="s">&quot;uvw&quot;</span><span class="p">)</span>
 <span class="n">jcall</span><span class="p">(</span><span class="n">j_u_arrays</span><span class="p">,</span> <span class="s">&quot;copyOf&quot;</span><span class="p">,</span> <span class="n">Array</span><span class="p">{</span><span class="n">jint</span><span class="p">,</span> <span class="mi">1</span><span class="p">},</span> <span class="p">(</span><span class="n">Array</span><span class="p">{</span><span class="n">jint</span><span class="p">,</span> <span class="mi">1</span><span class="p">},</span> <span class="n">jint</span><span class="p">),</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">],</span> <span class="mi">3</span><span class="p">)</span>
