@@ -47,7 +47,7 @@ function findjvm()
 	libpaths = {}
 
 	try 
-		push!(libpath, ENV["JAVA_LIB"])
+		push!(libpaths, ENV["JAVA_LIB"])
 	catch 
 		try 
 			push!(javahomes, ENV["JAVA_HOME"])
@@ -124,7 +124,7 @@ typealias JObject JavaObject{symbol("java.lang.Object")}
 function JString(str::String)
 	jstring = ccall(jnifunc.NewStringUTF, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Uint8}), penv, utf8(str))
 	if jstring == C_NULL
-		get_error()
+		geterror()
 	else 
 		return JString(jstring)
 	end
@@ -143,12 +143,12 @@ convert{T<:String}(::Type{JString}, str::T) = JString(str)
 convert{T<:String}(::Type{JObject}, str::T) = convert(JObject, JString(str))
 #Cast java object from S to T 
 function convert{T,S}(::Type{JavaObject{T}}, obj::JavaObject{S}) 
-	if (ccall(jnifunc.IsAssignableFrom, jboolean, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, getMetaClass(S).ptr, getMetaClass(T).ptr ) == JNI_TRUE)   #Safe static cast
+	if (ccall(jnifunc.IsAssignableFrom, jboolean, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, metaclass(S).ptr, metaclass(T).ptr ) == JNI_TRUE)   #Safe static cast
 			return JavaObject{T}(obj.ptr)
 	end 
 	if isnull(obj) ; error("Cannot convert NULL"); end
 	realClass = ccall(jnifunc.GetObjectClass, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void} ), penv, obj.ptr)
-	if (ccall(jnifunc.IsAssignableFrom, jboolean, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, realClass, getMetaClass(T).ptr ) == JNI_TRUE)  #dynamic cast
+	if (ccall(jnifunc.IsAssignableFrom, jboolean, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, realClass, metaclass(T).ptr ) == JNI_TRUE)  #dynamic cast
 			return JavaObject{T}(obj.ptr)
 	end 
 	error("Cannot cast java object from $S to $T")
@@ -171,29 +171,29 @@ macro jvimport(class)
 end
 
 function jnew(T::Symbol, argtypes::Tuple, args...) 
-	sig = getMethodSignature(Void, argtypes...)
-	jmethodId = ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, getMetaClass(T).ptr, utf8("<init>"), sig)
+	sig = method_signature(Void, argtypes...)
+	jmethodId = ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, metaclass(T).ptr, utf8("<init>"), sig)
 	if (jmethodId == C_NULL) 
 		error("No constructor for $typ with signature $sig")
 	end 
-	return  _jcall(getMetaClass(T), jmethodId, jnifunc.NewObjectA, JavaObject{T}, argtypes, args...)
+	return  _jcall(metaclass(T), jmethodId, jnifunc.NewObjectA, JavaObject{T}, argtypes, args...)
 end
 
 isnull(obj::JavaObject) = obj.ptr == C_NULL
 
-@memoize function getMetaClass(class::Symbol)
+@memoize function metaclass(class::Symbol)
 	jclass=javaclassname(class)
 	jclassptr = ccall(jnifunc.FindClass, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Uint8}), penv, jclass)
 	if jclassptr == C_NULL; error("Class Not Found $jclass"); end
 	return JClass(class, jclassptr)
 end
 
-getMetaClass{T}(::Type{JavaObject{T}}) = getMetaClass(T)
-getMetaClass{T}(::JavaObject{T}) = getMetaClass(T)
+metaclass{T}(::Type{JavaObject{T}}) = metaclass(T)
+metaclass{T}(::JavaObject{T}) = metaclass(T)
 
 javaclassname(class::Symbol) = utf8(replace(string(class), '.', '/'))
 
-function get_error()
+function geterror()
 	isexception = ccall(jnifunc.ExceptionCheck, jboolean, (Ptr{JNIEnv},), penv )
 
 	if isexception == JNI_TRUE
@@ -218,20 +218,20 @@ end
 
 # Call static methods
 function jcall{T}(typ::Type{JavaObject{T}}, method::String, rettype::Type, argtypes::Tuple, args... )
-	sig = getMethodSignature(rettype, argtypes...)
+	sig = method_signature(rettype, argtypes...)
 
-	jmethodId = ccall(jnifunc.GetStaticMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, getMetaClass(T).ptr, utf8(method), sig)
-	if jmethodId==C_NULL; get_error(); end
+	jmethodId = ccall(jnifunc.GetStaticMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, metaclass(T).ptr, utf8(method), sig)
+	if jmethodId==C_NULL; geterror(); end
 
-	_jcall(getMetaClass(T), jmethodId, C_NULL, rettype, argtypes, args...)
+	_jcall(metaclass(T), jmethodId, C_NULL, rettype, argtypes, args...)
 
 end
 
 # Call instance methods
 function jcall(obj::JavaObject, method::String, rettype::Type, argtypes::Tuple, args... )
-	sig = getMethodSignature(rettype, argtypes...)
-	jmethodId = ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, getMetaClass(obj).ptr, utf8(method), sig)
-	if jmethodId==C_NULL; get_error(); end
+	sig = method_signature(rettype, argtypes...)
+	jmethodId = ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, metaclass(obj).ptr, utf8(method), sig)
+	if jmethodId==C_NULL; geterror(); end
 
 	_jcall(obj, jmethodId, C_NULL, rettype,  argtypes, args...)
 end
@@ -256,7 +256,7 @@ for (x, y, z) in [ (:jboolean, :(jnifunc.CallBooleanMethodA), :(jnifunc.CallStat
 			 	@assert obj.ptr != C_NULL
 				@assert jmethodId != C_NULL
 				result = ccall(callmethod, $x , (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), penv, obj.ptr, jmethodId, convert_args(argtypes, args...))
-				if result==C_NULL; get_error(); end
+				if result==C_NULL; geterror(); end
 				if result == nothing; return; end
 				return convert_result(rettype, result)
 		end
@@ -272,7 +272,7 @@ function _jcall(obj,  jmethodId::Ptr{Void}, callmethod::Ptr{Void}, rettype::Type
 		@assert obj.ptr != C_NULL
 		@assert jmethodId != C_NULL
 		result = ccall(callmethod, Ptr{Void} , (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), penv, obj.ptr, jmethodId, convert_args(argtypes, args...))
-		if result==C_NULL; get_error(); end
+		if result==C_NULL; geterror(); end
 		return convert_result(rettype, result)
 end
 
@@ -328,7 +328,7 @@ function convert_arg{T<:JavaObject}(argtype::Type{Array{T,1}}, arg)
 	carg = convert(argtype, arg)
 	sz=length(carg)
 	init=carg[1]
-	arrayptr = ccall(jnifunc.NewObjectArray, Ptr{Void}, (Ptr{JNIEnv}, jint, Ptr{Void}, Ptr{Void}), penv, sz, getMetaClass(T).ptr, init.ptr)
+	arrayptr = ccall(jnifunc.NewObjectArray, Ptr{Void}, (Ptr{JNIEnv}, jint, Ptr{Void}, Ptr{Void}), penv, sz, metaclass(T).ptr, init.ptr)
 	for i=2:sz 
 		ccall(jnifunc.SetObjectArrayElement, Void, (Ptr{JNIEnv}, Ptr{Void}, jint, Ptr{Void}), penv, arrayptr, i-1, carg[i].ptr)
 	end
@@ -371,21 +371,22 @@ function convert_result{T}(rettype::Type{Array{JavaObject{T},1}}, result)
 	return ret
 end
 
-
-function getMethodSignature(rettype, argtypes...)
+#get the JNI signature string for a method, given its 
+#return type and argument types
+function method_signature(rettype, argtypes...)
 	s=IOBuffer()
 	write(s, "(")
 	for arg in argtypes
-		write(s, getSignature(arg))
+		write(s, signature(arg))
 	end
 	write(s, ")")
-	write(s, getSignature(rettype))
+	write(s, signature(rettype))
 	return takebuf_string(s)
 end
 
 
-
-function getSignature(arg::Type)
+#get the JNI signature string for a given type
+function signature(arg::Type)
 	if is(arg, jboolean)
 		return "Z"
 	elseif is(arg, jbyte)
@@ -403,11 +404,11 @@ function getSignature(arg::Type)
 	elseif is(arg, Void) 
 		return "V"
 	elseif issubtype(arg, Array) 
-		return string("[", getSignature(eltype(arg)))
+		return string("[", signature(eltype(arg)))
 	end
 end
 
-getSignature{T}(arg::Type{JavaObject{T}}) = string("L", javaclassname(T), ";")
+signature{T}(arg::Type{JavaObject{T}}) = string("L", javaclassname(T), ";")
 
 function deleteref(x::JavaObject)
 	if x.ptr == C_NULL; return; end
