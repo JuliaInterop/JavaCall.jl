@@ -41,7 +41,8 @@ typealias jdouble Cdouble
 typealias jsize jint
 jprimitive = Union(jboolean, jchar, jshort, jfloat, jdouble, jint, jlong)
 
-
+@unix_only global const libname = "libjvm"
+@windows_only global const libname = "jvm"
 function findjvm()
 	javahomes = {}
 	libpaths = {}
@@ -69,7 +70,7 @@ function findjvm()
 	end
 	for n in libpaths
 		try 
-			global libjvm = dlopen(joinpath(n, "libjvm"))
+			global libjvm = dlopen(joinpath(n, libname))
 			println("Found libjvm @ $n")
 			return
 		end
