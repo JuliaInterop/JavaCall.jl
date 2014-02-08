@@ -56,15 +56,14 @@ function findjvm()
 		@osx_only try 
 			push!(javahomes, chomp(readall(`/usr/libexec/java_home`)))
 		end
-		@unix_only push!(javahomes, "/usr")
+		@unix_only push!(javahomes, "/usr/lib/jvm/default-java/")
 
 		libpaths = {""}
 		for n in javahomes
-			push!(libpaths, joinpath(n, "lib"))
-			push!(libpaths, joinpath(n, "jre", "lib"))
-			push!(libpaths, joinpath(n, "jre", "lib", "server"))
+			@windows_only push!(libpaths, joinpath(n, "jre", "bin", "server"))
 			@linux_only if WORD_SIZE==64; push!(libpaths, joinpath(n, "jre", "lib", "amd64", "server")); end
 			@linux_only if WORD_SIZE==32; push!(libpaths, joinpath(n, "jre", "lib", "i386", "server")); end
+			push!(libpaths, joinpath(n, "jre", "lib", "server"))
 
 		end
 	end
