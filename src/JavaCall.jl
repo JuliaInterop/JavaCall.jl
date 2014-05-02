@@ -74,7 +74,7 @@ function findjvm()
 			return
 		end
 	end
-	error ("Cannot find libjvm in: $(libpaths)To override the search, set the JAVA_LIB environment variable to the directory containing libjvm.{so,dll,dylib}")
+	error ("Cannot find java library in: $(libpaths)To override the search, set the JAVA_LIB environment variable to the directory containing $(libname).$(@windows?"dll":@osx?"dylib":"so")")
 end
 
 findjvm()
