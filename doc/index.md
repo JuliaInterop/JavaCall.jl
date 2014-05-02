@@ -27,7 +27,7 @@ Static and instance methods with primitive or object arguments and return values
 
 julia> using JavaCall
 
-julia> JavaCall.initjava(["-Xmx128M"])
+julia> JavaCall.init(["-Xmx128M"])
 
 julia> jlm = @jimport java.lang.Math
 JavaObject{:java.lang.Math} (constructor with 2 methods))
