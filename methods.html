@@ -53,9 +53,9 @@
       </div>
       </header>
       <section>
-	<h1 id="toc_8">Lifecycle and API</h1>
+	<h1 id="toc_0">Lifecycle and API</h1>
 
-<h2 id="toc_9">Loading</h2>
+<h2 id="toc_1">Loading</h2>
 
 <p>When the module is first loaded, via <code>using</code> or <code>load</code>, it searches for the JVM dynamic library, <code>libjvm.so|libjvm.dylib|jvm.dll</code>. The search is dependent on the <code>JAVA_HOME</code> environment variable, which must be set, except on OSX, where the <code>/usr/libexec/java_home</code> command is used to infer it. In case the library is not found, the module load fails, and no further functionality is available. </p>
 
@@ -63,16 +63,14 @@
 
 <p>Currently, as a debugging aid, the module will print the location of the jvm library when it loads. </p>
 
-<h2 id="toc_10">Initialisation</h2>
+<h2 id="toc_2">Initialisation</h2>
 
 <p>The <code>JavaCall.init(args::Array{String, 1})</code> method must to used to load and initialise the Java Virtual Machine before any other functions in this module can be called. The <code>args</code> parameter is an array containing JVM initialisation arguments. This can be used to set, for example, the system classpath, and the maximum java heap. Any valid commandline argument to the <code>java</code> command can be used. Unrecognised arguments are silently discarded. </p>
-<div class="highlight"><pre><code class="julia"><span class="n">JavaCall</span><span class="o">.</span><span class="n">init</span><span class="p">([</span><span class="s">&quot;-Xmx 512M&quot;</span><span class="p">,</span> <span class="s">&quot;-Djava.class.path=</span><span class="si">$</span><span class="s">(joinpath(Pkg.dir(), &quot;</span><span class="n">JavaCall</span><span class="s">&quot;, &quot;</span><span class="n">test</span><span class="s">&quot;))&quot;</span><span class="p">,</span> <span class="s">&quot;-verbose:jni&quot;</span><span class="p">,</span> <span class="s">&quot;-verbose:gc&quot;</span><span class="p">])</span>
-</code></pre>
-</div>
-
+<div class="highlight"><pre><code class="julia language-julia" data-lang="julia"><span class="n">JavaCall</span><span class="o">.</span><span class="n">init</span><span class="p">([</span><span class="s">&quot;-Xmx 512M&quot;</span><span class="p">,</span> <span class="s">&quot;-Djava.class.path=</span><span class="si">$</span><span class="s">(joinpath(Pkg.dir(), &quot;</span><span class="n">JavaCall</span><span class="s">&quot;, &quot;</span><span class="n">test</span><span class="s">&quot;))&quot;</span><span class="p">,</span> <span class="s">&quot;-verbose:jni&quot;</span><span class="p">,</span> <span class="s">&quot;-verbose:gc&quot;</span><span class="p">])</span>
+</code></pre></div>
 <p>Note that only one JVM can be initialised within a process. Hence, the <code>init</code> function can be called only once per process. </p>
 
-<h2 id="toc_11">Referencing types</h2>
+<h2 id="toc_3">Referencing types</h2>
 
 <p>As described in the [types][types.html] section, the @jimport macro returns the Julia type that corresponds to the relevant Java class. This Julia type can the be used a proxy for the Java type, and can be used for instantiating objects of that class, or calling static methods on it. <br>
 <code>julia<br>
@@ -80,48 +78,38 @@ jlm = @jimport &quot;java.lang.Math&quot;<br>
 jnu = @jimport java.net.URL<br>
 </code></p>
 
-<h2 id="toc_12">Calling Static Methods</h2>
+<h2 id="toc_4">Calling Static Methods</h2>
 
 <p>The primary interface to Java methods is the <code>jcall</code> function. Like the inbuilt Julia <code>ccall</code> function, you need to supply the return type, a tuple of the argument types, and the method arguments themselves. The first argument to jcall however is the reciever of the method in Java. In case of static methods therefore, the reciever is the Julia type corresponding to the Java class that holds the method. </p>
 
 <p>Arguments are converted if possible to the specified types, via the usual Julia <code>convert</code> function. This includes converting <code>JavaObject</code> instances referencing a particular java class, to a <code>JavaObject</code> referencing its superclass. This allows some measure of the polymorphism inherent in Java methods. Strings are automatically converted, and hence Julia strings may be passed directly into <code>jcall</code>. </p>
-<div class="highlight"><pre><code class="julia"><span class="n">jcall</span><span class="p">(</span><span class="n">jlm</span><span class="p">,</span> <span class="s">&quot;sin&quot;</span><span class="p">,</span> <span class="n">jdouble</span><span class="p">,</span> <span class="p">(</span><span class="n">jdouble</span><span class="p">,),</span> <span class="nb">pi</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span> <span class="c">#1.0</span>
-</code></pre>
-</div>
-
-<h2 id="toc_13">Initialising Objects via Constructors</h2>
+<div class="highlight"><pre><code class="julia language-julia" data-lang="julia"><span class="n">jcall</span><span class="p">(</span><span class="n">jlm</span><span class="p">,</span> <span class="s">&quot;sin&quot;</span><span class="p">,</span> <span class="n">jdouble</span><span class="p">,</span> <span class="p">(</span><span class="n">jdouble</span><span class="p">,),</span> <span class="nb">pi</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span> <span class="c">#1.0</span>
+</code></pre></div>
+<h2 id="toc_5">Initialising Objects via Constructors</h2>
 
 <p>Each of the Julia <code>JavaObject</code> types contain a constructor that looks much like the <code>jcall</code> function. You provide a tuple of argument types, and the arguments themselves, and it return an instance of <code>JavaObject</code> that wraps a Java object of the corresponding class. Unlike <code>jcall</code> however, in this case the reciever and the return type is implicit, and does not need to specified. </p>
-<div class="highlight"><pre><code class="julia"><span class="n">gurl</span> <span class="o">=</span> <span class="n">jnu</span><span class="p">((</span><span class="n">JString</span><span class="p">,),</span> <span class="s">&quot;http://www.google.com&quot;</span><span class="p">)</span>
-</code></pre>
-</div>
-
-<h2 id="toc_14">Calling Instance Methods</h2>
+<div class="highlight"><pre><code class="julia language-julia" data-lang="julia"><span class="n">gurl</span> <span class="o">=</span> <span class="n">jnu</span><span class="p">((</span><span class="n">JString</span><span class="p">,),</span> <span class="s">&quot;http://www.google.com&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="toc_6">Calling Instance Methods</h2>
 
 <p>Calling instance methods uses the <code>jcall</code> function, with an instance of the <code>JavaObject</code> type as the reciever. As before, the method takes as arguments the return type, the tuple of the argument types, and the arguments themselves. </p>
-<div class="highlight"><pre><code class="julia"><span class="n">jcall</span><span class="p">(</span><span class="n">gurl</span><span class="p">,</span> <span class="s">&quot;getHost&quot;</span><span class="p">,</span> <span class="n">JString</span><span class="p">,())</span> <span class="c">#&quot;wwww.google.com&quot;</span>
-</code></pre>
-</div>
-
-<h2 id="toc_15">Calling Array Methods</h2>
+<div class="highlight"><pre><code class="julia language-julia" data-lang="julia"><span class="n">jcall</span><span class="p">(</span><span class="n">gurl</span><span class="p">,</span> <span class="s">&quot;getHost&quot;</span><span class="p">,</span> <span class="n">JString</span><span class="p">,())</span> <span class="c">#&quot;wwww.google.com&quot;</span>
+</code></pre></div>
+<h2 id="toc_7">Calling Array Methods</h2>
 
 <p>Java arrays are referenced as Julia <code>Arrays</code> of the relevant (aliased) Java types. Hence a Java <code>int[]</code> is <code>Array{jint, 1}</code> in Julia. And similar for all other primitive types. All arrays of non-primitive Java objects are <code>Array{JavaObject{T}, 1}</code> in Julia, where <code>T</code> is the name of the relevant Java class. </p>
-<div class="highlight"><pre><code class="julia"><span class="n">j_u_arrays</span> <span class="o">=</span> <span class="p">@</span><span class="n">jimport</span> <span class="n">java</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">Arrays</span>
+<div class="highlight"><pre><code class="julia language-julia" data-lang="julia"><span class="n">j_u_arrays</span> <span class="o">=</span> <span class="p">@</span><span class="n">jimport</span> <span class="n">java</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">Arrays</span>
 <span class="n">jcall</span><span class="p">(</span><span class="n">j_u_arrays</span><span class="p">,</span> <span class="s">&quot;binarySearch&quot;</span><span class="p">,</span> <span class="n">jint</span><span class="p">,</span> <span class="p">(</span><span class="n">Array</span><span class="p">{</span><span class="n">jint</span><span class="p">,</span><span class="mi">1</span><span class="p">},</span> <span class="n">jint</span><span class="p">),</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span><span class="mi">20</span><span class="p">,</span><span class="mi">30</span><span class="p">,</span><span class="mi">40</span><span class="p">,</span><span class="mi">50</span><span class="p">,</span><span class="mi">60</span><span class="p">],</span> <span class="mi">40</span><span class="p">)</span>
 <span class="n">jcall</span><span class="p">(</span><span class="n">j_u_arrays</span><span class="p">,</span> <span class="s">&quot;binarySearch&quot;</span><span class="p">,</span> <span class="n">jint</span><span class="p">,</span> <span class="p">(</span><span class="n">Array</span><span class="p">{</span><span class="n">JavaObject</span><span class="p">,</span><span class="mi">1</span><span class="p">},</span> <span class="n">JavaObject</span><span class="p">),</span> <span class="p">[</span><span class="s">&quot;123&quot;</span><span class="p">,</span><span class="s">&quot;abc&quot;</span><span class="p">,</span><span class="s">&quot;uvw&quot;</span><span class="p">,</span><span class="s">&quot;xyz&quot;</span><span class="p">],</span> <span class="s">&quot;uvw&quot;</span><span class="p">)</span>
 <span class="n">jcall</span><span class="p">(</span><span class="n">j_u_arrays</span><span class="p">,</span> <span class="s">&quot;copyOf&quot;</span><span class="p">,</span> <span class="n">Array</span><span class="p">{</span><span class="n">jint</span><span class="p">,</span> <span class="mi">1</span><span class="p">},</span> <span class="p">(</span><span class="n">Array</span><span class="p">{</span><span class="n">jint</span><span class="p">,</span> <span class="mi">1</span><span class="p">},</span> <span class="n">jint</span><span class="p">),</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">],</span> <span class="mi">3</span><span class="p">)</span>
 <span class="n">jcall</span><span class="p">(</span><span class="n">j_u_arrays</span><span class="p">,</span> <span class="s">&quot;copyOf&quot;</span><span class="p">,</span> <span class="n">Array</span><span class="p">{</span><span class="n">JObject</span><span class="p">,</span> <span class="mi">1</span><span class="p">},</span> <span class="p">(</span><span class="n">Array</span><span class="p">{</span><span class="n">JavaObject</span><span class="p">,</span> <span class="mi">1</span><span class="p">},</span> <span class="n">jint</span><span class="p">),</span> <span class="p">[</span><span class="s">&quot;a&quot;</span><span class="p">,</span><span class="s">&quot;b&quot;</span><span class="p">,</span><span class="s">&quot;c&quot;</span><span class="p">],</span> <span class="mi">3</span><span class="p">)</span>
-</code></pre>
-</div>
-
+</code></pre></div>
 <p>As noted in the introduction, only one dimensional arrays are currently supported. </p>
-<div class="highlight"><pre><code class="julia"><span class="n">s</span><span class="o">=</span><span class="n">JString</span><span class="p">(</span><span class="s">&quot;Hello World&quot;</span><span class="p">)</span>
-</code></pre>
-</div>
-
+<div class="highlight"><pre><code class="julia language-julia" data-lang="julia"><span class="n">s</span><span class="o">=</span><span class="n">JString</span><span class="p">(</span><span class="s">&quot;Hello World&quot;</span><span class="p">)</span>
+</code></pre></div>
 <p>When a Java string is returned from a method call, it can be converted to a Julia string using the <code>bytestring(s::JString)</code> function. </p>
 
-<h1 id="toc_16">Unload</h1>
+<h1 id="toc_8">Unload</h1>
 
 <p>The <code>destroy</code> command will unload the JVM, destryoing all its references. Note however that even after calling destroy, a new JVM cannot be initialised in the same process. Initialising a JVM is a completely one way process. </p>
 

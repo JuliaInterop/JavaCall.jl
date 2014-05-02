@@ -8,7 +8,7 @@ ENV["GIT_DIR"]=abspath(chomp(readall(`git rev-parse --git-dir`)))
 
 old_sha = chomp(readall(`git rev-parse refs/remotes/origin/gh-pages`))
 
-run(`jekyll`)
+run(`jekyll build`)
 
 cd("_site") do
 
