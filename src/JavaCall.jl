@@ -241,6 +241,7 @@ end
 #Generate these methods to satisfy ccall's compile time constant requirement
 for (x, y, z) in [ (:jboolean, :(jnifunc.CallBooleanMethodA), :(jnifunc.CallStaticBooleanMethodA)),
 					(:jchar, :(jnifunc.CallCharMethodA), :(jnifunc.CallStaticCharMethodA)),
+					(:jbyte, :(jnifunc.CallByteMethodA), :(jnifunc.CallStaticByteMethodA)),
 					(:jshort, :(jnifunc.CallShortMethodA), :(jnifunc.CallStaticShortMethodA)),
 					(:jint, :(jnifunc.CallIntMethodA), :(jnifunc.CallStaticIntMethodA)), 
 					(:jlong, :(jnifunc.CallLongMethodA), :(jnifunc.CallStaticLongMethodA)),
@@ -307,6 +308,7 @@ convert_arg{T<:JavaObject}(argtype::Type{T}, arg) = convert(T, arg).ptr
 
 for (x, y, z) in [ (:jboolean, :(jnifunc.NewBooleanArray), :(jnifunc.SetBooleanArrayRegion)),
 					(:jchar, :(jnifunc.NewCharArray), :(jnifunc.SetCharArrayRegion)),
+					(:jbyte, :(jnifunc.NewByteArray), :(jnifunc.SetByteArrayRegion)),
 					(:jshort, :(jnifunc.NewShortArray), :(jnifunc.SetShortArrayRegion)),
 					(:jint, :(jnifunc.NewIntArray), :(jnifunc.SetShortArrayRegion)), 
 					(:jlong, :(jnifunc.NewLongArray), :(jnifunc.SetLongArrayRegion)),
@@ -341,6 +343,7 @@ convert_result(rettype, result) = result
 
 for (x, y, z) in [ (:jboolean, :(jnifunc.GetBooleanArrayElements), :(jnifunc.ReleaseBooleanArrayElements)),
 					(:jchar, :(jnifunc.GetCharArrayElements), :(jnifunc.ReleaseCharArrayElements)),
+					(:jbyte, :(jnifunc.GetByteArrayElements), :(jnifunc.ReleaseByteArrayElements)),
 					(:jshort, :(jnifunc.GetShortArrayElements), :(jnifunc.ReleaseShortArrayElements)),
 					(:jint, :(jnifunc.GetIntArrayElements), :(jnifunc.ReleaseIntArrayElements)), 
 					(:jlong, :(jnifunc.GetLongArrayElements), :(jnifunc.ReleaseLongArrayElements)),
