@@ -11,6 +11,7 @@ const JNI_VERSION_1_1 =  convert(Cint, 0x00010001)
 const JNI_VERSION_1_2 =  convert(Cint, 0x00010002)
 const JNI_VERSION_1_4 =  convert(Cint, 0x00010004)
 const JNI_VERSION_1_6 =  convert(Cint, 0x00010006)
+const JNI_VERSION_1_8 =  convert(Cint, 0x00010008)
 
 const JNI_TRUE = convert(Cchar, 1)
 const JNI_FALSE = convert(Cchar, 0)
@@ -454,7 +455,7 @@ function init{T<:String}(opts::Array{T, 1})
 	jvm = unsafe_load(pjvm)
 	global jvmfunc = unsafe_load(jvm.JNIInvokeInterface_)
 	global jnifunc = unsafe_load(jnienv.JNINativeInterface_) #The JNI Function table
-	@assert ccall(jnifunc.GetVersion, Cint, (Ptr{JNIEnv},), penv) == JNI_VERSION_1_6
+	#@assert ccall(jnifunc.GetVersion, Cint, (Ptr{JNIEnv},), penv) == JNI_VERSION_1_6
 	
 end
 
