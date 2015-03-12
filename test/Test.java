@@ -1,3 +1,5 @@
+import java.util.ArrayList;
+
 public class Test {
 
   public static int testInt(int i) {
@@ -23,6 +25,18 @@ public class Test {
   public static String testString(String i) {
       System.out.print("In Java, recd: ");System.out.println(i);
       return i;
+  }
+
+  public static java.util.HashMap testNull() {
+    return null;
+  }
+
+  public static ArrayList<String> testArrayList() {
+
+      ArrayList<String> res=new ArrayList<String>();
+      res.add("Hello");
+      res.add("World");
+      return res;
   }
 
 

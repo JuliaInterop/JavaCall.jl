@@ -181,6 +181,7 @@ function jnew(T::Symbol, argtypes::Tuple, args...)
 end
 
 isnull(obj::JavaObject) = obj.ptr == C_NULL
+isnull(obj::JClass) = obj.ptr == C_NULL
 
 @memoize function metaclass(class::Symbol)
 	jclass=javaclassname(class)
@@ -255,8 +256,8 @@ for (x, y, z) in [ (:jboolean, :(jnifunc.CallBooleanMethodA), :(jnifunc.CallStat
 			 		callmethod = ifelse( typeof(obj)<:JavaObject, $y , $z )
 			 	end
 			 	@assert callmethod != C_NULL
-			 	@assert obj.ptr != C_NULL
 				@assert jmethodId != C_NULL
+				if(isnull(obj)); error("Attempt to call method on Java NULL"); end
 				result = ccall(callmethod, $x , (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), penv, obj.ptr, jmethodId, convert_args(argtypes, args...))
 				if result==C_NULL; geterror(); end
 				if result == nothing; return; end
@@ -271,8 +272,8 @@ function _jcall(obj,  jmethodId::Ptr{Void}, callmethod::Ptr{Void}, rettype::Type
 			callmethod = ifelse( typeof(obj)<:JavaObject, jnifunc.CallObjectMethodA , jnifunc.CallStaticObjectMethodA )
 		end
 		@assert callmethod != C_NULL
-		@assert obj.ptr != C_NULL
 		@assert jmethodId != C_NULL
+		if(isnull(obj)); error("Attempt to call method on Java NULL"); end
 		result = ccall(callmethod, Ptr{Void} , (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), penv, obj.ptr, jmethodId, convert_args(argtypes, args...))
 		if result==C_NULL; geterror(); end
 		return convert_result(rettype, result)

@@ -45,6 +45,11 @@ guri=jcall(gurl, "toURI", jni,())
 h=jcall(guri, "hashCode", jint,())
 typeof(h)==jint
 
+#Test NULL
+H=@jimport java.util.HashMap
+a=jcall(T, "testNull", H, ())
+@test_throws ErrorException jcall(a, "toString", JString, ())
+
 # Arrays
 j_u_arrays = @jimport java.util.Arrays
 @test 3 == jcall(j_u_arrays, "binarySearch", jint, (Array{jint,1}, jint), [10,20,30,40,50,60], 40)
