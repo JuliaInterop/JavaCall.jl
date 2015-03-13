@@ -4,8 +4,15 @@ export JavaObject, JClass, JString, jint, jlong, jbyte, jboolean, jchar, jshort,
 
 # using Debug
 using Memoize
+using Compat
 
 import Base.bytestring, Base.convert
+
+if VERSION < v"0.4.0-dev+656"
+	import Compat.isnull
+else 
+	import Base.isnull
+end
 
 const JNI_VERSION_1_1 =  convert(Cint, 0x00010001)
 const JNI_VERSION_1_2 =  convert(Cint, 0x00010002)
@@ -45,8 +52,8 @@ jprimitive = Union(jboolean, jchar, jshort, jfloat, jdouble, jint, jlong)
 @unix_only global const libname = "libjvm"
 @windows_only global const libname = "jvm"
 function findjvm()
-	javahomes = {}
-	libpaths = {}
+	javahomes = Any[]
+	libpaths = Any[]
 
 	try 
 		push!(libpaths, ENV["JAVA_LIB"])
@@ -280,10 +287,10 @@ function _jcall(obj,  jmethodId::Ptr{Void}, callmethod::Ptr{Void}, rettype::Type
 end
 
 # jvalue(v::Integer) = int64(v) << (64-8*sizeof(v))
-jvalue(v::Integer) = int64(v)
+jvalue(v::Integer) = @compat Int64(v)
 jvalue(v::Float32) = jvalue(reinterpret(Int32, v))
 jvalue(v::Float64) = jvalue(reinterpret(Int64, v))
-jvalue(v::Ptr) = jvalue(int(v))
+jvalue(v::Ptr) = jvalue(@compat Int(v))
 
 # Get the JNI/C type for a particular Java type
 function real_jtype(rettype)
@@ -355,7 +362,7 @@ for (x, y, z) in [ (:jboolean, :(jnifunc.GetBooleanArrayElements), :(jnifunc.Rel
 		function convert_result(rettype::Type{Array{$(x),1}}, result)
 			sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, result)
 			arr = ccall($(y), Ptr{$(x)}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{jboolean} ), penv, result, C_NULL ) 
-			jl_arr::Array = pointer_to_array(arr, int(sz), false)
+			jl_arr::Array = pointer_to_array(arr, (@compat Int(sz)), false)
 			jl_arr = deepcopy(jl_arr)
 			ccall($(z), Void, (Ptr{JNIEnv},Ptr{Void}, Ptr{$(x)}, jint), penv, result, arr, 0)  
 			return jl_arr
@@ -442,11 +449,11 @@ function init{T<:String}(opts::Array{T, 1})
 	assertnotloaded()
 	opt = Array(JavaVMOption, length(opts))
 	for i in 1:length(opts)
-		opt[i]=JavaVMOption(convert(Ptr{Uint8}, opts[i]), C_NULL)
+		opt[i]=JavaVMOption(pointer(opts[i]), C_NULL)
 	end
 	ppjvm=Array(Ptr{JavaVM},1)
 	ppenv=Array(Ptr{JNIEnv},1)
-	vm_args = JavaVMInitArgs(JNI_VERSION_1_6, convert(Cint, length(opts)), convert(Ptr{JavaVMOption},opt), JNI_TRUE)
+	vm_args = JavaVMInitArgs(JNI_VERSION_1_6, convert(Cint, length(opts)), convert(Ptr{JavaVMOption}, pointer(opt)), JNI_TRUE)
 
 	res = ccall(create, Cint, (Ptr{Ptr{JavaVM}}, Ptr{Ptr{JNIEnv}}, Ptr{JavaVMInitArgs}), ppjvm, ppenv, &vm_args)
 	if res < 0; error("Unable to initialise Java VM: $(res)"); end

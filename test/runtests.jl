@@ -1,5 +1,8 @@
 using Base.Test
 using JavaCall
+using Compat
+
+versioninfo();
 
 # JavaCall.init(["-Djava.class.path=$(joinpath(Pkg.dir(), "JavaCall", "test"))"])
 JavaCall.init(["-verbose:jni", "-verbose:gc","-Djava.class.path=$(joinpath(Pkg.dir(), "JavaCall", "test"))"])
@@ -17,8 +20,8 @@ T = @jimport Test
 @test typemax(jint) == jcall(T, "testInt", jint, (jint,), typemax(jint))
 @test typemax(jlong) == jcall(T, "testLong", jlong, (jlong,), typemax(jlong))
 @test "Hello Java"==jcall(T, "testString", JString, (JString,), "Hello Java")
-@test float64(10.02) == jcall(T, "testDouble", jdouble, (jdouble,), 10.02) #Comparing exact float representations hence ==
-@test float32(10.02) == jcall(T, "testFloat", jfloat, (jfloat,), 10.02)  
+@test @compat Float64(10.02) == jcall(T, "testDouble", jdouble, (jdouble,), 10.02) #Comparing exact float representations hence ==
+@test @compat Float32(10.02) == jcall(T, "testFloat", jfloat, (jfloat,), 10.02)  
 @test realmax(jdouble) == jcall(T, "testDouble", jdouble, (jdouble,), realmax(jdouble)) 
 @test realmax(jfloat) == jcall(T, "testFloat", jfloat, (jfloat,), realmax(jfloat))  
 
@@ -57,9 +60,9 @@ j_u_arrays = @jimport java.util.Arrays
 
 a=jcall(j_u_arrays, "copyOf", Array{jint, 1}, (Array{jint, 1}, jint), [1,2,3], 3)
 @test typeof(a) == Array{jint, 1}
-@test a[1] == int32(1)
-@test a[2] == int32(2)
-@test a[3] == int32(3)
+@test a[1] == @compat Int32(1)
+@test a[2] == @compat Int32(2)
+@test a[3] == @compat Int32(3)
 
 a=jcall(j_u_arrays, "copyOf", Array{JObject, 1}, (Array{JObject, 1}, jint), ["a","b","c"], 3)
 @test 3==length(a)
