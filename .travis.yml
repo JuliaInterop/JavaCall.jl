@@ -1,18 +1,9 @@
-language: cpp
-compiler:
-  - clang
+language: julia
+os:
+- osx
+- linux
+julia:
+- release
+- nightly
 notifications:
-  email: false
-env:
-    matrix: 
-        - JULIAVERSION="juliareleases" 
-        - JULIAVERSION="julianightlies" 
-before_install:
-  - sudo add-apt-repository ppa:staticfloat/julia-deps -y
-  - sudo add-apt-repository ppa:staticfloat/${JULIAVERSION} -y
-  - sudo apt-get update -qq -y
-  - sudo apt-get install libpcre3-dev julia -y
-script:
-  - julia -e 'Pkg.init(); run(`ln -s $(pwd()) $(Pkg.dir("JavaCall"))`); Pkg.pin("JavaCall"); Pkg.resolve()'
-  - julia -e 'using JavaCall; @assert isdefined(:JavaCall); @assert typeof(JavaCall) === Module'
-  - julia test/runtests.jl
+email: false
