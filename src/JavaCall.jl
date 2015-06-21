@@ -140,8 +140,8 @@ end
 # Convert a reference to a java.lang.String into a Julia string. Copies the underlying byte buffer
 function bytestring(jstr::JString)  #jstr must be a jstring obtained via a JNI call
 	if isnull(jstr); return ""; end #Return empty string to keep type stability. But this is questionable
-	pIsCopy = Array(jbyte, 1)
-	buf::Ptr{Uint8} = ccall(jnifunc.GetStringUTFChars, Ptr{Uint8}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{jbyte}), penv, jstr.ptr, pIsCopy)
+	pIsCopy = Array(jboolean, 1)
+	buf::Ptr{Uint8} = ccall(jnifunc.GetStringUTFChars, Ptr{Uint8}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{jboolean}), penv, jstr.ptr, pIsCopy)
 	s=bytestring(buf)
 	ccall(jnifunc.ReleaseStringUTFChars, Void, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}), penv, jstr.ptr, buf)
 	return s
@@ -206,12 +206,12 @@ function geterror()
 	isexception = ccall(jnifunc.ExceptionCheck, jboolean, (Ptr{JNIEnv},), penv )
 
 	if isexception == JNI_TRUE
-		jthrow = ccall(jnifunc.ExceptionOccurred, Ptr{Void}, (Ptr{JNIEnv},), penv)
-		if jthrow==C_NULL ; error ("Java Exception thrown, but no details could be retrieved from the JVM"); end
 	 	jclass = ccall(jnifunc.FindClass, Ptr{Void}, (Ptr{JNIEnv},Ptr{Uint8}), penv, "java/lang/Throwable")
 		if jclass==C_NULL; error ("Java Exception thrown, but no details could be retrieved from the JVM"); end
 		jmethodId=ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, jclass, "toString", "()Ljava/lang/String;")
 		if jmethodId==C_NULL; error ("Java Exception thrown, but no details could be retrieved from the JVM"); end
+		jthrow = ccall(jnifunc.ExceptionOccurred, Ptr{Void}, (Ptr{JNIEnv},), penv)
+		if jthrow==C_NULL ; error ("Java Exception thrown, but no details could be retrieved from the JVM"); end
 		res = ccall(jnifunc.CallObjectMethod, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, jthrow, jmethodId)
 		if res==C_NULL; error ("Java Exception thrown, but no details could be retrieved from the JVM"); end
 		msg = bytestring(JString(res))
