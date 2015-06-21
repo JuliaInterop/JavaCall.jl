@@ -52,42 +52,54 @@ jprimitive = Union(jboolean, jchar, jshort, jfloat, jdouble, jint, jlong)
 @unix_only global const libname = "libjvm"
 @windows_only global const libname = "jvm"
 function findjvm()
-	javahomes = Any[]
-	libpaths = Any[]
+    javahomes = Any[]
+    libpaths = Any[]
 
-	try 
-		push!(libpaths, ENV["JAVA_LIB"])
-	catch 
-		try 
-			push!(javahomes, ENV["JAVA_HOME"])
-		end
-		@osx_only try 
-			push!(javahomes, chomp(readall(`/usr/libexec/java_home`)))
-		end
-		@unix_only push!(javahomes, "/usr/lib/jvm/default-java/")
+    if haskey(ENV,"JAVA_HOME")
+        push!(javahomes,ENV["JAVA_HOME"])
+    end
+    if isexecutable("/usr/libexec/java_home")
+        push!(javahomes,chomp(readall(`/usr/libexec/java_home`)))
+    end
 
-		libpaths = {""}
-		for n in javahomes
-			@windows_only push!(libpaths, joinpath(n, "jre", "bin", "server"))
-			@linux_only if WORD_SIZE==64; push!(libpaths, joinpath(n, "jre", "lib", "amd64", "server")); end
-			@linux_only if WORD_SIZE==32; push!(libpaths, joinpath(n, "jre", "lib", "i386", "server")); end
-			push!(libpaths, joinpath(n, "jre", "lib", "server"))
+    if isdir("/usr/lib/jvm/default-java/")
+        push!(javahomes, "/usr/lib/jvm/default-java/")
+    end
 
-		end
-	end
-	for n in libpaths
-		try 
-			global libjvm = dlopen(joinpath(n, libname))
-			println("Found libjvm @ $n")
-			return
-		end
-	end
-	error ("Cannot find java library in: $(libpaths)To override the search, set the JAVA_LIB environment variable to the directory containing $(libname).$(@windows?"dll":@osx?"dylib":"so")")
+    push!(libpaths,pwd())
+    for n in javahomes
+        @windows_only push!(libpaths, joinpath(n, "jre", "bin", "server"))
+        @linux_only if WORD_SIZE==64; push!(libpaths, joinpath(n, "jre", "lib", "amd64", "server")); end
+        @linux_only if WORD_SIZE==32; push!(libpaths, joinpath(n, "jre", "lib", "i386", "server")); end
+        push!(libpaths, joinpath(n, "jre", "lib", "server"))
+    end
+    
+    ext = "."*@windows? "dll":@osx? " dylib":"so"
+    try 
+        for n in libpaths
+            libpath = joinpath(n,libname*ext);
+            if isreadable(libpath) 
+                global libjvm = Libdl.dlopen(libpath)
+                println("Loaded $libpath")
+                return
+            end
+        end
+    end
+
+    errorMsg =
+    [ 
+        "Cannot find java library $libname$ext\n",
+        "Search Path:"
+    ];
+    for path in libpaths
+       push!(errorMsg,"\n   $path")
+    end
+    error(reduce(*,errorMsg));
 end
 
 findjvm()
 
-create = dlsym(libjvm, :JNI_CreateJavaVM)
+create = Libdl.dlsym(libjvm, :JNI_CreateJavaVM)
 
 immutable JavaVMOption 
 	optionString::Ptr{Uint8}
