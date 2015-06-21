@@ -74,7 +74,7 @@ function findjvm()
         push!(libpaths, joinpath(n, "jre", "lib", "server"))
     end
     
-    ext = "."*@windows? "dll":@osx? " dylib":"so"
+    ext = "."*@windows? "dll":@osx? "dylib":"so"
     try 
         for n in libpaths
             libpath = joinpath(n,libname*ext);
