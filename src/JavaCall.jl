@@ -475,8 +475,7 @@ function init{T<:String}(opts::Array{T, 1})
 	jvm = unsafe_load(pjvm)
 	global jvmfunc = unsafe_load(jvm.JNIInvokeInterface_)
 	global jnifunc = unsafe_load(jnienv.JNINativeInterface_) #The JNI Function table
-	#@assert ccall(jnifunc.GetVersion, Cint, (Ptr{JNIEnv},), penv) == JNI_VERSION_1_6
-	
+	return
 end
 
 function destroy()
