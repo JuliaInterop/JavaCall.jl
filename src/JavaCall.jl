@@ -161,14 +161,15 @@ end
 
 convert{T<:String}(::Type{JString}, str::T) = JString(str)
 convert{T<:String}(::Type{JObject}, str::T) = convert(JObject, JString(str))
-#Cast java object from S to T 
+
+#Cast java object from S to T . Needed for polymorphic calls
 function convert{T,S}(::Type{JavaObject{T}}, obj::JavaObject{S}) 
-	if (ccall(jnifunc.IsAssignableFrom, jboolean, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, metaclass(S).ptr, metaclass(T).ptr ) == JNI_TRUE)   #Safe static cast
+	if (ccall(jnifunc.IsAssignableFrom, jboolean, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, metaclass(S), metaclass(T) ) == JNI_TRUE)   #Safe static cast
 			return JavaObject{T}(obj.ptr)
 	end 
 	if isnull(obj) ; error("Cannot convert NULL"); end
 	realClass = ccall(jnifunc.GetObjectClass, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void} ), penv, obj.ptr)
-	if (ccall(jnifunc.IsAssignableFrom, jboolean, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, realClass, metaclass(T).ptr ) == JNI_TRUE)  #dynamic cast
+	if (ccall(jnifunc.IsAssignableFrom, jboolean, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, realClass, metaclass(T) ) == JNI_TRUE)  #dynamic cast
 			return JavaObject{T}(obj.ptr)
 	end 
 	error("Cannot cast java object from $S to $T")
@@ -192,7 +193,7 @@ end
 
 function jnew(T::Symbol, argtypes::Tuple, args...) 
 	sig = method_signature(Void, argtypes...)
-	jmethodId = ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, metaclass(T).ptr, utf8("<init>"), sig)
+	jmethodId = ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, metaclass(T), utf8("<init>"), sig)
 	if (jmethodId == C_NULL) 
 		error("No constructor for $typ with signature $sig")
 	end 
@@ -214,7 +215,7 @@ metaclass{T}(::JavaObject{T}) = metaclass(T)
 
 javaclassname(class::Symbol) = utf8(replace(string(class), '.', '/'))
 
-function geterror()
+function geterror(allow=false)
 	isexception = ccall(jnifunc.ExceptionCheck, jboolean, (Ptr{JNIEnv},), penv )
 
 	if isexception == JNI_TRUE
@@ -231,35 +232,56 @@ function geterror()
 		ccall(jnifunc.ExceptionClear, Void, (Ptr{JNIEnv},), penv )
 
 		error(string("Error calling Java: ",msg))
-	else 
-		return #No exception pending, legitimate NULL returned from Java
+	else
+		if allow==false
+			return #No exception pending, legitimate NULL returned from Java
+		else
+			error("Null from Java. Not known how")
+		end
 	end
 end
 
+if VERSION < v"0.4-"
+	const unsafe_convert = Base.convert
+else
+	const unsafe_convert = Base.unsafe_convert
+end
+unsafe_convert(::Type{Ptr{Void}}, cls::JClass) = cls.ptr
 
 # Call static methods
 function jcall{T}(typ::Type{JavaObject{T}}, method::String, rettype::Type, argtypes::Tuple, args... )
-	sig = method_signature(rettype, argtypes...)
+	try
+		gc_disable()
+		sig = method_signature(rettype, argtypes...)
 
-	jmethodId = ccall(jnifunc.GetStaticMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, metaclass(T).ptr, utf8(method), sig)
-	if jmethodId==C_NULL; geterror(); end
+		jmethodId = ccall(jnifunc.GetStaticMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, metaclass(T), utf8(method), sig)
+		if jmethodId==C_NULL; geterror(true); end
 
-	_jcall(metaclass(T), jmethodId, C_NULL, rettype, argtypes, args...)
+		_jcall(metaclass(T), jmethodId, C_NULL, rettype, argtypes, args...)
+	finally
+		gc_enable()
+	end
 
 end
 
 # Call instance methods
 function jcall(obj::JavaObject, method::String, rettype::Type, argtypes::Tuple, args... )
-	sig = method_signature(rettype, argtypes...)
-	jmethodId = ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, metaclass(obj).ptr, utf8(method), sig)
-	if jmethodId==C_NULL; geterror(); end
-
-	_jcall(obj, jmethodId, C_NULL, rettype,  argtypes, args...)
+	try
+		gc_disable()
+		sig = method_signature(rettype, argtypes...)
+		jmethodId = ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, metaclass(obj), utf8(method), sig)
+		if jmethodId==C_NULL; geterror(true); end
+	    println("Calling $method on $(obj.ptr)")
+		_jcall(obj, jmethodId, C_NULL, rettype,  argtypes, args...)
+	finally
+		gc_enable();
+	end
 end
 
 
 
 #Generate these methods to satisfy ccall's compile time constant requirement
+#_jcall for primitive and Void return types
 for (x, y, z) in [ (:jboolean, :(jnifunc.CallBooleanMethodA), :(jnifunc.CallStaticBooleanMethodA)),
 					(:jchar, :(jnifunc.CallCharMethodA), :(jnifunc.CallStaticCharMethodA)),
 					(:jbyte, :(jnifunc.CallByteMethodA), :(jnifunc.CallStaticByteMethodA)),
@@ -271,13 +293,14 @@ for (x, y, z) in [ (:jboolean, :(jnifunc.CallBooleanMethodA), :(jnifunc.CallStat
 					(:Void, :(jnifunc.CallVoidMethodA), :(jnifunc.CallStaticVoidMethodA)) ]
 	m = quote
 		function _jcall(obj,  jmethodId::Ptr{Void}, callmethod::Ptr{Void}, rettype::Type{$(x)}, argtypes::Tuple, args... ) 
-			 	if callmethod == C_NULL
+			 	if callmethod == C_NULL #!
 			 		callmethod = ifelse( typeof(obj)<:JavaObject, $y , $z )
 			 	end
 			 	@assert callmethod != C_NULL
 				@assert jmethodId != C_NULL
 				if(isnull(obj)); error("Attempt to call method on Java NULL"); end
-				result = ccall(callmethod, $x , (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), penv, obj.ptr, jmethodId, convert_args(argtypes, args...))
+				savedArgs, convertedArgs = convert_args(argtypes, args...)
+				result = ccall(callmethod, $x , (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), penv, obj.ptr, jmethodId, convertedArgs)
 				if result==C_NULL; geterror(); end
 				if result == nothing; return; end
 				return convert_result(rettype, result)
@@ -286,6 +309,10 @@ for (x, y, z) in [ (:jboolean, :(jnifunc.CallBooleanMethodA), :(jnifunc.CallStat
 	eval(m)
 end
 
+#_jcall for Object return types
+#obj -- reciever - Class pointer or object prointer
+#jmethodId -- Java method ID
+#callmethod -- the C method pointer to call
 function _jcall(obj,  jmethodId::Ptr{Void}, callmethod::Ptr{Void}, rettype::Type, argtypes::Tuple, args... ) 
 		if callmethod == C_NULL
 			callmethod = ifelse( typeof(obj)<:JavaObject, jnifunc.CallObjectMethodA , jnifunc.CallStaticObjectMethodA )
@@ -293,7 +320,8 @@ function _jcall(obj,  jmethodId::Ptr{Void}, callmethod::Ptr{Void}, rettype::Type
 		@assert callmethod != C_NULL
 		@assert jmethodId != C_NULL
 		if(isnull(obj)); error("Attempt to call method on Java NULL"); end
-		result = ccall(callmethod, Ptr{Void} , (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), penv, obj.ptr, jmethodId, convert_args(argtypes, args...))
+		savedArgs, convertedArgs = convert_args(argtypes, args...)
+		result = ccall(callmethod, Ptr{Void} , (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), penv, obj.ptr, jmethodId, convertedArgs)
 		if result==C_NULL; geterror(); end
 		return convert_result(rettype, result)
 end
@@ -317,15 +345,28 @@ end
 
 function convert_args(argtypes::Tuple, args...)
 	convertedArgs = Array(Int64, length(args))
+	savedArgs = Array(Any, length(args))
 	for i in 1:length(args)
-		convertedArgs[i] = jvalue(convert_arg(argtypes[i], args[i]))
+		r = convert_arg(argtypes[i], args[i])
+		savedArgs[i] = r[1]
+		convertedArgs[i] = jvalue(r[2])
 	end
-	return convertedArgs
+	return savedArgs, convertedArgs
 end
 
-convert_arg(argtype::Type{JString}, arg) = convert(JString, arg).ptr
-convert_arg(argtype::Type, arg) = convert(argtype, arg)
-convert_arg{T<:JavaObject}(argtype::Type{T}, arg) = convert(T, arg).ptr
+function convert_arg(argtype::Type{JString}, arg) 
+	x = convert(JString, arg)
+	return x, x.ptr
+end
+
+function convert_arg(argtype::Type, arg) 
+	x = convert(argtype, arg)
+	return x,x
+end
+function convert_arg{T<:JavaObject}(argtype::Type{T}, arg) 
+    x = convert(T, arg)::T
+    return x, x.ptr
+end
 
 for (x, y, z) in [ (:jboolean, :(jnifunc.NewBooleanArray), :(jnifunc.SetBooleanArrayRegion)),
 					(:jchar, :(jnifunc.NewCharArray), :(jnifunc.SetCharArrayRegion)),
@@ -351,7 +392,7 @@ function convert_arg{T<:JavaObject}(argtype::Type{Array{T,1}}, arg)
 	carg = convert(argtype, arg)
 	sz=length(carg)
 	init=carg[1]
-	arrayptr = ccall(jnifunc.NewObjectArray, Ptr{Void}, (Ptr{JNIEnv}, jint, Ptr{Void}, Ptr{Void}), penv, sz, metaclass(T).ptr, init.ptr)
+	arrayptr = ccall(jnifunc.NewObjectArray, Ptr{Void}, (Ptr{JNIEnv}, jint, Ptr{Void}, Ptr{Void}), penv, sz, metaclass(T), init.ptr)
 	for i=2:sz 
 		ccall(jnifunc.SetObjectArrayElement, Void, (Ptr{JNIEnv}, Ptr{Void}, jint, Ptr{Void}), penv, arrayptr, i-1, carg[i].ptr)
 	end
@@ -435,8 +476,10 @@ end
 signature{T}(arg::Type{JavaObject{T}}) = string("L", javaclassname(T), ";")
 
 function deleteref(x::JavaObject)
+	
 	if x.ptr == C_NULL; return; end
 	if (penv==C_NULL); return; end
+	#ccall(:jl_,Void,(Any,),x)
 	ccall(jnifunc.DeleteLocalRef, Void, (Ptr{JNIEnv}, Ptr{Void}), penv, x.ptr)
 	x.ptr=C_NULL #Safety in case this function is called direcly, rather than at finalize 
 	return
