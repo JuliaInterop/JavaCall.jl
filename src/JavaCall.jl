@@ -271,7 +271,6 @@ function jcall(obj::JavaObject, method::String, rettype::Type, argtypes::Tuple, 
 		sig = method_signature(rettype, argtypes...)
 		jmethodId = ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, metaclass(obj), utf8(method), sig)
 		if jmethodId==C_NULL; geterror(true); end
-	    println("Calling $method on $(obj.ptr)")
 		_jcall(obj, jmethodId, C_NULL, rettype,  argtypes, args...)
 	finally
 		gc_enable();
@@ -382,7 +381,7 @@ for (x, y, z) in [ (:jboolean, :(jnifunc.NewBooleanArray), :(jnifunc.SetBooleanA
 			sz=length(carg)
 			arrayptr = ccall($y, Ptr{Void}, (Ptr{JNIEnv}, jint), penv, sz)
 			ccall($z, Void, (Ptr{JNIEnv}, Ptr{Void}, jint, jint, Ptr{$x}), penv, arrayptr, 0, sz, carg)
-			return arrayptr
+			return carg, arrayptr
 		end
 	end
 	eval( m)
@@ -396,7 +395,7 @@ function convert_arg{T<:JavaObject}(argtype::Type{Array{T,1}}, arg)
 	for i=2:sz 
 		ccall(jnifunc.SetObjectArrayElement, Void, (Ptr{JNIEnv}, Ptr{Void}, jint, Ptr{Void}), penv, arrayptr, i-1, carg[i].ptr)
 	end
-	return arrayptr
+	return carg, arrayptr
 end
 
 convert_result{T<:JString}(rettype::Type{T}, result) = bytestring(JString(result))
