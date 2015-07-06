@@ -79,6 +79,9 @@ for i in 1:100000
 	if (i%10000 == 0); gc(); end
 end
 
+#Test for Issue #8
+@test_throws ErrorException jcall(jlm, "sinx", jdouble, (jdouble,), 1.0)
+@test_throws ErrorException jcall(jlm, "sinx", jdouble, (jdouble,), 1.0)
 
 # At the end, unload the JVM before exiting
 JavaCall.destroy()
