@@ -219,18 +219,18 @@ function geterror(allow=false)
 	isexception = ccall(jnifunc.ExceptionCheck, jboolean, (Ptr{JNIEnv},), penv )
 
 	if isexception == JNI_TRUE
+		jthrow = ccall(jnifunc.ExceptionOccurred, Ptr{Void}, (Ptr{JNIEnv},), penv)
+		if jthrow==C_NULL ; error ("Java Exception thrown, but no details could be retrieved from the JVM"); end
+		ccall(jnifunc.ExceptionDescribe, Void, (Ptr{JNIEnv},), penv ) #Print java stackstrace to stdout
+		ccall(jnifunc.ExceptionClear, Void, (Ptr{JNIEnv},), penv )
 	 	jclass = ccall(jnifunc.FindClass, Ptr{Void}, (Ptr{JNIEnv},Ptr{Uint8}), penv, "java/lang/Throwable")
 		if jclass==C_NULL; error ("Java Exception thrown, but no details could be retrieved from the JVM"); end
 		jmethodId=ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, jclass, "toString", "()Ljava/lang/String;")
 		if jmethodId==C_NULL; error ("Java Exception thrown, but no details could be retrieved from the JVM"); end
-		jthrow = ccall(jnifunc.ExceptionOccurred, Ptr{Void}, (Ptr{JNIEnv},), penv)
-		if jthrow==C_NULL ; error ("Java Exception thrown, but no details could be retrieved from the JVM"); end
-		res = ccall(jnifunc.CallObjectMethod, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, jthrow, jmethodId)
+		res = ccall(jnifunc.CallObjectMethodA, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), penv, jthrow, jmethodId,C_NULL)
 		if res==C_NULL; error ("Java Exception thrown, but no details could be retrieved from the JVM"); end
 		msg = bytestring(JString(res))
-		ccall(jnifunc.ExceptionDescribe, Void, (Ptr{JNIEnv},), penv ) #Print java stackstrace to stdout
-		ccall(jnifunc.ExceptionClear, Void, (Ptr{JNIEnv},), penv )
-
+                ccall(jnifunc.DeleteLocalRef, Void, (Ptr{JNIEnv}, Ptr{Void}), penv, jthrow)
 		error(string("Error calling Java: ",msg))
 	else
 		if allow==false
