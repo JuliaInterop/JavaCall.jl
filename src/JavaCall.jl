@@ -251,7 +251,7 @@ unsafe_convert(::Type{Ptr{Void}}, cls::JClass) = cls.ptr
 # Call static methods
 function jcall{T}(typ::Type{JavaObject{T}}, method::String, rettype::Type, argtypes::Tuple, args... )
 	try
-		gc_disable()
+		gc_enable(false)
 		sig = method_signature(rettype, argtypes...)
 
 		jmethodId = ccall(jnifunc.GetStaticMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, metaclass(T), utf8(method), sig)
@@ -259,7 +259,7 @@ function jcall{T}(typ::Type{JavaObject{T}}, method::String, rettype::Type, argty
 
 		_jcall(metaclass(T), jmethodId, C_NULL, rettype, argtypes, args...)
 	finally
-		gc_enable()
+		gc_enable(true)
 	end
 
 end
@@ -267,13 +267,13 @@ end
 # Call instance methods
 function jcall(obj::JavaObject, method::String, rettype::Type, argtypes::Tuple, args... )
 	try
-		gc_disable()
+		gc_enable(false)
 		sig = method_signature(rettype, argtypes...)
 		jmethodId = ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, metaclass(obj), utf8(method), sig)
 		if jmethodId==C_NULL; geterror(true); end
 		_jcall(obj, jmethodId, C_NULL, rettype,  argtypes, args...)
 	finally
-		gc_enable();
+		gc_enable(true)
 	end
 end
 
