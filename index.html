@@ -53,46 +53,46 @@
       </div>
       </header>
       <section>
-	<h1 id="toc_0">Call Java programs from Julia</h1>
+	<h1 id="call-java-programs-from-julia">Call Java programs from Julia</h1>
 
-<p>The JavaCall package allows calling Java programs from within Julia code. It uses the Java Native Interface (<a href="http://docs.oracle.com/javase/1.5.0/docs/guide/jni/spec/jniTOC.html">JNI</a>) to call into an in-process Java Virtual Machine (JVM). The primary entry point to Java is the <code>jcall</code> function. This is modeled on the Julia <code>ccall</code> function, and takes as input the receiver object (or type for static methods), the method name, the output type, a tuple of the method parameter types, and the parameters themselves. </p>
+<p>The JavaCall package allows calling Java programs from within Julia code. It uses the Java Native Interface (<a href="http://docs.oracle.com/javase/1.5.0/docs/guide/jni/spec/jniTOC.html">JNI</a>) to call into an in-process Java Virtual Machine (JVM). The primary entry point to Java is the <code>jcall</code> function. This is modeled on the Julia <code>ccall</code> function, and takes as input the receiver object (or class, for static methods), the method name, the output type, a tuple of the method parameter types, and the parameters themselves. </p>
 
-<p>This package has been tested using Oracle JDK 7 on MacOSX and Ubuntu on 64 bits. It <em>should</em> work on Windows. However, it is unlikely to work on a 32 bit processor without further work. It will not work with the Apple 1.6 JDK since that is a 32 bit environment, and Julia is typically built as a 64 bit executable on OSX. </p>
+<p>This package has been extensively tested using Oracle JDK 7 and Oracle JDK 8 on MacOSX and Ubuntu on 64 bit environments. It has also been shown to work with <code>OpenJDK</code> flavoue of java, versions 7 and 8. It <em>should</em> work on Windows. However, it is unlikely to work on a 32 bit environments without further work. It will not work with the Apple 1.6 JDK since that is a 32 bit environment, and Julia is typically built as a 64 bit executable on OSX. </p>
 
-<h2 id="toc_1">Installation</h2>
-<div class="highlight"><pre><code class="julia language-julia" data-lang="julia"><span class="n">Pkg</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s">&quot;JavaCall&quot;</span><span class="p">)</span>
+<h2 id="installation">Installation</h2>
+<div class="highlight"><pre><code class="language-julia" data-lang="julia"><span class="n">Pkg</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s">&quot;JavaCall&quot;</span><span class="p">)</span>
 </code></pre></div>
 <p>This package has a dependency on the <code>Memoize</code> package</p>
 
-<h2 id="toc_2">Usage</h2>
+<h2 id="usage">Usage</h2>
 
 <p>Static and instance methods with primitive or object arguments and return values are callable. One dimensional Array arguments and return values are also supported. Primitive, string, object or array arguments are converted as required. </p>
-<div class="highlight"><pre><code class="jlcon language-jlcon" data-lang="jlcon"><span class="gp">jul</span><span class="n">ia</span><span class="o">&gt;</span> <span class="k">using</span> <span class="n">JavaCall</span>
+<div class="highlight"><pre><code class="language-jlcon" data-lang="jlcon"><span class="gp">julia&gt;</span> <span class="k">using</span> <span class="n">JavaCall</span>
 
-<span class="gp">jul</span><span class="n">ia</span><span class="o">&gt;</span> <span class="n">JavaCall</span><span class="o">.</span><span class="n">init</span><span class="p">([</span><span class="s">&quot;-Xmx128M&quot;</span><span class="p">])</span>
+<span class="gp">julia&gt;</span> <span class="n">JavaCall</span><span class="o">.</span><span class="n">init</span><span class="p">([</span><span class="s">&quot;-Xmx128M&quot;</span><span class="p">])</span>
 
-<span class="gp">jul</span><span class="n">ia</span><span class="o">&gt;</span> <span class="n">jlm</span> <span class="o">=</span> <span class="p">@</span><span class="n">jimport</span> <span class="n">java</span><span class="o">.</span><span class="n">lang</span><span class="o">.</span><span class="n">Math</span>
+<span class="gp">julia&gt;</span> <span class="n">jlm</span> <span class="o">=</span> <span class="p">@</span><span class="n">jimport</span> <span class="n">java</span><span class="o">.</span><span class="n">lang</span><span class="o">.</span><span class="n">Math</span>
 <span class="go">JavaObject{:java.lang.Math} (constructor with 2 methods))</span>
 
-<span class="gp">jul</span><span class="n">ia</span><span class="o">&gt;</span> <span class="n">jcall</span><span class="p">(</span><span class="n">jlm</span><span class="p">,</span> <span class="s">&quot;sin&quot;</span><span class="p">,</span> <span class="n">jdouble</span><span class="p">,</span> <span class="p">(</span><span class="n">jdouble</span><span class="p">,),</span> <span class="nb">pi</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">julia&gt;</span> <span class="n">jcall</span><span class="p">(</span><span class="n">jlm</span><span class="p">,</span> <span class="s">&quot;sin&quot;</span><span class="p">,</span> <span class="n">jdouble</span><span class="p">,</span> <span class="p">(</span><span class="n">jdouble</span><span class="p">,),</span> <span class="nb">pi</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
 <span class="go">1.0</span>
 
-<span class="gp">jul</span><span class="n">ia</span><span class="o">&gt;</span> <span class="n">jnu</span> <span class="o">=</span> <span class="p">@</span><span class="n">jimport</span> <span class="n">java</span><span class="o">.</span><span class="n">net</span><span class="o">.</span><span class="n">URL</span>
+<span class="gp">julia&gt;</span> <span class="n">jnu</span> <span class="o">=</span> <span class="p">@</span><span class="n">jimport</span> <span class="n">java</span><span class="o">.</span><span class="n">net</span><span class="o">.</span><span class="n">URL</span>
 <span class="go">JavaObject{:java.net.URL} (constructor with 2 methods)</span>
 
-<span class="gp">jul</span><span class="n">ia</span><span class="o">&gt;</span> <span class="n">gurl</span> <span class="o">=</span> <span class="n">jnu</span><span class="p">((</span><span class="n">JString</span><span class="p">,),</span> <span class="s">&quot;http://www.google.com&quot;</span><span class="p">)</span>
+<span class="gp">julia&gt;</span> <span class="n">gurl</span> <span class="o">=</span> <span class="n">jnu</span><span class="p">((</span><span class="n">JString</span><span class="p">,),</span> <span class="s">&quot;http://www.google.com&quot;</span><span class="p">)</span>
 <span class="go">JavaObject{:java.net.URL}(Ptr{Void} @0x0000000108ae2aa8)</span>
 
-<span class="gp">jul</span><span class="n">ia</span><span class="o">&gt;</span> <span class="n">jcall</span><span class="p">(</span><span class="n">gurl</span><span class="p">,</span> <span class="s">&quot;getHost&quot;</span><span class="p">,</span> <span class="n">JString</span><span class="p">,())</span>
+<span class="gp">julia&gt;</span> <span class="n">jcall</span><span class="p">(</span><span class="n">gurl</span><span class="p">,</span> <span class="s">&quot;getHost&quot;</span><span class="p">,</span> <span class="n">JString</span><span class="p">,())</span>
 <span class="go">&quot;www.google.com&quot;</span>
 
-<span class="gp">jul</span><span class="n">ia</span><span class="o">&gt;</span> <span class="n">j_u_arrays</span> <span class="o">=</span> <span class="p">@</span><span class="n">jimport</span> <span class="n">java</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">Arrays</span>
+<span class="gp">julia&gt;</span> <span class="n">j_u_arrays</span> <span class="o">=</span> <span class="p">@</span><span class="n">jimport</span> <span class="n">java</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">Arrays</span>
 <span class="go">JavaObject{:java.util.Arrays} (constructor with 2 methods)</span>
 
-<span class="gp">jul</span><span class="n">ia</span><span class="o">&gt;</span> <span class="n">jcall</span><span class="p">(</span><span class="n">j_u_arrays</span><span class="p">,</span> <span class="s">&quot;binarySearch&quot;</span><span class="p">,</span> <span class="n">jint</span><span class="p">,</span> <span class="p">(</span><span class="n">Array</span><span class="p">{</span><span class="n">jint</span><span class="p">,</span><span class="mi">1</span><span class="p">},</span> <span class="n">jint</span><span class="p">),</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span><span class="mi">20</span><span class="p">,</span><span class="mi">30</span><span class="p">,</span><span class="mi">40</span><span class="p">,</span><span class="mi">50</span><span class="p">,</span><span class="mi">60</span><span class="p">],</span> <span class="mi">40</span><span class="p">)</span>
+<span class="gp">julia&gt;</span> <span class="n">jcall</span><span class="p">(</span><span class="n">j_u_arrays</span><span class="p">,</span> <span class="s">&quot;binarySearch&quot;</span><span class="p">,</span> <span class="n">jint</span><span class="p">,</span> <span class="p">(</span><span class="n">Array</span><span class="p">{</span><span class="n">jint</span><span class="p">,</span><span class="mi">1</span><span class="p">},</span> <span class="n">jint</span><span class="p">),</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span><span class="mi">20</span><span class="p">,</span><span class="mi">30</span><span class="p">,</span><span class="mi">40</span><span class="p">,</span><span class="mi">50</span><span class="p">,</span><span class="mi">60</span><span class="p">],</span> <span class="mi">40</span><span class="p">)</span>
 <span class="go">3</span>
 </code></pre></div>
-<h2 id="toc_3">Major TODOs and Caveats</h2>
+<h2 id="major-todos-and-caveats">Major TODOs and Caveats</h2>
 
 <ul>
 <li><p>Multidimensional arrays, either as arguments or return values are not supported. Since Java uses Array-of-Arrays, unlike Julia&#39;s  true multidimensional arrays, supporting them is non-trivial, though certainly feasible.  </p></li>
