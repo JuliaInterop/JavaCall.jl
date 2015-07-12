@@ -1,5 +1,5 @@
 module JavaCall
-export JavaObject, JClass, JString, jint, jlong, jbyte, jboolean, jchar, jshort, jfloat, jdouble, JObject, 
+export JavaObject, JavaClass, JString, jint, jlong, jbyte, jboolean, jchar, jshort, jfloat, jdouble, JObject, 
 	   @jimport, jcall, isnull
 
 # using Debug
@@ -116,12 +116,12 @@ end
 include("jnienv.jl")
 
 
-immutable JClass{T}
+immutable JavaClass{T}
 	ptr::Ptr{Void}
 end
 
 #The metaclass, sort of equivalent to a java.lang.Class<T>
-JClass(T, ptr) = JClass{T}(ptr)
+JavaClass(T, ptr) = JavaClass{T}(ptr)
 
 type JavaObject{T}
 	ptr::Ptr{Void}
@@ -201,13 +201,13 @@ function jnew(T::Symbol, argtypes::Tuple, args...)
 end
 
 isnull(obj::JavaObject) = obj.ptr == C_NULL
-isnull(obj::JClass) = obj.ptr == C_NULL
+isnull(obj::JavaClass) = obj.ptr == C_NULL
 
 @memoize function metaclass(class::Symbol)
 	jclass=javaclassname(class)
 	jclassptr = ccall(jnifunc.FindClass, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Uint8}), penv, jclass)
 	if jclassptr == C_NULL; error("Class Not Found $jclass"); end
-	return JClass(class, jclassptr)
+	return JavaClass(class, jclassptr)
 end
 
 metaclass{T}(::Type{JavaObject{T}}) = metaclass(T)
@@ -246,7 +246,7 @@ if VERSION < v"0.4-"
 else
 	const unsafe_convert = Base.unsafe_convert
 end
-unsafe_convert(::Type{Ptr{Void}}, cls::JClass) = cls.ptr
+unsafe_convert(::Type{Ptr{Void}}, cls::JavaClass) = cls.ptr
 
 # Call static methods
 function jcall{T}(typ::Type{JavaObject{T}}, method::String, rettype::Type, argtypes::Tuple, args... )
@@ -333,7 +333,7 @@ jvalue(v::Ptr) = jvalue(@compat Int(v))
 
 # Get the JNI/C type for a particular Java type
 function real_jtype(rettype)
-	if issubtype(rettype, JavaObject) || issubtype(rettype, Array) || issubtype(rettype, JClass)
+	if issubtype(rettype, JavaObject) || issubtype(rettype, Array) || issubtype(rettype, JavaClass)
 		jnitype = Ptr{Void}
 	else 
 		jnitype = rettype
