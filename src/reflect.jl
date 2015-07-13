@@ -1,16 +1,9 @@
 
-using JavaCall
-using Compat
-
-if !JavaCall.isloaded()
-    JavaCall.init([])
-end
-
-JJClass = @jimport java.lang.Class
+JClass = @jimport java.lang.Class
 JMethod = @jimport java.lang.reflect.Method
 
 function getclass(obj::JavaObject)
-    jcall(obj, "getClass", JJClass, ())
+    jcall(obj, "getClass", JClass, ())
 end
 
 function conventional_name(name::String)
@@ -32,26 +25,45 @@ function conventional_name(name::String)
         return "double"
     elseif name == "V"
         return "void"
+    elseif @compat startswith(name, "L")
+        return name[2:end-1]
     else
         return name
     end
 end
 
-function getclassname(cls::JJClass)
+function getname(cls::JClass)
     rawname = jcall(cls, "getName", JString, ())
-    return conventional_name(rawname)
+    conventional_name(rawname)
+end
+
+function getname(method::JMethod)
+    jcall(method, "getName", JString, ())
 end
 
 function listmethods(obj::JavaObject)
     cls = getclass(obj)
-    methods = jcall(cls, "getMethods", Vector{JMethod}, ())
+    jcall(cls, "getMethods", Vector{JMethod}, ())
+end
+
+function listmethods(obj::JavaObject, name::String)
+    allmethods = listmethods(obj)
+    filter(m -> getname(m) == name, allmethods)
+end
+
+function getreturntype(method::JMethod)
+    jcall(method, "getReturnType", JClass, ())
+end
+
+function getparametertypes(method::JMethod)
+    jcall(method, "getParameterTypes", Vector{JClass}, ())
 end
 
 function Base.show(io::IO, method::JMethod)
-    name = jcall(method, "getName", JString, ())
-    rettype = getclassname(jcall(method, "getReturnType", JJClass, ()))
-    argtypes = [getclassname(c) for c in
-                jcall(method, "getParameterTypes", Vector{JJClass}, ())]
+    name = getname(method)
+    rettype = getname(getreturntype(method))
+    argtypes = [getname(c) for c in getparametertypes(method)]
     argtypestr = join(argtypes, ", ")
     print(io, "$rettype $name($argtypestr)")
 end
+
