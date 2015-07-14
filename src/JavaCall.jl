@@ -1,6 +1,9 @@
 module JavaCall
-export JavaObject, JavaMetaClass, JString, jint, jlong, jbyte, jboolean, jchar, jshort, jfloat, jdouble, JObject, 
-	   @jimport, jcall, isnull
+export JavaObject, JavaMetaClass, 
+       jint, jlong, jbyte, jboolean, jchar, jshort, jfloat, jdouble, 
+       JObject, JClass, JMethod, JString, 
+       @jimport, jcall, isnull,
+       getname, listmethods, getreturntype, getparametertypes
 
 # using Debug
 using Memoize
@@ -545,6 +548,6 @@ function destroy()
 	global penv=C_NULL; global pjvm=C_NULL; 
 end
 
-
+include("reflect.jl")
 
 end # module
