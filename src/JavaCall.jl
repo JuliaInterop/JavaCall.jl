@@ -14,6 +14,12 @@ else
 	import Base.isnull
 end
 
+if VERSION < v"0.4-"
+	using Dates
+else
+	using Base.Dates
+end
+
 const JNI_VERSION_1_1 =  convert(Cint, 0x00010001)
 const JNI_VERSION_1_2 =  convert(Cint, 0x00010002)
 const JNI_VERSION_1_4 =  convert(Cint, 0x00010004)
@@ -435,6 +441,19 @@ function convert_result{T}(rettype::Type{Array{JavaObject{T},1}}, result)
 	return ret
 end
 
+#The second term in this addition is due to the fact that Java converts all times to local time
+convert(::Type{DateTime}, x::JavaObject) = Dates.unix2datetime(jcall(convert(@jimport(java.util.Date),x), "getTime", jlong, ())/1000) +
+												Second(round(div(Dates.value(now() - now(Dates.UTC)),1000)/900)*(900))
+
+function unsafe_convert(::Type{@jimport(java.util.Properties)}, x::Dict) 
+	Properties = @jimport(java.util.Properties)
+	p = Properties(())
+	for (n,v) in x
+		jcall(p, "setProperty", @jimport(java.lang.Object), (JString, JString), n, v)
+	end
+	return p
+end
+
 #get the JNI signature string for a method, given its 
 #return type and argument types
 function method_signature(rettype, argtypes...)
@@ -474,8 +493,7 @@ end
 
 signature{T}(arg::Type{JavaObject{T}}) = string("L", javaclassname(T), ";")
 
-function deleteref(x::JavaObject)
-	
+function deleteref(x::JavaObject)	
 	if x.ptr == C_NULL; return; end
 	if (penv==C_NULL); return; end
 	#ccall(:jl_,Void,(Any,),x)
