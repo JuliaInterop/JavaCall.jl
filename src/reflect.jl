@@ -1,7 +1,4 @@
 
-JClass = @jimport java.lang.Class
-JMethod = @jimport java.lang.reflect.Method
-
 function getclass(obj::JavaObject)
     jcall(obj, "getClass", JClass, ())
 end
