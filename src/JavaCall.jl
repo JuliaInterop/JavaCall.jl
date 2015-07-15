@@ -31,9 +31,8 @@ end
 
 
 include("jvm.jl")
-include("types.jl")
 include("jnienv.jl")
-include("jcall.jl")
+include("core.jl")
 include("convert.jl")
 include("reflect.jl")
 

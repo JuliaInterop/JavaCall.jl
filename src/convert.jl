@@ -145,3 +145,13 @@ function unsafe_convert(::Type{@jimport(java.util.Properties)}, x::Dict)
     end
     return p
 end
+
+# Convert a reference to a java.lang.String into a Julia string. Copies the underlying byte buffer
+function bytestring(jstr::JString)  #jstr must be a jstring obtained via a JNI call
+    if isnull(jstr); return ""; end #Return empty string to keep type stability. But this is questionable
+    pIsCopy = Array(jboolean, 1)
+    buf::Ptr{Uint8} = ccall(jnifunc.GetStringUTFChars, Ptr{Uint8}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{jboolean}), penv, jstr.ptr, pIsCopy)
+    s=bytestring(buf)
+    ccall(jnifunc.ReleaseStringUTFChars, Void, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}), penv, jstr.ptr, buf)
+    return s
+end
