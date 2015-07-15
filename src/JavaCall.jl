@@ -126,7 +126,7 @@ immutable JavaMetaClass{T}
 	ptr::Ptr{Void}
 end
 
-#The metaclass, sort of equivalent to a java.lang.Class<T>
+#The metaclass, sort of equivalent to a the 
 JavaMetaClass(T, ptr) = JavaMetaClass{T}(ptr)
 
 type JavaObject{T}
@@ -170,16 +170,20 @@ convert{T<:String}(::Type{JObject}, str::T) = convert(JObject, JString(str))
 
 #Cast java object from S to T . Needed for polymorphic calls
 function convert{T,S}(::Type{JavaObject{T}}, obj::JavaObject{S}) 
-	if (ccall(jnifunc.IsAssignableFrom, jboolean, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, metaclass(S), metaclass(T) ) == JNI_TRUE)   #Safe static cast
+	if isConvertible(T, S)   #Safe static cast
 			return JavaObject{T}(obj.ptr)
 	end 
 	if isnull(obj) ; error("Cannot convert NULL"); end
 	realClass = ccall(jnifunc.GetObjectClass, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void} ), penv, obj.ptr)
-	if (ccall(jnifunc.IsAssignableFrom, jboolean, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, realClass, metaclass(T) ) == JNI_TRUE)  #dynamic cast
+	if isConvertible(T, realClass)  #dynamic cast
 			return JavaObject{T}(obj.ptr)
 	end 
 	error("Cannot cast java object from $S to $T")
 end
+
+#Is java type convertible from S to T. 
+isConvertible(T, S) = (ccall(jnifunc.IsAssignableFrom, jboolean, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, metaclass(S), metaclass(T) ) == JNI_TRUE)
+isConvertible(T, S::Ptr{Void} ) = (ccall(jnifunc.IsAssignableFrom, jboolean, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, S, metaclass(T) ) == JNI_TRUE)
 
 macro jimport(class)
 	if isa(class, Expr)
@@ -442,8 +446,17 @@ function convert_result{T}(rettype::Type{Array{JavaObject{T},1}}, result)
 end
 
 #The second term in this addition is due to the fact that Java converts all times to local time
-convert(::Type{DateTime}, x::JavaObject) = Dates.unix2datetime(jcall(convert(@jimport(java.util.Date),x), "getTime", jlong, ())/1000) +
-												Second(round(div(Dates.value(now() - now(Dates.UTC)),1000)/900)*(900))
+convert(::Type{DateTime}, x::@jimport(java.util.Date)) = Dates.unix2datetime(jcall(x, "getTime", jlong, ())/1000) +
+												Second(round(div(Dates.value(now() - now(Dates.UTC)),1000)/900)*(900)) 
+
+function convert(::Type{DateTime}, x::JavaObject)
+	JDate = @jimport(java.util.Date)
+	if isConvertible(JDate, x)
+		return convert(DateTime, JDate, x)
+	elseif isConvertible(@jimport(java.util.Calendar), x)
+		return convert(DateTime, jcall(x, "getTime", JDate, ()))
+	end
+end
 
 function unsafe_convert(::Type{@jimport(java.util.Properties)}, x::Dict) 
 	Properties = @jimport(java.util.Properties)

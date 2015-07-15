@@ -2,6 +2,7 @@ using Base.Test
 using JavaCall
 using Compat
 
+
 versioninfo();
 
 # JavaCall.init(["-Djava.class.path=$(joinpath(Pkg.dir(), "JavaCall", "test"))"])
@@ -69,6 +70,14 @@ a=jcall(j_u_arrays, "copyOf", Array{JObject, 1}, (Array{JObject, 1}, jint), ["a"
 @test "a"==bytestring(convert(JString, a[1]))
 @test "b"==bytestring(convert(JString, a[2]))
 @test "c"==bytestring(convert(JString, a[3]))
+
+#Test for Dates
+
+jd = @jimport(java.util.Date)(())
+jcal = @jimport(java.util.GregorianCalendar)(())
+
+@assert typeof(convert(Dates.DateTime, jd)) == Dates.DateTime
+@assert typeof(convert(Dates.DateTime, jcal)) == Dates.DateTime
 
 gc()
 # Test Memory allocation and de-allocatios
