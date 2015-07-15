@@ -22,9 +22,9 @@ T = @jimport Test
 @test typemax(jlong) == jcall(T, "testLong", jlong, (jlong,), typemax(jlong))
 @test "Hello Java"==jcall(T, "testString", JString, (JString,), "Hello Java")
 @test @compat Float64(10.02) == jcall(T, "testDouble", jdouble, (jdouble,), 10.02) #Comparing exact float representations hence ==
-@test @compat Float32(10.02) == jcall(T, "testFloat", jfloat, (jfloat,), 10.02)  
-@test realmax(jdouble) == jcall(T, "testDouble", jdouble, (jdouble,), realmax(jdouble)) 
-@test realmax(jfloat) == jcall(T, "testFloat", jfloat, (jfloat,), realmax(jfloat))  
+@test @compat Float32(10.02) == jcall(T, "testFloat", jfloat, (jfloat,), 10.02)
+@test realmax(jdouble) == jcall(T, "testDouble", jdouble, (jdouble,), realmax(jdouble))
+@test realmax(jfloat) == jcall(T, "testFloat", jfloat, (jfloat,), realmax(jfloat))
 
 c=JString(C_NULL)
 @test isnull(c)
@@ -82,15 +82,22 @@ jcal = @jimport(java.util.GregorianCalendar)(())
 gc()
 # Test Memory allocation and de-allocatios
 # the following loop fails with an OutOfMemoryException in the absence of de-allocation
-# However, since Java and Julia memory are not linked, and manual gc() is required. 
+# However, since Java and Julia memory are not linked, and manual gc() is required.
 for i in 1:100000
-	a=JString("A"^10000); #deleteref(a); 
+	a=JString("A"^10000); #deleteref(a);
 	if (i%10000 == 0); gc(); end
 end
 
 #Test for Issue #8
 @test_throws ErrorException jcall(jlm, "sinx", jdouble, (jdouble,), 1.0)
 @test_throws ErrorException jcall(jlm, "sinx", jdouble, (jdouble,), 1.0)
+
+@test length(listmethods(JString("test"))) == 72
+@test length(listmethods(JString("test"), "indexOf")) == 4
+m = listmethods(JString("test"), "indexOf")[1]
+@test getname(getreturntype(m)) == "int"
+@test [getname(typ) for typ in getparametertypes(m)] == ["java.lang.String", "int"]
+
 
 # At the end, unload the JVM before exiting
 JavaCall.destroy()
