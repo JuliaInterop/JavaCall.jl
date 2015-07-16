@@ -75,9 +75,12 @@ a=jcall(j_u_arrays, "copyOf", Array{JObject, 1}, (Array{JObject, 1}, jint), ["a"
 
 jd = @jimport(java.util.Date)(())
 jcal = @jimport(java.util.GregorianCalendar)(())
+jsd =  @jimport(java.sql.Date)((jlong,),int(time()))
+
 
 @assert typeof(convert(Dates.DateTime, jd)) == Dates.DateTime
 @assert typeof(convert(Dates.DateTime, jcal)) == Dates.DateTime
+@assert typeof(convert(Dates.DateTime, jsd)) == Dates.DateTime
 
 gc()
 # Test Memory allocation and de-allocatios

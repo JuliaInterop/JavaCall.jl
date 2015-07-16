@@ -131,7 +131,7 @@ convert(::Type{DateTime}, x::@jimport(java.util.Date)) = Dates.unix2datetime(jca
 function convert(::Type{DateTime}, x::JavaObject)
     JDate = @jimport(java.util.Date)
     if isConvertible(JDate, x)
-        return convert(DateTime, JDate, x)
+        return convert(DateTime, convert(JDate, x))
     elseif isConvertible(@jimport(java.util.Calendar), x)
         return convert(DateTime, jcall(x, "getTime", JDate, ()))
     end
