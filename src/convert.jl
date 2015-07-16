@@ -137,7 +137,7 @@ function convert(::Type{DateTime}, x::JavaObject)
     end
 end
 
-function unsafe_convert(::Type{@jimport(java.util.Properties)}, x::Dict)
+function convert(::Type{@jimport(java.util.Properties)}, x::Dict)
     Properties = @jimport(java.util.Properties)
     p = Properties(())
     for (n,v) in x
@@ -145,6 +145,18 @@ function unsafe_convert(::Type{@jimport(java.util.Properties)}, x::Dict)
     end
     return p
 end
+
+function convert{X,Y}(::Type{@jimport(java.util.HashMap)}, K::Type{JavaObject{X}}, V::Type{JavaObject{Y}}, x::Dict)
+    Hashmap = @jimport(java.util.HashMap)
+    p = Hashmap(())
+    for (n,v) in x
+        jcall(p, "put", @jimport(java.lang.Object), (JObject, JObject), n, v)
+    end
+    return p
+end
+
+convert{X,Y}(::Type{@jimport(java.util.Map)}, K::Type{JavaObject{X}}, V::Type{JavaObject{Y}}, x::Dict) = convert(@jimport(java.util.Map), convert(@jimport(java.util.HashMap), K, V, x))
+
 
 # Convert a reference to a java.lang.String into a Julia string. Copies the underlying byte buffer
 function bytestring(jstr::JString)  #jstr must be a jstring obtained via a JNI call

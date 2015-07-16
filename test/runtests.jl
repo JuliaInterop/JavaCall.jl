@@ -82,10 +82,19 @@ jsd =  @jimport(java.sql.Date)((jlong,),int(time()))
 @assert typeof(convert(Dates.DateTime, jcal)) == Dates.DateTime
 @assert typeof(convert(Dates.DateTime, jsd)) == Dates.DateTime
 
-gc()
+#Test for Map conversion
+
+JHashMap = @jimport(java.util.HashMap)
+p = JHashMap(())
+a=@compat Dict("a"=>"A", "b"=>"B")
+b=convert(@jimport(java.util.Map), JString, JString, a)
+@assert jcall(b, "size", jint, ()) == 2
+
+
 # Test Memory allocation and de-allocatios
 # the following loop fails with an OutOfMemoryException in the absence of de-allocation
 # However, since Java and Julia memory are not linked, and manual gc() is required.
+gc()
 for i in 1:100000
 	a=JString("A"^10000); #deleteref(a);
 	if (i%10000 == 0); gc(); end
