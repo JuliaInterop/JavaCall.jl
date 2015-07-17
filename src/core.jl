@@ -81,8 +81,9 @@ macro jimport(class)
     elseif isa(class, String)
         juliaclass=class
     else
-        error("Macro parameter is of type $(typeof(class))!!")
+        error("Macro parameter is of type $(typeof(class))!\nShould be Expr, Symbol or String")
     end
+    juliaclass = replace(juliaclass, " ", "") #handle $ for innerclass
     quote
         JavaObject{(Base.symbol($juliaclass))}
     end

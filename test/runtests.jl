@@ -94,6 +94,13 @@ a=@compat Dict("a"=>"A", "b"=>"B")
 b=convert(@jimport(java.util.Map), JString, JString, a)
 @assert jcall(b, "size", jint, ()) == 2
 
+#Inner Classes
+TestInner = @jimport(Test$TestInner)
+Test = @jimport(Test)
+t=Test(())
+inner = TestInner((Test,), t)
+@assert jcall(inner, "innerString", JString, ()) == "from inner"
+
 
 # Test Memory allocation and de-allocatios
 # the following loop fails with an OutOfMemoryException in the absence of de-allocation

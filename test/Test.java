@@ -46,4 +46,11 @@ public class Test {
        testDouble(1.0d);
        testString("Hello Java");
   }
+
+  public class TestInner{
+      public String innerString() {
+        return "from inner";
+      }
+  }
+
 }
