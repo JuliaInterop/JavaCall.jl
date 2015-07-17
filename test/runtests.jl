@@ -16,6 +16,7 @@ b=ccall(JavaCall.jnifunc.GetStringUTFChars, Ptr{Uint8}, (Ptr{JavaCall.JNIEnv}, P
 
 # Test parameter passing
 T = @jimport Test
+@test 10 == jcall(T, "testShort", jshort, (jshort,), 10)
 @test 10 == jcall(T, "testInt", jint, (jint,), 10)
 @test 10 == jcall(T, "testLong", jlong, (jlong,), 10)
 @test typemax(jint) == jcall(T, "testInt", jint, (jint,), typemax(jint))

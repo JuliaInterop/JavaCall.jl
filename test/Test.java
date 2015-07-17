@@ -2,6 +2,11 @@ import java.util.ArrayList;
 
 public class Test {
 
+  public static short testShort(short i) {
+      System.out.print("In Java, recd: ");System.out.println(i);
+      return i;
+  }
+
   public static int testInt(int i) {
       System.out.print("In Java, recd: ");System.out.println(i);
       return i;

@@ -235,6 +235,8 @@ function signature(arg::Type)
         return "B"
     elseif is(arg, jchar)
         return "C"
+    elseif is(arg, jshort)
+        return "S"
     elseif is(arg, jint)
         return "I"
     elseif is(arg, jlong)
