@@ -125,10 +125,12 @@ function convert_result{T}(rettype::Type{Array{JavaObject{T},1}}, result)
 end
 
 #The second term in this addition is due to the fact that Java converts all times to local time
-convert(::Type{DateTime}, x::@jimport(java.util.Date)) = Dates.unix2datetime(jcall(x, "getTime", jlong, ())/1000) +
-        Second(round(div(Dates.value(now() - now(Dates.UTC)),1000)/900)*(900))
+convert(::Type{DateTime}, x::@jimport(java.util.Date)) = isnull(x)?Dates.DateTime(1970,1,1,0,0,0):
+            (Dates.unix2datetime(jcall(x, "getTime", jlong, ())/1000) +
+                    Second(round(div(Dates.value(now() - now(Dates.UTC)),1000)/900)*(900)))
 
 function convert(::Type{DateTime}, x::JavaObject)
+    if isnull(x); return Dates.DateTime(1970,1,1,0,0,0); end
     JDate = @jimport(java.util.Date)
     if isConvertible(JDate, x)
         return convert(DateTime, convert(JDate, x))

@@ -81,6 +81,10 @@ jsd =  @jimport(java.sql.Date)((jlong,),int(time()))
 @assert typeof(convert(Dates.DateTime, jd)) == Dates.DateTime
 @assert typeof(convert(Dates.DateTime, jcal)) == Dates.DateTime
 @assert typeof(convert(Dates.DateTime, jsd)) == Dates.DateTime
+nulldate = @jimport(java.util.Date)(C_NULL)
+Dates.year(convert(Dates.DateTime, nulldate)) == 1970
+nullcal = @jimport(java.util.GregorianCalendar)(C_NULL)
+Dates.year(convert(Dates.DateTime, nullcal)) == 1970
 
 #Test for Map conversion
 
