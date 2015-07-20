@@ -192,7 +192,7 @@ function geterror(allow=false)
     
     if isexception == JNI_TRUE
         jthrow = ccall(jnifunc.ExceptionOccurred, Ptr{Void}, (Ptr{JNIEnv},), penv)
-        if jthrow==C_NULL ; error ("Java Exception thrown, but no details could be retrieved from the JVM"); end
+        if jthrow==C_NULL ; error("Java Exception thrown, but no details could be retrieved from the JVM"); end
         ccall(jnifunc.ExceptionDescribe, Void, (Ptr{JNIEnv},), penv ) #Print java stackstrace to stdout
         ccall(jnifunc.ExceptionClear, Void, (Ptr{JNIEnv},), penv )
         jclass = ccall(jnifunc.FindClass, Ptr{Void}, (Ptr{JNIEnv},Ptr{Uint8}), penv, "java/lang/Throwable")

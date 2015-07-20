@@ -65,9 +65,9 @@ function findjvm()
     error(reduce(*,errorMsg));
 end
 
-findjvm()
 
-create = Libdl.dlsym(libjvm, :JNI_CreateJavaVM)
+
+
 
 immutable JavaVMOption 
     optionString::Ptr{Uint8}

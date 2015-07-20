@@ -36,4 +36,10 @@ include("core.jl")
 include("convert.jl")
 include("reflect.jl")
 
+function __init__()
+	findjvm()
+	global create = Libdl.dlsym(libjvm, :JNI_CreateJavaVM)
+end
+
+
 end # module
