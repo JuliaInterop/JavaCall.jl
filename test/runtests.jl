@@ -134,6 +134,10 @@ m = listmethods(JString("test"), "indexOf")[1]
 @test getname(getreturntype(m)) == "int"
 @test [getname(typ) for typ in getparametertypes(m)] == ["java.lang.String", "int"]
 
+# Test array conversions
+jobj = jcall(T, "testArrayAsObject", JObject, ())
+arr = convert(Array{Array{UInt8, 1}, 1}, jobj)
+@test ["Hello", "World"] == map(bytestring, arr)
 
 # At the end, unload the JVM before exiting
 JavaCall.destroy()
