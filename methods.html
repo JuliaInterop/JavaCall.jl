@@ -76,6 +76,26 @@
 <code>julia<br>
 jlm = @jimport &quot;java.lang.Math&quot;<br>
 jnu = @jimport java.net.URL<br>
+</code><br>
+The syntax for importing inner classes is slightly different. <br>
+<code>java<br>
+package myPackage;<br>
+public class Outer {<br>
+    public class Inner{<br>
+      public void innerMethod() {<br>
+        System.out.println(&quot;In Inner class Method&quot;);<br>
+      }<br>
+    }l<br>
+    public Inner createrInnerObject() {<br>
+      Inner innerObj=new Inner();<br>
+      return innerObj;<br>
+  }<br>
+}<br>
+</code><br>
+To import the outer and inner clasess, one would use <code>Outer$Inner</code> instead of <code>Outer.Inner</code>. <br>
+<code>julia<br>
+jouter=@jimport myPackage.Outer<br>
+jinner=@jimport myPackage.Outer$Inner<br>
 </code></p>
 
 <h2 id="calling-static-methods">Calling Static Methods</h2>
@@ -89,11 +109,14 @@ jnu = @jimport java.net.URL<br>
 
 <p>Each of the Julia <code>JavaObject</code> types contain a constructor that looks much like the <code>jcall</code> function. You provide a tuple of argument types, and the arguments themselves, and it return an instance of <code>JavaObject</code> that wraps a Java object of the corresponding class. Unlike <code>jcall</code> however, in this case the reciever and the return type is implicit, and does not need to specified. </p>
 <div class="highlight"><pre><code class="language-julia" data-lang="julia"><span class="n">gurl</span> <span class="o">=</span> <span class="n">jnu</span><span class="p">((</span><span class="n">JString</span><span class="p">,),</span> <span class="s">&quot;http://www.google.com&quot;</span><span class="p">)</span>
+<span class="n">outerObj</span><span class="o">=</span> <span class="n">jouter</span><span class="p">((),)</span>
 </code></pre></div>
 <h2 id="calling-instance-methods">Calling Instance Methods</h2>
 
 <p>Calling instance methods uses the <code>jcall</code> function, with an instance of the <code>JavaObject</code> type as the reciever. As before, the method takes as arguments the return type, the tuple of the argument types, and the arguments themselves. </p>
 <div class="highlight"><pre><code class="language-julia" data-lang="julia"><span class="n">jcall</span><span class="p">(</span><span class="n">gurl</span><span class="p">,</span> <span class="s">&quot;getHost&quot;</span><span class="p">,</span> <span class="n">JString</span><span class="p">,())</span> <span class="c">#&quot;wwww.google.com&quot;</span>
+<span class="n">innerObj</span><span class="o">=</span><span class="n">jcall</span><span class="p">(</span><span class="n">outerObj</span><span class="p">,</span> <span class="s">&quot;createrInnerObject&quot;</span><span class="p">,</span> <span class="n">jinner</span><span class="p">,())</span>
+<span class="n">jcall</span><span class="p">(</span><span class="n">innerObj</span><span class="p">,</span> <span class="s">&quot;innerMethod&quot;</span><span class="p">,</span> <span class="n">Void</span><span class="p">,())</span> <span class="c">#Prints &quot;In Inner class Method&quot;</span>
 </code></pre></div>
 <h2 id="calling-array-methods">Calling Array Methods</h2>
 
@@ -111,7 +134,7 @@ jnu = @jimport java.net.URL<br>
 
 <h1 id="unload">Unload</h1>
 
-<p>The <code>destroy</code> command will unload the JVM, destryoing all its references. Note however that even after calling destroy, a new JVM cannot be initialised in the same process. Initialising a JVM is a completely one way process. </p>
+<p>The <code>JavaCall.destroy</code> command will unload the JVM, destryoing all its references. Note however that even after calling destroy, a new JVM cannot be initialised in the same process. Initialising a JVM is a completely one way process. </p>
 
       </section>
       <footer>
