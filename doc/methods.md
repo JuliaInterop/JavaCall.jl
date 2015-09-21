@@ -29,7 +29,26 @@ As described in the [types][types.html] section, the @jimport macro returns the 
 jlm = @jimport "java.lang.Math"
 jnu = @jimport java.net.URL
 ```
-
+The syntax for importing inner classes is slightly different. 
+```java
+package myPackage;
+public class Outer {
+    public class Inner{
+      public void innerMethod() {
+        System.out.println("In Inner class Method");
+      }
+    }l
+	public Inner createrInnerObject() {
+      Inner innerObj=new Inner();
+      return innerObj;
+  }
+}
+```
+To import the outer and inner clasess, one would use `Outer$Inner` instead of `Outer.Inner`. 
+```julia
+jouter=@jimport myPackage.Outer
+jinner=@jimport myPackage.Outer$Inner
+```
 ##Calling Static Methods
 
 The primary interface to Java methods is the `jcall` function. Like the inbuilt Julia `ccall` function, you need to supply the return type, a tuple of the argument types, and the method arguments themselves. The first argument to jcall however is the reciever of the method in Java. In case of static methods therefore, the reciever is the Julia type corresponding to the Java class that holds the method. 
@@ -45,6 +64,7 @@ Each of the Julia `JavaObject` types contain a constructor that looks much like 
 
 ```julia
 gurl = jnu((JString,), "http://www.google.com")
+outerObj= jouter((),)
 ```
 
 ##Calling Instance Methods
@@ -53,6 +73,8 @@ Calling instance methods uses the `jcall` function, with an instance of the `Jav
 
 ```julia
 jcall(gurl, "getHost", JString,()) #"wwww.google.com"
+innerObj=jcall(outerObj, "createrInnerObject", jinner,())
+jcall(innerObj, "innerMethod", Void,()) #Prints "In Inner class Method"
 ```
 
 ##Calling Array Methods
@@ -75,6 +97,7 @@ s=JString("Hello World")
 
 When a Java string is returned from a method call, it can be converted to a Julia string using the `bytestring(s::JString)` function. 
 
+
 #Unload
 
-The `destroy` command will unload the JVM, destryoing all its references. Note however that even after calling destroy, a new JVM cannot be initialised in the same process. Initialising a JVM is a completely one way process. 
+The `JavaCall.destroy` command will unload the JVM, destryoing all its references. Note however that even after calling destroy, a new JVM cannot be initialised in the same process. Initialising a JVM is a completely one way process. 
