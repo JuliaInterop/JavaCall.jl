@@ -2,6 +2,9 @@ import java.util.ArrayList;
 
 public class Test {
 
+  public int integerField = 100;
+  public String stringField = "A STRING";
+
   public static short testShort(short i) {
       System.out.print("In Java, recd: ");System.out.println(i);
       return i;
