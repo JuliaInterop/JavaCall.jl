@@ -127,7 +127,44 @@ function jcall(obj::JavaObject, method::String, rettype::Type, argtypes::Tuple, 
     end
 end
 
+function jfield{T}(typ::Type{JavaObject{T}}, field::String, fieldType::Type)
+    jfieldID  = ccall(jnifunc.GetStaticFieldID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, metaclass(T), utf8(field), signature(fieldType))
+    if jfieldID==C_NULL; geterror(true); end
+    _jfield(metaclass(T), jfieldID, fieldType)
+end
 
+function jfield(obj::JavaObject, field::String, fieldType::Type)
+    jfieldID  = ccall(jnifunc.GetFieldID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, metaclass(obj), utf8(field), signature(fieldType))
+    if jfieldID==C_NULL; geterror(true); end
+    _jfield(obj, jfieldID, fieldType)
+end
+
+for (x, y, z) in [ (:jboolean, :(jnifunc.GetBooleanField), :(jnifunc.GetStaticBooleanField)),
+                  (:jchar, :(jnifunc.GetCharField), :(jnifunc.GetStaticCharField)),
+                  (:jbyte, :(jnifunc.GetByteField), :(jnifunc.GetStaticBypeField)),
+                  (:jshort, :(jnifunc.GetShortField), :(jnifunc.GetStaticShortField)),
+                  (:jint, :(jnifunc.GetIntField), :(jnifunc.GetStaticIntField)),
+                  (:jlong, :(jnifunc.GetLongField), :(jnifunc.GetStaticLongField)),
+                  (:jfloat, :(jnifunc.GetFloatField), :(jnifunc.GetStaticFloatField)),
+                  (:jdouble, :(jnifunc.GetDoubleField), :(jnifunc.GetStaticDoubleField)) ]
+
+    m = quote 
+        function _jfield(obj, jfieldID::Ptr{Void}, fieldType::Type{$(x)})
+            callmethod = ifelse( typeof(obj)<:JavaObject, $y , $z )
+            result = ccall(callmethod, $x, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, obj.ptr, jfieldID)
+            if result==C_NULL; geterror(); end
+            return convert_result(fieldType, result)
+        end
+    end
+    eval(m)
+end
+
+function _jfield(obj, jfieldID::Ptr{Void}, fieldType::Type)
+    callmethod = ifelse( typeof(obj)<:JavaObject, jnifunc.GetObjectField , jnifunc.GetStaticObjectField )
+    result = ccall(callmethod, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, obj.ptr, jfieldID)
+    if result==C_NULL; geterror(); end
+    return convert_result(fieldType, result)
+end
 
 #Generate these methods to satisfy ccall's compile time constant requirement
 #_jcall for primitive and Void return types

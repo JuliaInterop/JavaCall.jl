@@ -83,9 +83,9 @@ jsd =  @jimport(java.sql.Date)((jlong,),int(time()))
 @assert typeof(convert(Dates.DateTime, jcal)) == Dates.DateTime
 @assert typeof(convert(Dates.DateTime, jsd)) == Dates.DateTime
 nulldate = @jimport(java.util.Date)(C_NULL)
-Dates.year(convert(Dates.DateTime, nulldate)) == 1970
+@assert Dates.year(convert(Dates.DateTime, nulldate)) == 1970
 nullcal = @jimport(java.util.GregorianCalendar)(C_NULL)
-Dates.year(convert(Dates.DateTime, nullcal)) == 1970
+@assert Dates.year(convert(Dates.DateTime, nullcal)) == 1970
 
 #Test for Map conversion
 
@@ -102,6 +102,16 @@ t=Test(())
 inner = TestInner((Test,), t)
 @assert jcall(inner, "innerString", JString, ()) == "from inner"
 
+#Field Access
+@assert jfield(@jimport(java.lang.Math), "E", jdouble) == 2.718281828459045
+@assert jfield(@jimport(java.lang.Math), "PI", jdouble) == 3.141592653589793
+@assert jfield(@jimport(java.text.NumberFormat), "INTEGER_FIELD", jint) == 0
+Locale = @jimport java.util.Locale
+lc = jfield(@jimport(java.util.Locale), "CANADA", @jimport(java.util.Locale))
+@assert jcall(lc, "getCountry", JString, ()) == "CA"
+@assert jfield(@jimport(java.util.logging.Logger), "GLOBAL_LOGGER_NAME", JString ) == "global"
+@assert jfield(t, "integerField", jint) == 100
+@assert jfield(t, "stringField", JString) == "A STRING"
 
 # Test Memory allocation and de-allocatios
 # the following loop fails with an OutOfMemoryException in the absence of de-allocation

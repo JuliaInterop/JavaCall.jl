@@ -2,7 +2,7 @@ module JavaCall
 export JavaObject, JavaMetaClass,
        jint, jlong, jbyte, jboolean, jchar, jshort, jfloat, jdouble,
        JObject, JClass, JMethod, JString,
-       @jimport, jcall, isnull,
+       @jimport, jcall, jfield, isnull,
        getname, listmethods, getreturntype, getparametertypes
 
 # using Debug
