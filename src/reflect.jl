@@ -3,7 +3,7 @@ function getclass(obj::JavaObject)
     jcall(obj, "getClass", JClass, ())
 end
 
-function conventional_name(name::String)
+function conventional_name(name::AbstractString)
     if @compat startswith(name, "[")
         return conventional_name(name[2:end]) * "[]"
     elseif name == "Z"
@@ -43,7 +43,7 @@ function listmethods(obj::JavaObject)
     jcall(cls, "getMethods", Vector{JMethod}, ())
 end
 
-function listmethods(obj::JavaObject, name::String)
+function listmethods(obj::JavaObject, name::AbstractString)
     allmethods = listmethods(obj)
     filter(m -> getname(m) == name, allmethods)
 end
