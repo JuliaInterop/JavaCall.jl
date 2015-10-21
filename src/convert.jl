@@ -1,5 +1,5 @@
-convert{T<:String}(::Type{JString}, str::T) = JString(str)
-convert{T<:String}(::Type{JObject}, str::T) = convert(JObject, JString(str))
+convert{T<:AbstractString}(::Type{JString}, str::T) = JString(str)
+convert{T<:AbstractString}(::Type{JObject}, str::T) = convert(JObject, JString(str))
 
 #Cast java object from S to T . Needed for polymorphic calls
 function convert{T,S}(::Type{JavaObject{T}}, obj::JavaObject{S}) 
@@ -164,8 +164,8 @@ convert{X,Y}(::Type{@jimport(java.util.Map)}, K::Type{JavaObject{X}}, V::Type{Ja
 function bytestring(jstr::JString)  #jstr must be a jstring obtained via a JNI call
     if isnull(jstr); return ""; end #Return empty string to keep type stability. But this is questionable
     pIsCopy = Array(jboolean, 1)
-    buf::Ptr{Uint8} = ccall(jnifunc.GetStringUTFChars, Ptr{Uint8}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{jboolean}), penv, jstr.ptr, pIsCopy)
+    buf::Ptr{UInt8} = ccall(jnifunc.GetStringUTFChars, Ptr{UInt8}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{jboolean}), penv, jstr.ptr, pIsCopy)
     s=bytestring(buf)
-    ccall(jnifunc.ReleaseStringUTFChars, Void, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}), penv, jstr.ptr, buf)
+    ccall(jnifunc.ReleaseStringUTFChars, Void, (Ptr{JNIEnv}, Ptr{Void}, Ptr{UInt8}), penv, jstr.ptr, buf)
     return s
 end

@@ -11,7 +11,7 @@ JavaCall.init(["-verbose:jni", "-verbose:gc","-Djava.class.path=$(joinpath(Pkg.d
 a=JString("how are you")
 @test a.ptr != C_NULL
 @test 11==ccall(JavaCall.jnifunc.GetStringUTFLength, jint, (Ptr{JavaCall.JNIEnv}, Ptr{Void}), JavaCall.penv, a.ptr)
-b=ccall(JavaCall.jnifunc.GetStringUTFChars, Ptr{Uint8}, (Ptr{JavaCall.JNIEnv}, Ptr{Void}, Ptr{Void}), JavaCall.penv, a.ptr, C_NULL)
+b=ccall(JavaCall.jnifunc.GetStringUTFChars, Ptr{UInt8}, (Ptr{JavaCall.JNIEnv}, Ptr{Void}, Ptr{Void}), JavaCall.penv, a.ptr, C_NULL)
 @test bytestring(b) == "how are you"
 
 # Test parameter passing
@@ -76,8 +76,7 @@ a=jcall(j_u_arrays, "copyOf", Array{JObject, 1}, (Array{JObject, 1}, jint), ["a"
 
 jd = @jimport(java.util.Date)(())
 jcal = @jimport(java.util.GregorianCalendar)(())
-jsd =  @jimport(java.sql.Date)((jlong,),int(time()))
-
+jsd =  @jimport(java.sql.Date)((jlong,),round(jlong, time()))
 
 @assert typeof(convert(Dates.DateTime, jd)) == Dates.DateTime
 @assert typeof(convert(Dates.DateTime, jcal)) == Dates.DateTime
@@ -85,8 +84,8 @@ jsd =  @jimport(java.sql.Date)((jlong,),int(time()))
 nulldate = @jimport(java.util.Date)(C_NULL)
 Dates.year(convert(Dates.DateTime, nulldate)) == 1970
 nullcal = @jimport(java.util.GregorianCalendar)(C_NULL)
-Dates.year(convert(Dates.DateTime, nullcal)) == 1970
 
+Dates.year(convert(Dates.DateTime, nullcal)) == 1970
 #Test for Map conversion
 
 JHashMap = @jimport(java.util.HashMap)

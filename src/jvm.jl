@@ -70,7 +70,7 @@ end
 
 
 immutable JavaVMOption 
-    optionString::Ptr{Uint8}
+    optionString::Ptr{UInt8}
     extraInfo::Ptr{Void}
 end
 
@@ -84,10 +84,10 @@ end
 
 @unix_only const sep = ":"
 @windows_only const sep = ";"
-cp=Array(String, 0)
-opts=Array(String, 0)
-addClassPath(s::String) = isloaded()?warn("JVM already initialised. This call has no effect"): push!(cp, s)
-addOpts(s::String) = isloaded()?warn("JVM already initialised. This call has no effect"): push!(opts, s)
+cp=Array(ByteString, 0)
+opts=Array(ByteString, 0)
+addClassPath(s::ByteString) = isloaded()?warn("JVM already initialised. This call has no effect"): push!(cp, s)
+addOpts(s::ByteString) = isloaded()?warn("JVM already initialised. This call has no effect"): push!(opts, s)
 
 init() = init(vcat(opts, reduce((x,y)->string(x,sep,y),"-Djava.class.path=$(cp[1])",cp[2:end]) ))
 
@@ -97,7 +97,7 @@ assertloaded() = isloaded()?nothing:error("JVM not initialised. Please run init(
 assertnotloaded() = isloaded()?error("JVM already initialised"):nothing
 
 # Pointer to pointer to pointer to pointer alert! Hurrah for unsafe load
-function init{T<:String}(opts::Array{T, 1})
+function init{T<:AbstractString}(opts::Array{T, 1})
     assertnotloaded()
     opt = Array(JavaVMOption, length(opts))
     for i in 1:length(opts)

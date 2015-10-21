@@ -14,7 +14,7 @@ typealias jshort Cshort
 typealias jfloat Cfloat
 typealias jdouble Cdouble
 typealias jsize jint
-jprimitive = Union(jboolean, jchar, jshort, jfloat, jdouble, jint, jlong)
+jprimitive = @compat Union{jboolean, jchar, jshort, jfloat, jdouble, jint, jlong}
 
 immutable JavaMetaClass{T}
     ptr::Ptr{Void}
@@ -56,8 +56,8 @@ typealias JObject JavaObject{symbol("java.lang.Object")}
 typealias JMethod JavaObject{symbol("java.lang.reflect.Method")}
 typealias JString JavaObject{symbol("java.lang.String")}
 
-function JString(str::String)
-    jstring = ccall(jnifunc.NewStringUTF, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Uint8}), penv, utf8(str))
+function JString(str::AbstractString)
+    jstring = ccall(jnifunc.NewStringUTF, Ptr{Void}, (Ptr{JNIEnv}, Ptr{UInt8}), penv, utf8(str))
     if jstring == C_NULL
         geterror()
     else 
@@ -78,7 +78,7 @@ macro jimport(class)
         juliaclass=sprint(Base.show_unquoted, class)
     elseif isa(class, Symbol)
         juliaclass=string(class)
-    elseif isa(class, String)
+    elseif isa(class, AbstractString)
         juliaclass=class
     else
         error("Macro parameter is of type $(typeof(class))!\nShould be Expr, Symbol or String")
@@ -91,7 +91,7 @@ end
 
 function jnew(T::Symbol, argtypes::Tuple, args...)
     sig = method_signature(Void, argtypes...)
-    jmethodId = ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, metaclass(T), utf8("<init>"), sig)
+    jmethodId = ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{UInt8}, Ptr{UInt8}), penv, metaclass(T), utf8("<init>"), sig)
     if (jmethodId == C_NULL)
         error("No constructor for $T with signature $sig")
     end
@@ -99,12 +99,12 @@ function jnew(T::Symbol, argtypes::Tuple, args...)
 end
 
 # Call static methods
-function jcall{T}(typ::Type{JavaObject{T}}, method::String, rettype::Type, argtypes::Tuple, args... )
+function jcall{T}(typ::Type{JavaObject{T}}, method::AbstractString, rettype::Type, argtypes::Tuple, args... )
     try
         gc_enable(false)
         sig = method_signature(rettype, argtypes...)
         
-        jmethodId = ccall(jnifunc.GetStaticMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, metaclass(T), utf8(method), sig)
+        jmethodId = ccall(jnifunc.GetStaticMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{UInt8}, Ptr{UInt8}), penv, metaclass(T), utf8(method), sig)
         if jmethodId==C_NULL; geterror(true); end
         
         _jcall(metaclass(T), jmethodId, C_NULL, rettype, argtypes, args...)
@@ -115,11 +115,11 @@ function jcall{T}(typ::Type{JavaObject{T}}, method::String, rettype::Type, argty
 end
 
 # Call instance methods
-function jcall(obj::JavaObject, method::String, rettype::Type, argtypes::Tuple, args... )
+function jcall(obj::JavaObject, method::AbstractString, rettype::Type, argtypes::Tuple, args... )
     try
         gc_enable(false)
         sig = method_signature(rettype, argtypes...)
-        jmethodId = ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, metaclass(obj), utf8(method), sig)
+        jmethodId = ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{UInt8}, Ptr{UInt8}), penv, metaclass(obj), utf8(method), sig)
         if jmethodId==C_NULL; geterror(true); end
         _jcall(obj, jmethodId, C_NULL, rettype,  argtypes, args...)
     finally
@@ -177,7 +177,7 @@ end
 
 @memoize function metaclass(class::Symbol)
     jclass=javaclassname(class)
-    jclassptr = ccall(jnifunc.FindClass, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Uint8}), penv, jclass)
+    jclassptr = ccall(jnifunc.FindClass, Ptr{Void}, (Ptr{JNIEnv}, Ptr{UInt8}), penv, jclass)
     if jclassptr == C_NULL; error("Class Not Found $jclass"); end
     return JavaMetaClass(class, jclassptr)
 end
@@ -195,9 +195,9 @@ function geterror(allow=false)
         if jthrow==C_NULL ; error("Java Exception thrown, but no details could be retrieved from the JVM"); end
         ccall(jnifunc.ExceptionDescribe, Void, (Ptr{JNIEnv},), penv ) #Print java stackstrace to stdout
         ccall(jnifunc.ExceptionClear, Void, (Ptr{JNIEnv},), penv )
-        jclass = ccall(jnifunc.FindClass, Ptr{Void}, (Ptr{JNIEnv},Ptr{Uint8}), penv, "java/lang/Throwable")
+        jclass = ccall(jnifunc.FindClass, Ptr{Void}, (Ptr{JNIEnv},Ptr{UInt8}), penv, "java/lang/Throwable")
         if jclass==C_NULL; error("Java Exception thrown, but no details could be retrieved from the JVM"); end
-        jmethodId=ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Uint8}, Ptr{Uint8}), penv, jclass, "toString", "()Ljava/lang/String;")
+        jmethodId=ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{UInt8}, Ptr{UInt8}), penv, jclass, "toString", "()Ljava/lang/String;")
         if jmethodId==C_NULL; error("Java Exception thrown, but no details could be retrieved from the JVM"); end
         res = ccall(jnifunc.CallObjectMethodA, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}, Ptr{Void}), penv, jthrow, jmethodId,C_NULL)
         if res==C_NULL; error("Java Exception thrown, but no details could be retrieved from the JVM"); end
