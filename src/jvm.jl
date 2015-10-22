@@ -37,6 +37,7 @@ function findjvm()
     push!(libpaths,pwd())
     for n in javahomes
         @windows_only push!(libpaths, joinpath(n, "jre", "bin", "server"))
+        @windows_only push!(libpaths, joinpath(n, "bin", "client"))
         @linux_only if WORD_SIZE==64; push!(libpaths, joinpath(n, "jre", "lib", "amd64", "server")); end
         @linux_only if WORD_SIZE==32; push!(libpaths, joinpath(n, "jre", "lib", "i386", "server")); end
         push!(libpaths, joinpath(n, "jre", "lib", "server"))
