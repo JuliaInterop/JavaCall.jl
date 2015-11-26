@@ -253,3 +253,42 @@ function signature(arg::Type)
 end
 
 signature{T}(arg::Type{JavaObject{T}}) = string("L", javaclassname(T), ";")
+
+# Import a static field from java to julia.
+function jstaticfield{T}(typ::Type{JavaObject{T}}, field::AbstractString, rettype::Type)
+    try
+        gc_enable(false)
+        sig = signature(rettype)
+        jfieldId = ccall(jnifunc.GetStaticFieldID, Ptr{Void},
+                         (Ptr{JNIEnv}, Ptr{Void}, Ptr{UInt8}, Ptr{UInt8}),
+                         penv, metaclass(T), utf8(field), sig)
+        jfieldId == C_NULL && geterror(true)
+        _jstaticfield(metaclass(T), jfieldId, rettype)
+    finally
+        gc_enable(true)
+    end
+end
+
+export jstaticfield
+
+for (x, y) in [(:jboolean, :(jnifunc.GetStaticBooleanField)),
+               (:jchar, :(jnifunc.GetStaticCharField)),
+               (:jbyte, :(jnifunc.GetStaticByteField)),
+               (:jshort, :(jnifunc.GetStaticShortField)),
+               (:jint, :(jnifunc.GetStaticIntField)),
+               (:jlong, :(jnifunc.GetStaticLongField)),
+               (:jfloat, :(jnifunc.GetStaticFloatField)),
+               (:jdouble, :(jnifunc.GetStaticDoubleField))]
+    m = quote
+        function _jstaticfield(obj,  jfieldId::Ptr{Void}, typ::Type{$(x)})
+            @assert jfieldId != C_NULL
+            isnull(obj) && error("Attempt to call method on Java NULL")
+            result = ccall($y, $x , (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}),
+                           penv, obj.ptr, jfieldId)
+            if result==C_NULL; geterror(); end
+            if result == nothing; return; end
+            return convert_result(typ, result)
+        end
+    end
+    eval(m)
+end

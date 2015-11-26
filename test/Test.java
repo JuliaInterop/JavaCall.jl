@@ -2,6 +2,15 @@ import java.util.ArrayList;
 
 public class Test {
 
+  public static final boolean boolval = false;
+  public static final char charval = 'a';
+  public static final byte byteval = 105;
+  public static final short shortval = 15000;
+  public static final int intval = 30000;
+  public static final long longval = 123123;
+  public static final float floatval = 3.14f;
+  public static final double doubleval = 1.404d;
+
   public static short testShort(short i) {
       System.out.print("In Java, recd: ");System.out.println(i);
       return i;
