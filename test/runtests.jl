@@ -128,7 +128,7 @@ m = listmethods(JString("test"), "indexOf")[1]
 @test jstaticfield(T, "shortval", jshort) == 15000
 @test jstaticfield(T, "intval", jint) == 30000
 @test jstaticfield(T, "longval", jlong) == 123123
-@test jstaticfield(T, "floatval", jfloat) == 3.14
+@test jstaticfield(T, "floatval", jfloat) == Float32(3.14)
 @test jstaticfield(T, "doubleval", jdouble) == 1.404
 
 
