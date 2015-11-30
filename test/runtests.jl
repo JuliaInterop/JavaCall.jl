@@ -121,6 +121,16 @@ m = listmethods(JString("test"), "indexOf")[1]
 @test getname(getreturntype(m)) == "int"
 @test [getname(typ) for typ in getparametertypes(m)] == ["java.lang.String", "int"]
 
+# Tests for loading static fields.
+@test jstaticfield(T, "boolval", jboolean) == false
+@test jstaticfield(T, "charval", jchar) == 'a'
+@test jstaticfield(T, "byteval", jbyte) == 105
+@test jstaticfield(T, "shortval", jshort) == 15000
+@test jstaticfield(T, "intval", jint) == 30000
+@test jstaticfield(T, "longval", jlong) == 123123
+@test jstaticfield(T, "floatval", jfloat) == convert(Float32, 3.14)
+@test jstaticfield(T, "doubleval", jdouble) == 1.404
+
 
 # At the end, unload the JVM before exiting
 JavaCall.destroy()
