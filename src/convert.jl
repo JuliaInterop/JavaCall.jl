@@ -4,12 +4,16 @@ convert{T<:AbstractString}(::Type{JObject}, str::T) = convert(JObject, JString(s
 #Cast java object from S to T . Needed for polymorphic calls
 function convert{T,S}(::Type{JavaObject{T}}, obj::JavaObject{S}) 
     if isConvertible(T, S)   #Safe static cast
-        return JavaObject{T}(obj.ptr)
+        ptr = ccall(jnifunc.NewLocalRef, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}), penv, obj.ptr)
+        if ptr === C_NULL geterror() end
+        return JavaObject{T}(ptr)
     end 
     if isnull(obj) ; error("Cannot convert NULL"); end
     realClass = ccall(jnifunc.GetObjectClass, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void} ), penv, obj.ptr)
     if isConvertible(T, realClass)  #dynamic cast
-        return JavaObject{T}(obj.ptr)
+        ptr = ccall(jnifunc.NewLocalRef, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}), penv, obj.ptr)
+        if ptr === C_NULL geterror() end
+        return JavaObject{T}(ptr)
     end 
     error("Cannot cast java object from $S to $T")
 end
