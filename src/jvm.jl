@@ -26,7 +26,7 @@ function findjvm()
     if haskey(ENV,"JAVA_HOME")
         push!(javahomes,ENV["JAVA_HOME"])
     end
-    if isexecutable("/usr/libexec/java_home")
+    if isfile("/usr/libexec/java_home")
         push!(javahomes,chomp(readall(`/usr/libexec/java_home`)))
     end
 
@@ -47,7 +47,7 @@ function findjvm()
     try 
         for n in libpaths
             libpath = joinpath(n,libname*ext);
-            if isreadable(libpath) 
+            if isfile(libpath)
                 global libjvm = Libdl.dlopen(libpath)
                 println("Loaded $libpath")
                 return
