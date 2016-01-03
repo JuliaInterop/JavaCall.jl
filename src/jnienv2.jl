@@ -437,8 +437,8 @@ GetStringUTFChars(env::Ptr{JNIEnv}, str::jstring, isCopy::Array{jboolean,1}) =
   ccall(Main.JavaCall.jnifunc.GetStringUTFChars, Cstring, (Ptr{JNIEnv}, jstring, Ptr{jboolean},), env, str, isCopy)
 
 export ReleaseStringUTFChars
-ReleaseStringUTFChars(env::Ptr{JNIEnv}, str::jstring, chars::AbstractString) =
-  ccall(Main.JavaCall.jnifunc.ReleaseStringUTFChars, Void, (Ptr{JNIEnv}, jstring, Cstring,), env, str, utf8(chars))
+ReleaseStringUTFChars(env::Ptr{JNIEnv}, str::jstring, chars::Ptr{UInt8}) =
+  ccall(Main.JavaCall.jnifunc.ReleaseStringUTFChars, Void, (Ptr{JNIEnv}, jstring, Ptr{UInt8},), env, str, chars)
 
 export GetArrayLength
 GetArrayLength(env::Ptr{JNIEnv}, array::jarray) =
