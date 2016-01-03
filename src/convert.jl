@@ -15,8 +15,8 @@ function convert{T,S}(::Type{JavaObject{T}}, obj::JavaObject{S})
 end
 
 #Is java type convertible from S to T. 
-isConvertible(T, S) = (ccall(jnifunc.IsAssignableFrom, jboolean, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, metaclass(S), metaclass(T) ) == JNI_TRUE)
-isConvertible(T, S::Ptr{Void} ) = (ccall(jnifunc.IsAssignableFrom, jboolean, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, S, metaclass(T) ) == JNI_TRUE)
+isConvertible(T, S) = (ccall(jnifunc.IsAssignableFrom, jboolean, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, metaclass(S).ptr, metaclass(T).ptr ) == JNI_TRUE)
+isConvertible(T, S::Ptr{Void} ) = (ccall(jnifunc.IsAssignableFrom, jboolean, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, S, metaclass(T).ptr ) == JNI_TRUE)
 
 unsafe_convert(::Type{Ptr{Void}}, cls::JavaMetaClass) = cls.ptr
 
