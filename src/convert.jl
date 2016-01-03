@@ -7,7 +7,7 @@ function convert{T,S}(::Type{JavaObject{T}}, obj::JavaObject{S})
         return JavaObject{T}(obj.ptr)
     end 
     if isnull(obj) ; error("Cannot convert NULL"); end
-    realClass = ccall(jnifunc.GetObjectClass, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void} ), penv, obj.ptr)
+    realClass = GetObjectClass(penv, obj.ptr)
     if isConvertible(T, realClass)  #dynamic cast
         return JavaObject{T}(obj.ptr)
     end 
@@ -15,8 +15,8 @@ function convert{T,S}(::Type{JavaObject{T}}, obj::JavaObject{S})
 end
 
 #Is java type convertible from S to T. 
-isConvertible(T, S) = (ccall(jnifunc.IsAssignableFrom, jboolean, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, metaclass(S).ptr, metaclass(T).ptr ) == JNI_TRUE)
-isConvertible(T, S::Ptr{Void} ) = (ccall(jnifunc.IsAssignableFrom, jboolean, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, S, metaclass(T).ptr ) == JNI_TRUE)
+isConvertible(T, S) = IsAssignableFrom(penv, metaclass(S).ptr, metaclass(T).ptr) == JNI_TRUE
+isConvertible(T, S::Ptr{Void} ) = IsAssignableFrom(penv, S, metaclass(T).ptr) == JNI_TRUE
 
 unsafe_convert(::Type{Ptr{Void}}, cls::JavaMetaClass) = cls.ptr
 
@@ -80,9 +80,9 @@ function convert_arg{T<:JavaObject}(argtype::Type{Array{T,1}}, arg)
     carg = convert(argtype, arg)
     sz=length(carg)
     init=carg[1]
-    arrayptr = ccall(jnifunc.NewObjectArray, Ptr{Void}, (Ptr{JNIEnv}, jint, Ptr{Void}, Ptr{Void}), penv, sz, metaclass(T), init.ptr)
+    arrayptr = NewObjectArray(penv, sz, metaclass(T).ptr, init.ptr)
     for i=2:sz
-        ccall(jnifunc.SetObjectArrayElement, Void, (Ptr{JNIEnv}, Ptr{Void}, jint, Ptr{Void}), penv, arrayptr, i-1, carg[i].ptr)
+        SetObjectArrayElement(penv, arrayptr, i-1, carg[i].ptr)
     end
     return carg, arrayptr
 end
@@ -101,7 +101,7 @@ for (x, y, z) in [ (:jboolean, :(jnifunc.GetBooleanArrayElements), :(jnifunc.Rel
                   (:jdouble, :(jnifunc.GetDoubleArrayElements), :(jnifunc.ReleaseDoubleArrayElements)) ]
     m=quote
         function convert_result(rettype::Type{Array{$(x),1}}, result)
-            sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, result)
+            sz = GetArrayLength(penv, result)
             arr = ccall($(y), Ptr{$(x)}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{jboolean} ), penv, result, C_NULL )
             jl_arr::Array = pointer_to_array(arr, (@compat Int(sz)), false)
             jl_arr = deepcopy(jl_arr)
@@ -113,12 +113,12 @@ for (x, y, z) in [ (:jboolean, :(jnifunc.GetBooleanArrayElements), :(jnifunc.Rel
 end
 
 function convert_result{T}(rettype::Type{Array{JavaObject{T},1}}, result)
-    sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, result)
+    sz = GetArrayLength(penv, result)
     
     ret = Array(JavaObject{T}, sz)
     
     for i=1:sz
-        a=ccall(jnifunc.GetObjectArrayElement, Ptr{Void}, (Ptr{JNIEnv},Ptr{Void}, jint), penv, result, i-1)
+        a=GetObjectArrayElement(penv, result, i-1)
         ret[i] = JavaObject{T}(a)
     end
     return ret
@@ -164,8 +164,8 @@ convert{X,Y}(::Type{@jimport(java.util.Map)}, K::Type{JavaObject{X}}, V::Type{Ja
 function bytestring(jstr::JString)  #jstr must be a jstring obtained via a JNI call
     if isnull(jstr); return ""; end #Return empty string to keep type stability. But this is questionable
     pIsCopy = Array(jboolean, 1)
-    buf::Ptr{UInt8} = ccall(jnifunc.GetStringUTFChars, Ptr{UInt8}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{jboolean}), penv, jstr.ptr, pIsCopy)
+    buf::Ptr{UInt8} = GetStringUTFChars(penv, jstr.ptr, pIsCopy)
     s=bytestring(buf)
-    ccall(jnifunc.ReleaseStringUTFChars, Void, (Ptr{JNIEnv}, Ptr{Void}, Ptr{UInt8}), penv, jstr.ptr, buf)
+    ReleaseStringUTFChars(penv, jstr.ptr, buf)
     return s
 end
