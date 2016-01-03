@@ -6,7 +6,6 @@ typealias jthrowable Ptr{Void}
 typealias jweak Ptr{Void}
 typealias jmethodID Ptr{Void}
 typealias jfieldID Ptr{Void}
-typealias jvalue Int
 typealias jstring Ptr{Void}
 typealias jarray Ptr{Void}
 typealias JNINativeMethod Ptr{Void}
@@ -19,6 +18,7 @@ typealias jlongArray Ptr{Void}
 typealias jfloatArray Ptr{Void}
 typealias jdoubleArray Ptr{Void}
 typealias jcharArray Ptr{Void}
+typealias jvalue Int64
 
 export GetVersion
 GetVersion(env::Ptr{JNIEnv}) =
@@ -416,6 +416,10 @@ export GetStringLength
 GetStringLength(env::Ptr{JNIEnv}, str::jstring) =
   ccall(Main.JavaCall.jnifunc.GetStringLength, jsize, (Ptr{JNIEnv}, jstring,), env, str)
 
+export GetStringChars
+GetStringChars(env::Ptr{JNIEnv}, str::jstring, isCopy::Array{jboolean,1}) =
+  ccall(Main.JavaCall.jnifunc.GetStringChars, Ptr{jchar}, (Ptr{JNIEnv}, jstring, Ptr{jboolean},), env, str, isCopy)
+
 export ReleaseStringChars
 ReleaseStringChars(env::Ptr{JNIEnv}, str::jstring, chars::Array{jchar,1}) =
   ccall(Main.JavaCall.jnifunc.ReleaseStringChars, Void, (Ptr{JNIEnv}, jstring, Ptr{jchar},), env, str, chars)
@@ -427,6 +431,10 @@ NewStringUTF(env::Ptr{JNIEnv}, utf::AbstractString) =
 export GetStringUTFLength
 GetStringUTFLength(env::Ptr{JNIEnv}, str::jstring) =
   ccall(Main.JavaCall.jnifunc.GetStringUTFLength, jsize, (Ptr{JNIEnv}, jstring,), env, str)
+
+export GetStringUTFChars
+GetStringUTFChars(env::Ptr{JNIEnv}, str::jstring, isCopy::Array{jboolean,1}) =
+  ccall(Main.JavaCall.jnifunc.GetStringUTFChars, Cstring, (Ptr{JNIEnv}, jstring, Ptr{jboolean},), env, str, isCopy)
 
 export ReleaseStringUTFChars
 ReleaseStringUTFChars(env::Ptr{JNIEnv}, str::jstring, chars::AbstractString) =
@@ -643,6 +651,10 @@ GetPrimitiveArrayCritical(env::Ptr{JNIEnv}, array::jarray, isCopy::Array{jboolea
 export ReleasePrimitiveArrayCritical
 ReleasePrimitiveArrayCritical(env::Ptr{JNIEnv}, array::jarray, carray::Ptr{Void}, mode::jint) =
   ccall(Main.JavaCall.jnifunc.ReleasePrimitiveArrayCritical, Void, (Ptr{JNIEnv}, jarray, Ptr{Void}, jint,), env, array, carray, mode)
+
+export GetStringCritical
+GetStringCritical(env::Ptr{JNIEnv}, string::jstring, isCopy::Array{jboolean,1}) =
+  ccall(Main.JavaCall.jnifunc.GetStringCritical, Ptr{jchar}, (Ptr{JNIEnv}, jstring, Ptr{jboolean},), env, string, isCopy)
 
 export ReleaseStringCritical
 ReleaseStringCritical(env::Ptr{JNIEnv}, string::jstring, cstring::Array{jchar,1}) =

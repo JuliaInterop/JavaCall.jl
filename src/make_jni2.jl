@@ -1,11 +1,12 @@
 println("module JNI")
 println("import ..JavaCall: JNIEnv, JavaVM, jbyte, jchar, jshort, jint, jlong, jsize, jdouble, jfloat, jboolean")
-for t in ["jobject", "jclass", "jthrowable", "jweak", "jmethodID", "jfieldID", "jvalue",  "jstring", "jarray", "JNINativeMethod"]
+for t in ["jobject", "jclass", "jthrowable", "jweak", "jmethodID", "jfieldID",  "jstring", "jarray", "JNINativeMethod"]
 println("typealias $t Ptr{Void}")
 end
 for t in ["object", "boolean", "byte", "short", "int", "long", "float", "double", "char"]
 println("typealias j$(t)Array Ptr{Void}")
 end
+println("typealias jvalue Int64")
 println()
 
 function arg_name(m)
@@ -65,7 +66,7 @@ end
 julia_arg(m) = string(arg_name(m), "::", decl_arg_type(m))
 
 for line in open(readlines, "jnienv.jl", "r")
-  m = match(r"\# \s* ((?:void|j\w+)) \s* (\**) \s* \( \s* \* (\w+) \s* \) \s* \((.*)\) \s* ;"x, line)
+  m = match(r"\# \s* (?:const\s*)? ((?:void|char|j\w+)) \s* (\**) \s* \( \s* \* (\w+) \s* \) \s* \((.*)\) \s* ;"x, line)
   if m === nothing continue end
 
   if contains(m.captures[4], "...") continue end
