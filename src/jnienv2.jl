@@ -6,7 +6,7 @@ typealias jthrowable Ptr{Void}
 typealias jweak Ptr{Void}
 typealias jmethodID Ptr{Void}
 typealias jfieldID Ptr{Void}
-typealias jvalue Ptr{Void}
+typealias jvalue Int
 typealias jstring Ptr{Void}
 typealias jarray Ptr{Void}
 typealias JNINativeMethod Ptr{Void}

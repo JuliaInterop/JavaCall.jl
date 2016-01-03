@@ -220,7 +220,7 @@ function geterror(allow=false)
         if jclass==C_NULL; error("Java Exception thrown, but no details could be retrieved from the JVM"); end
         jmethodId=GetMethodID(penv, jclass, "toString", "()Ljava/lang/String;")
         if jmethodId==C_NULL; error("Java Exception thrown, but no details could be retrieved from the JVM"); end
-        res = CallObjectMethodA(penv, jthrow, jmethodId,C_NULL)
+        res = CallObjectMethodA(penv, jthrow, jmethodId, Int[])
         if res==C_NULL; error("Java Exception thrown, but no details could be retrieved from the JVM"); end
         msg = bytestring(JString(res))
         DeleteLocalRef(penv, jthrow)
