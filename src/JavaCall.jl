@@ -32,6 +32,9 @@ end
 
 include("jvm.jl")
 include("jnienv.jl")
+include("jnienv2.jl")
+using .JNI
+
 include("core.jl")
 include("convert.jl")
 include("reflect.jl")
