@@ -48,7 +48,32 @@ function deleteref(x::JavaObject)
 end
 
 
+"""
+```
+isnull(obj::JavaObject)
+```
+Checks if the passed JavaObject is null or not
+
+### Args
+* obj: The object of type JavaObject
+
+### Returns
+true if the passed object is null else false
+"""
 isnull(obj::JavaObject) = obj.ptr == C_NULL
+
+"""
+```
+isnull(obj::JavaMetaClass)
+```
+Checks if the passed JavaMetaClass is null or not
+
+### Args
+* obj: The object of type JavaMetaClass
+
+### Returns
+true if the passed object is null else false
+"""
 isnull(obj::JavaMetaClass) = obj.ptr == C_NULL
 
 typealias JClass JavaObject{symbol("java.lang.Class")}
