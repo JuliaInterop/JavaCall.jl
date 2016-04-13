@@ -1,3 +1,4 @@
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 
 public class Test {
@@ -37,6 +38,13 @@ public class Test {
 
   public static java.util.HashMap testNull() {
     return null;
+  }
+
+  public static Object testArrayAsObject() throws UnsupportedEncodingException {
+    byte[][] res = new byte[2][];
+    res[0] = "Hello".getBytes("UTF8");
+    res[1] = "World".getBytes("UTF8");
+    return res;
   }
 
   public static ArrayList<String> testArrayList() {
