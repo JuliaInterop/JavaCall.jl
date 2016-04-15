@@ -16,17 +16,47 @@ const JNI_ENOMEM       = convert(Cint, -4)              #/* not enough memory */
 const JNI_EEXIST       = convert(Cint, -5)              #/* VM already created */
 const JNI_EINVAL       = convert(Cint, -6)              #/* invalid arguments */
 
+function javahome_winreg()
+    processor_architecture = ENV["PROCESSOR_ARCHITECTURE"]
+    keypath = utf16("")
+    javahome = ""
+    cv = "CurrentVersion"
+    jh = "JavaHome"
+    global const msvclib = "msvcr100.dll"
+    
+    if processor_architecture == "AMD64" 
+        if WORD_SIZE == 64
+            keypath = utf16("SOFTWARE\\JavaSoft\\Java\ Development\ Kit")
+        elseif WORD_SIZE == 32
+            keypath = utf16("SOFTWARE\\WoW6432Node\\JavaSoft\\Java\ Development\ Kit")
+        end
+    elseif processor_architecture == "x86"
+        if WORD_SIZE == 32
+            keypath = utf16("SOFTWARE\\JavaSoft\\Java\ Development\ Kit")
+        end
+    end
+
+    value = querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, cv)
+
+    keypath *= utf16("\\")*utf16(value)
+
+    return querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, jh)
+end
 
 @unix_only global const libname = "libjvm"
 @windows_only global const libname = "jvm"
+
 function findjvm()
     javahomes = Any[]
     libpaths = Any[]
-    
+    msvcpaths = Any[]
+      
+    @windows_only push!(javahomes, javahome_winreg())
+
     if haskey(ENV,"JAVA_HOME")
         push!(javahomes,ENV["JAVA_HOME"])
     end
-    if isfile("/usr/libexec/java_home")
+    if isexecutable("/usr/libexec/java_home")
         push!(javahomes,chomp(readall(`/usr/libexec/java_home`)))
     end
 
@@ -38,16 +68,28 @@ function findjvm()
     for n in javahomes
         @windows_only push!(libpaths, joinpath(n, "jre", "bin", "server"))
         @windows_only push!(libpaths, joinpath(n, "bin", "client"))
+        @windows_only push!(msvcpaths, joinpath(n, "jre", "bin"))
         @linux_only if WORD_SIZE==64; push!(libpaths, joinpath(n, "jre", "lib", "amd64", "server")); end
         @linux_only if WORD_SIZE==32; push!(libpaths, joinpath(n, "jre", "lib", "i386", "server")); end
         push!(libpaths, joinpath(n, "jre", "lib", "server"))
     end
     
     ext = "."*@windows? "dll":@osx? "dylib":"so"
+    
+    try 
+        for n in msvcpaths
+            msvcpath = joinpath(n, msvclib)
+            if isreadable(msvcpath) 
+                global libmsvc = Libdl.dlopen(msvcpath)
+                println("Loaded $msvcpath")
+            end
+        end
+    end
+
     try 
         for n in libpaths
             libpath = joinpath(n,libname*ext);
-            if isfile(libpath)
+            if isreadable(libpath) 
                 global libjvm = Libdl.dlopen(libpath)
                 println("Loaded $libpath")
                 return

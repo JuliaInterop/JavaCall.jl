@@ -8,6 +8,8 @@ export JavaObject, JavaMetaClass,
 # using Debug
 using Memoize
 using Compat
+Pkg.clone("https://github.com/simonbyrne/WinReg.jl")
+using WinReg
 
 import Base.bytestring, Base.convert
 
