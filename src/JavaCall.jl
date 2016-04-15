@@ -5,10 +5,8 @@ export JavaObject, JavaMetaClass,
        @jimport, jcall, jfield, isnull,
        getname, listmethods, getreturntype, getparametertypes
 
-# using Debug
-using Base.Dates
 using Compat
-import Compat.String
+using WinReg
 
 import Base.convert, Base.isnull, Base.unsafe_convert
 
