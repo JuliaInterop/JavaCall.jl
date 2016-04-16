@@ -17,30 +17,11 @@ const JNI_EEXIST       = convert(Cint, -5)              #/* VM already created *
 const JNI_EINVAL       = convert(Cint, -6)              #/* invalid arguments */
 
 function javahome_winreg()
-    processor_architecture = ENV["PROCESSOR_ARCHITECTURE"]
-    keypath = utf16("")
-    javahome = ""
-    cv = "CurrentVersion"
-    jh = "JavaHome"
     global const msvclib = "msvcr100.dll"
-    
-    if processor_architecture == "AMD64" 
-        if WORD_SIZE == 64
-            keypath = utf16("SOFTWARE\\JavaSoft\\Java\ Development\ Kit")
-        elseif WORD_SIZE == 32
-            keypath = utf16("SOFTWARE\\WoW6432Node\\JavaSoft\\Java\ Development\ Kit")
-        end
-    elseif processor_architecture == "x86"
-        if WORD_SIZE == 32
-            keypath = utf16("SOFTWARE\\JavaSoft\\Java\ Development\ Kit")
-        end
-    end
-
-    value = querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, cv)
-
+    keypath = utf16("SOFTWARE\\JavaSoft\\Java\ Development\ Kit")
+    value = querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "CurrentVersion")
     keypath *= utf16("\\")*utf16(value)
-
-    return querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, jh)
+    return querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "JavaHome")
 end
 
 @unix_only global const libname = "libjvm"
@@ -56,7 +37,7 @@ function findjvm()
     if haskey(ENV,"JAVA_HOME")
         push!(javahomes,ENV["JAVA_HOME"])
     end
-    if isexecutable("/usr/libexec/java_home")
+    if isfile("/usr/libexec/java_home")
         push!(javahomes,chomp(readall(`/usr/libexec/java_home`)))
     end
 
@@ -79,7 +60,7 @@ function findjvm()
     try 
         for n in msvcpaths
             msvcpath = joinpath(n, msvclib)
-            if isreadable(msvcpath) 
+            if isfile(msvcpath) 
                 global libmsvc = Libdl.dlopen(msvcpath)
                 println("Loaded $msvcpath")
             end
@@ -89,7 +70,7 @@ function findjvm()
     try 
         for n in libpaths
             libpath = joinpath(n,libname*ext);
-            if isreadable(libpath) 
+            if isfile(libpath) 
                 global libjvm = Libdl.dlopen(libpath)
                 println("Loaded $libpath")
                 return
