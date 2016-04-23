@@ -134,6 +134,14 @@ m = listmethods(JString("test"), "indexOf")[1]
 @test getname(getreturntype(m)) == "int"
 @test [getname(typ) for typ in getparametertypes(m)] == ["java.lang.String", "int"]
 
+#Test for double free bug, #20
+#Fix in #28. The following lines will segfault without the fix
+JHashtable = @jimport java.util.Hashtable
+JProperties = @jimport java.util.Properties
+ta_20=Any[]
+for i=1:1000; push!(ta_20, convert(JHashtable, JProperties((),))); end
+gc(); gc()
+for i=1:1000; print(jcall(ta_20[i], "size", jint, ())); end
 
 # At the end, unload the JVM before exiting
 JavaCall.destroy()
