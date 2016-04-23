@@ -4,12 +4,16 @@ convert{T<:AbstractString}(::Type{JObject}, str::T) = convert(JObject, JString(s
 #Cast java object from S to T . Needed for polymorphic calls
 function convert{T,S}(::Type{JavaObject{T}}, obj::JavaObject{S}) 
     if isConvertible(T, S)   #Safe static cast
-        return JavaObject{T}(obj.ptr)
+        ptr = ccall(jnifunc.NewLocalRef, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}), penv, obj.ptr)
+        if ptr === C_NULL geterror() end
+        return JavaObject{T}(ptr)
     end 
     if isnull(obj) ; error("Cannot convert NULL"); end
     realClass = ccall(jnifunc.GetObjectClass, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void} ), penv, obj.ptr)
     if isConvertible(T, realClass)  #dynamic cast
-        return JavaObject{T}(obj.ptr)
+        ptr = ccall(jnifunc.NewLocalRef, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}), penv, obj.ptr)
+        if ptr === C_NULL geterror() end
+        return JavaObject{T}(ptr)
     end 
     error("Cannot cast java object from $S to $T")
 end
@@ -168,4 +172,39 @@ function bytestring(jstr::JString)  #jstr must be a jstring obtained via a JNI c
     s=bytestring(buf)
     ccall(jnifunc.ReleaseStringUTFChars, Void, (Ptr{JNIEnv}, Ptr{Void}, Ptr{UInt8}), penv, jstr.ptr, buf)
     return s
+end
+
+
+for (x, y, z) in [ (:jboolean, :(jnifunc.GetBooleanArrayElements), :(jnifunc.ReleaseBooleanArrayElements)),
+                  (:jchar, :(jnifunc.GetCharArrayElements), :(jnifunc.ReleaseCharArrayElements)),
+                  (:jbyte, :(jnifunc.GetByteArrayElements), :(jnifunc.ReleaseByteArrayElements)),
+                  (:jshort, :(jnifunc.GetShortArrayElements), :(jnifunc.ReleaseShortArrayElements)),
+                  (:jint, :(jnifunc.GetIntArrayElements), :(jnifunc.ReleaseIntArrayElements)),
+                  (:jlong, :(jnifunc.GetLongArrayElements), :(jnifunc.ReleaseLongArrayElements)),
+                  (:jfloat, :(jnifunc.GetFloatArrayElements), :(jnifunc.ReleaseFloatArrayElements)),
+                  (:jdouble, :(jnifunc.GetDoubleArrayElements), :(jnifunc.ReleaseDoubleArrayElements)) ]
+    m=quote
+        function convert(::Type{Array{$(x),1}}, obj::JObject)
+            sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, obj.ptr)    
+            arr = ccall($(y), Ptr{$(x)}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{jboolean} ), penv, obj.ptr, C_NULL )
+            jl_arr::Array = pointer_to_array(arr, (@compat Int(sz)), false)
+            jl_arr = deepcopy(jl_arr)
+            ccall($(z), Void, (Ptr{JNIEnv},Ptr{Void}, Ptr{$(x)}, jint), penv, obj.ptr, arr, 0)
+            return jl_arr
+        end
+    end
+    eval(m)
+end
+
+
+function convert{T}(::Type{Array{T, 1}}, obj::JObject)
+    sz = ccall(jnifunc.GetArrayLength, jint,
+               (Ptr{JNIEnv}, Ptr{Void}), penv, obj.ptr)
+    ret = Array(T, sz)
+    for i=1:sz
+        ptr = ccall(jnifunc.GetObjectArrayElement, Ptr{Void},
+                  (Ptr{JNIEnv}, Ptr{Void}, jint), penv, obj.ptr, i-1)
+        ret[i] = convert(T, JObject(ptr))
+    end
+    return ret
 end

@@ -143,5 +143,11 @@ for i=1:1000; push!(ta_20, convert(JHashtable, JProperties((),))); end
 gc(); gc()
 for i=1:1000; print(jcall(ta_20[i], "size", jint, ())); end
 
+# Test array conversions
+jobj = jcall(T, "testArrayAsObject", JObject, ())
+arr = convert(Array{Array{UInt8, 1}, 1}, jobj)
+@test ["Hello", "World"] == map(bytestring, arr)
+
+
 # At the end, unload the JVM before exiting
 JavaCall.destroy()
