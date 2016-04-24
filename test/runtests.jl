@@ -110,10 +110,10 @@ Locale = @jimport java.util.Locale
 lc = jfield(@jimport(java.util.Locale), "CANADA", @jimport(java.util.Locale))
 #Instance field access
 #Disabled for now. Need to verify stability
-#@assert jfield(@jimport(java.util.logging.Logger), "GLOBAL_LOGGER_NAME", JString ) == "global"
-#@assert jcall(lc, "getCountry", JString, ()) == "CA"
-#@assert jfield(t, "integerField", jint) == 100
-#@assert jfield(t, "stringField", JString) == "A STRING"
+@assert jfield(@jimport(java.util.logging.Logger), "GLOBAL_LOGGER_NAME", JString ) == "global"
+@assert jcall(lc, "getCountry", JString, ()) == "CA"
+@assert jfield(t, "integerField", jint) == 100
+@assert jfield(t, "stringField", JString) == "A STRING"
 
 # Test Memory allocation and de-allocatios
 # the following loop fails with an OutOfMemoryException in the absence of de-allocation
