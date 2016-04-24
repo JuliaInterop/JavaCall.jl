@@ -18,9 +18,9 @@ const JNI_EINVAL       = convert(Cint, -6)              #/* invalid arguments */
 
 function javahome_winreg()
     global const msvclib = "msvcr100.dll"
-    keypath = utf16("SOFTWARE\\JavaSoft\\Java\ Development\ Kit")
+    keypath = "SOFTWARE\\JavaSoft\\Java\ Development\ Kit"
     value = querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "CurrentVersion")
-    keypath *= utf16("\\")*utf16(value)
+    keypath *= "\\"*value
     return querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "JavaHome")
 end
 
