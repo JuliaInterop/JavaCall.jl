@@ -57,11 +57,24 @@
 
 <h3 id="error:-jnifunc-not-defined">ERROR: jnifunc not defined</h3>
 
-<p>You are attempting to call Java methods without initialising the JVM. Call <code>JavaCall.init(...)</code> first. </p>
+<p>You are attempting to call Java methods without initialising the JVM. Call <code>JavaCall.init(...)</code> first.</p>
 
 <h3 id="cannot-find-libjvm-in:">Cannot find libjvm in:</h3>
 
-<p>The JVM dynamic library cannot be found. It is called <code>libjvm.so</code>, <code>libjvm.dylib</code> or <code>jvm.dll</code> depending on your system. Check that you have <code>JAVA_HOME</code> environment variable defined. If you do, verify the search logic in the code, and please file a pull request with an amemded version that can find your library. As a workaround, you can set the <code>JAVA_LIB</code> environment variable to point to the location of the library file. </p>
+<p>The JVM dynamic library cannot be found. It is called <code>libjvm.so</code>, <code>libjvm.dylib</code> or <code>jvm.dll</code> depending on your system. Check that you have <code>JAVA_HOME</code> environment variable defined. If you do, verify the search logic in the code, and please file a pull request with an amemded version that can find your library. As a workaround, you can set the <code>JAVA_LIB</code> environment variable to point to the location of the library file.</p>
+
+<h3 id="segault-on-osx">Segault on OSX</h3>
+
+<p>Upon initialising JavaCall on OSX, you get an immediate segfault message, while execution carries on normally.<br><br>
+<code><br>
+signal (11): Segmentation fault: 11<br>
+unknown function (ip: 0x31960c2b4)<br>
+</code><br>
+This message is usually benign. It is due to the way the JVM uses signals for its regular operations. Julia on OSX installs a signal handler, which generates the above message. However, since the signal is eventually caught and handled by the JVM, execution carries on normally. If the message troubles you for any reason, please start julia with the <code>--handle-signals=no</code> option. In this case, Julia&#39;s signal handler will be disabled, and you will no longer see the above message. However, this may cause issues with handling <code>^C</code> in Julia programs.</p>
+
+<p><em>References:</em><br>
+<a href="http://stackoverflow.com/questions/27241575/why-does-java-app-crash-in-gdb-but-runs-normally-in-real-life">http://stackoverflow.com/questions/27241575/why-does-java-app-crash-in-gdb-but-runs-normally-in-real-life</a><br>
+<a href="http://www.oracle.com/technetwork/java/javase/signals-139944.html#gbzbl">http://www.oracle.com/technetwork/java/javase/signals-139944.html#gbzbl</a></p>
 
       </section>
       <footer>
