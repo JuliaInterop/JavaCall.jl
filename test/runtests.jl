@@ -139,9 +139,9 @@ m = listmethods(JString("test"), "indexOf")[1]
 JHashtable = @jimport java.util.Hashtable
 JProperties = @jimport java.util.Properties
 ta_20=Any[]
-for i=1:1000; push!(ta_20, convert(JHashtable, JProperties((),))); end
+for i=1:100; push!(ta_20, convert(JHashtable, JProperties((),))); end
 gc(); gc()
-for i=1:1000; print(jcall(ta_20[i], "size", jint, ())); end
+for i=1:100; @test jcall(ta_20[i], "size", jint, ()) == 0; end
 
 # Test array conversions
 jobj = jcall(T, "testArrayAsObject", JObject, ())
