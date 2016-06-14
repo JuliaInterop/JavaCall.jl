@@ -110,10 +110,10 @@ Locale = @jimport java.util.Locale
 lc = jfield(@jimport(java.util.Locale), "CANADA", @jimport(java.util.Locale))
 #Instance field access
 #Disabled for now. Need to verify stability
-#@assert jfield(@jimport(java.util.logging.Logger), "GLOBAL_LOGGER_NAME", JString ) == "global"
-#@assert jcall(lc, "getCountry", JString, ()) == "CA"
-#@assert jfield(t, "integerField", jint) == 100
-#@assert jfield(t, "stringField", JString) == "A STRING"
+@assert jfield(@jimport(java.util.logging.Logger), "GLOBAL_LOGGER_NAME", JString ) == "global"
+@assert jcall(lc, "getCountry", JString, ()) == "CA"
+@assert jfield(t, "integerField", jint) == 100
+@assert jfield(t, "stringField", JString) == "A STRING"
 
 # Test Memory allocation and de-allocatios
 # the following loop fails with an OutOfMemoryException in the absence of de-allocation
@@ -134,10 +134,20 @@ m = listmethods(JString("test"), "indexOf")[1]
 @test getname(getreturntype(m)) == "int"
 @test [getname(typ) for typ in getparametertypes(m)] == ["java.lang.String", "int"]
 
+#Test for double free bug, #20
+#Fix in #28. The following lines will segfault without the fix
+JHashtable = @jimport java.util.Hashtable
+JProperties = @jimport java.util.Properties
+ta_20=Any[]
+for i=1:100; push!(ta_20, convert(JHashtable, JProperties((),))); end
+gc(); gc()
+for i=1:100; @test jcall(ta_20[i], "size", jint, ()) == 0; end
+
 # Test array conversions
 jobj = jcall(T, "testArrayAsObject", JObject, ())
 arr = convert(Array{Array{UInt8, 1}, 1}, jobj)
 @test ["Hello", "World"] == map(bytestring, arr)
+
 
 # At the end, unload the JVM before exiting
 JavaCall.destroy()
