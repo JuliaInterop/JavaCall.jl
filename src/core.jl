@@ -76,10 +76,10 @@ true if the passed object is null else false
 """
 isnull(obj::JavaMetaClass) = obj.ptr == C_NULL
 
-typealias JClass JavaObject{symbol("java.lang.Class")}
-typealias JObject JavaObject{symbol("java.lang.Object")}
-typealias JMethod JavaObject{symbol("java.lang.reflect.Method")}
-typealias JString JavaObject{symbol("java.lang.String")}
+typealias JClass JavaObject{Symbol("java.lang.Class")}
+typealias JObject JavaObject{Symbol("java.lang.Object")}
+typealias JMethod JavaObject{Symbol("java.lang.reflect.Method")}
+typealias JString JavaObject{Symbol("java.lang.String")}
 
 function JString(str::AbstractString)
     jstring = ccall(jnifunc.NewStringUTF, Ptr{Void}, (Ptr{JNIEnv}, Ptr{UInt8}), penv, utf8(str))

@@ -8,6 +8,7 @@ export JavaObject, JavaMetaClass,
 # using Debug
 using Memoize
 using Compat
+import Compat.String
 
 import Base.bytestring, Base.convert
 
