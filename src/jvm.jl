@@ -17,8 +17,8 @@ const JNI_EEXIST       = convert(Cint, -5)              #/* VM already created *
 const JNI_EINVAL       = convert(Cint, -6)              #/* invalid arguments */
 
 
-@unix_only global const libname = "libjvm"
-@windows_only global const libname = "jvm"
+@static is_unix() ? (global const libname = "libjvm") : nothing
+@static is_windows() ? (global const libname = "jvm") : nothing
 function findjvm()
     javahomes = Any[]
     libpaths = Any[]
@@ -83,12 +83,12 @@ immutable JavaVMInitArgs
 end
 
 
-@unix_only const sep = ":"
-@windows_only const sep = ";"
-cp=Array(ByteString, 0)
-opts=Array(ByteString, 0)
-addClassPath(s::ByteString) = isloaded()?warn("JVM already initialised. This call has no effect"): push!(cp, s)
-addOpts(s::ByteString) = isloaded()?warn("JVM already initialised. This call has no effect"): push!(opts, s)
+@static is_unix() ? (const sep = ":") : nothing
+@static is_windows() ? (const sep = ";") : nothing
+cp=Array(String, 0)
+opts=Array(String, 0)
+addClassPath(s::String) = isloaded()?warn("JVM already initialised. This call has no effect"): push!(cp, s)
+addOpts(s::String) = isloaded()?warn("JVM already initialised. This call has no effect"): push!(opts, s)
 
 init() = init(vcat(opts, reduce((x,y)->string(x,sep,y),"-Djava.class.path=$(cp[1])",cp[2:end]) ))
 
