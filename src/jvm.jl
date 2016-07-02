@@ -33,8 +33,8 @@ function findjvm()
     if haskey(ENV,"JAVA_HOME")
         push!(javahomes,ENV["JAVA_HOME"])
 	else
-	    @windows_only ENV["JAVA_HOME"] = javahome_winreg()
-		@windows_only push!(javahomes,ENV["JAVA_HOME"])
+            @windows_only ENV["JAVA_HOME"] = javahome_winreg()
+            @windows_only push!(javahomes,ENV["JAVA_HOME"])
     end
     if isfile("/usr/libexec/java_home")
         push!(javahomes,chomp(readall(`/usr/libexec/java_home`)))
