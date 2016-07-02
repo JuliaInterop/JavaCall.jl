@@ -5,9 +5,8 @@ export JavaObject, JavaMetaClass,
        @jimport, jcall, jfield, isnull,
        getname, listmethods, getreturntype, getparametertypes
 
-# using Debug
-using Memoize
 using Compat
+using WinReg
 import Compat.String
 
 import Base.bytestring, Base.convert

@@ -16,15 +16,25 @@ const JNI_ENOMEM       = convert(Cint, -4)              #/* not enough memory */
 const JNI_EEXIST       = convert(Cint, -5)              #/* VM already created */
 const JNI_EINVAL       = convert(Cint, -6)              #/* invalid arguments */
 
+function javahome_winreg()
+    keypath = "SOFTWARE\\JavaSoft\\Java Development Kit"
+    value = querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "CurrentVersion")
+    keypath *= "\\"*value
+    return querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "JavaHome")
+end
 
 @static is_unix() ? (global const libname = "libjvm") : nothing
 @static is_windows() ? (global const libname = "jvm") : nothing
+
 function findjvm()
     javahomes = Any[]
     libpaths = Any[]
     
     if haskey(ENV,"JAVA_HOME")
         push!(javahomes,ENV["JAVA_HOME"])
+	else
+        @static is_windows() ? ENV["JAVA_HOME"] = javahome_winreg() : nothing
+        @static is_windows() ? push!(javahomes,ENV["JAVA_HOME"]) : nothing
     end
     if isfile("/usr/libexec/java_home")
         push!(javahomes,chomp(readall(`/usr/libexec/java_home`)))
@@ -36,18 +46,19 @@ function findjvm()
 
     push!(libpaths,pwd())
     for n in javahomes
-        @windows_only push!(libpaths, joinpath(n, "jre", "bin", "server"))
-        @windows_only push!(libpaths, joinpath(n, "bin", "client"))
-        @linux_only if WORD_SIZE==64; push!(libpaths, joinpath(n, "jre", "lib", "amd64", "server")); end
-        @linux_only if WORD_SIZE==32; push!(libpaths, joinpath(n, "jre", "lib", "i386", "server")); end
+        @static is_windows() ? push!(libpaths, joinpath(n, "jre", "bin", "server")) : nothing
+        @static is_windows() ? push!(libpaths, joinpath(n, "bin", "client")) : nothing
+        @static is_linux() ? if WORD_SIZE==64; push!(libpaths, joinpath(n, "jre", "lib", "amd64", "server")); end : nothing
+        @static is_linux() ? if WORD_SIZE==32; push!(libpaths, joinpath(n, "jre", "lib", "i386", "server")); end : nothing
         push!(libpaths, joinpath(n, "jre", "lib", "server"))
     end
     
     ext = "."*@windows? "dll":@osx? "dylib":"so"
+
     try 
         for n in libpaths
             libpath = joinpath(n,libname*ext);
-            if isfile(libpath)
+            if isfile(libpath) 
                 global libjvm = Libdl.dlopen(libpath)
                 println("Loaded $libpath")
                 return
