@@ -5,7 +5,7 @@ typealias jint Cint
 # typedef long jlong;
 typealias jlong Clonglong
 typealias jbyte Cchar
- 
+
 # jni.h
 
 typealias jboolean Cuchar
@@ -20,17 +20,17 @@ immutable JavaMetaClass{T}
     ptr::Ptr{Void}
 end
 
-#The metaclass, sort of equivalent to a the 
+#The metaclass, sort of equivalent to a the
 JavaMetaClass(T, ptr) = JavaMetaClass{T}(ptr)
 
 type JavaObject{T}
     ptr::Ptr{Void}
-    
+
     function JavaObject(ptr)
         j=new(ptr)
         finalizer(j, deleteref)
         return j
-    end 
+    end
 
     JavaObject(argtypes::Tuple, args...) = jnew(T, argtypes, args...)
 
@@ -76,16 +76,16 @@ true if the passed object is null else false
 """
 isnull(obj::JavaMetaClass) = obj.ptr == C_NULL
 
-typealias JClass JavaObject{symbol("java.lang.Class")}
-typealias JObject JavaObject{symbol("java.lang.Object")}
-typealias JMethod JavaObject{symbol("java.lang.reflect.Method")}
-typealias JString JavaObject{symbol("java.lang.String")}
+typealias JClass JavaObject{Symbol("java.lang.Class")}
+typealias JObject JavaObject{Symbol("java.lang.Object")}
+typealias JMethod JavaObject{Symbol("java.lang.reflect.Method")}
+typealias JString JavaObject{Symbol("java.lang.String")}
 
 function JString(str::AbstractString)
     jstring = ccall(jnifunc.NewStringUTF, Ptr{Void}, (Ptr{JNIEnv}, Ptr{UInt8}), penv, utf8(str))
     if jstring == C_NULL
         geterror()
-    else 
+    else
         return JString(jstring)
     end
 end
@@ -128,15 +128,15 @@ function jcall{T}(typ::Type{JavaObject{T}}, method::AbstractString, rettype::Typ
     try
         gc_enable(false)
         sig = method_signature(rettype, argtypes...)
-        
+
         jmethodId = ccall(jnifunc.GetStaticMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{UInt8}, Ptr{UInt8}), penv, metaclass(T), utf8(method), sig)
         if jmethodId==C_NULL; geterror(true); end
-        
+
         _jcall(metaclass(T), jmethodId, C_NULL, rettype, argtypes, args...)
     finally
         gc_enable(true)
     end
-    
+
 end
 
 # Call instance methods
@@ -173,7 +173,7 @@ for (x, y, z) in [ (:jboolean, :(jnifunc.GetBooleanField), :(jnifunc.GetStaticBo
                   (:jfloat, :(jnifunc.GetFloatField), :(jnifunc.GetStaticFloatField)),
                   (:jdouble, :(jnifunc.GetDoubleField), :(jnifunc.GetStaticDoubleField)) ]
 
-    m = quote 
+    m = quote
         function _jfield(obj, jfieldID::Ptr{Void}, fieldType::Type{$(x)})
             callmethod = ifelse( typeof(obj)<:JavaObject, $y , $z )
             result = ccall(callmethod, $x, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, obj.ptr, jfieldID)
@@ -237,11 +237,21 @@ function _jcall(obj,  jmethodId::Ptr{Void}, callmethod::Ptr{Void}, rettype::Type
     return convert_result(rettype, result)
 end
 
-@memoize function metaclass(class::Symbol)
+
+global const _jmc_cache = Dict{Symbol, JavaMetaClass}()
+
+function _metaclass(class::Symbol)
     jclass=javaclassname(class)
     jclassptr = ccall(jnifunc.FindClass, Ptr{Void}, (Ptr{JNIEnv}, Ptr{UInt8}), penv, jclass)
     if jclassptr == C_NULL; error("Class Not Found $jclass"); end
     return JavaMetaClass(class, jclassptr)
+end
+
+function metaclass(class::Symbol)
+    if !haskey(_jmc_cache, class)
+        _jmc_cache[class] = _metaclass(class)
+    end
+    return _jmc_cache[class]
 end
 
 metaclass{T}(::Type{JavaObject{T}}) = metaclass(T)
@@ -251,7 +261,7 @@ javaclassname(class::Symbol) = utf8(replace(string(class), '.', '/'))
 
 function geterror(allow=false)
     isexception = ccall(jnifunc.ExceptionCheck, jboolean, (Ptr{JNIEnv},), penv )
-    
+
     if isexception == JNI_TRUE
         jthrow = ccall(jnifunc.ExceptionOccurred, Ptr{Void}, (Ptr{JNIEnv},), penv)
         if jthrow==C_NULL ; error("Java Exception thrown, but no details could be retrieved from the JVM"); end

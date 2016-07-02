@@ -23,8 +23,8 @@ function javahome_winreg()
     return querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "JavaHome")
 end
 
-@unix_only global const libname = "libjvm"
-@windows_only global const libname = "jvm"
+@static is_unix() ? (global const libname = "libjvm") : nothing
+@static is_windows() ? (global const libname = "jvm") : nothing
 
 function findjvm()
     javahomes = Any[]
@@ -33,8 +33,8 @@ function findjvm()
     if haskey(ENV,"JAVA_HOME")
         push!(javahomes,ENV["JAVA_HOME"])
 	else
-            @windows_only ENV["JAVA_HOME"] = javahome_winreg()
-            @windows_only push!(javahomes,ENV["JAVA_HOME"])
+        @static is_windows() ? ENV["JAVA_HOME"] = javahome_winreg() : nothing
+        @static is_windows() ? push!(javahomes,ENV["JAVA_HOME"]) : nothing
     end
     if isfile("/usr/libexec/java_home")
         push!(javahomes,chomp(readall(`/usr/libexec/java_home`)))
@@ -46,10 +46,10 @@ function findjvm()
 
     push!(libpaths,pwd())
     for n in javahomes
-        @windows_only push!(libpaths, joinpath(n, "jre", "bin", "server"))
-        @windows_only push!(libpaths, joinpath(n, "bin", "client"))
-        @linux_only if WORD_SIZE==64; push!(libpaths, joinpath(n, "jre", "lib", "amd64", "server")); end
-        @linux_only if WORD_SIZE==32; push!(libpaths, joinpath(n, "jre", "lib", "i386", "server")); end
+        @static is_windows() ? push!(libpaths, joinpath(n, "jre", "bin", "server")) : nothing
+        @static is_windows() ? push!(libpaths, joinpath(n, "bin", "client")) : nothing
+        @static is_linux() ? if WORD_SIZE==64; push!(libpaths, joinpath(n, "jre", "lib", "amd64", "server")); end : nothing
+        @static is_linux() ? if WORD_SIZE==32; push!(libpaths, joinpath(n, "jre", "lib", "i386", "server")); end : nothing
         push!(libpaths, joinpath(n, "jre", "lib", "server"))
     end
     
@@ -94,12 +94,12 @@ immutable JavaVMInitArgs
 end
 
 
-@unix_only const sep = ":"
-@windows_only const sep = ";"
-cp=Array(ByteString, 0)
-opts=Array(ByteString, 0)
-addClassPath(s::ByteString) = isloaded()?warn("JVM already initialised. This call has no effect"): push!(cp, s)
-addOpts(s::ByteString) = isloaded()?warn("JVM already initialised. This call has no effect"): push!(opts, s)
+@static is_unix() ? (const sep = ":") : nothing
+@static is_windows() ? (const sep = ";") : nothing
+cp=Array(String, 0)
+opts=Array(String, 0)
+addClassPath(s::String) = isloaded()?warn("JVM already initialised. This call has no effect"): push!(cp, s)
+addOpts(s::String) = isloaded()?warn("JVM already initialised. This call has no effect"): push!(opts, s)
 
 init() = init(vcat(opts, reduce((x,y)->string(x,sep,y),"-Djava.class.path=$(cp[1])",cp[2:end]) ))
 
