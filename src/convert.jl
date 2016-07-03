@@ -2,23 +2,23 @@ convert{T<:AbstractString}(::Type{JString}, str::T) = JString(str)
 convert{T<:AbstractString}(::Type{JObject}, str::T) = convert(JObject, JString(str))
 
 #Cast java object from S to T . Needed for polymorphic calls
-function convert{T,S}(::Type{JavaObject{T}}, obj::JavaObject{S}) 
+function convert{T,S}(::Type{JavaObject{T}}, obj::JavaObject{S})
     if isConvertible(T, S)   #Safe static cast
         ptr = ccall(jnifunc.NewLocalRef, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}), penv, obj.ptr)
         if ptr === C_NULL geterror() end
         return JavaObject{T}(ptr)
-    end 
+    end
     if isnull(obj) ; error("Cannot convert NULL"); end
     realClass = ccall(jnifunc.GetObjectClass, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void} ), penv, obj.ptr)
     if isConvertible(T, realClass)  #dynamic cast
         ptr = ccall(jnifunc.NewLocalRef, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}), penv, obj.ptr)
         if ptr === C_NULL geterror() end
         return JavaObject{T}(ptr)
-    end 
+    end
     error("Cannot cast java object from $S to $T")
 end
 
-#Is java type convertible from S to T. 
+#Is java type convertible from S to T.
 isConvertible(T, S) = (ccall(jnifunc.IsAssignableFrom, jboolean, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, metaclass(S), metaclass(T) ) == JNI_TRUE)
 isConvertible(T, S::Ptr{Void} ) = (ccall(jnifunc.IsAssignableFrom, jboolean, (Ptr{JNIEnv}, Ptr{Void}, Ptr{Void}), penv, S, metaclass(T) ) == JNI_TRUE)
 
@@ -33,7 +33,6 @@ function real_jtype(rettype)
     end
     return jnitype
 end
-
 
 function convert_args(argtypes::Tuple, args...)
     convertedArgs = Array(Int64, length(args))
@@ -91,7 +90,7 @@ function convert_arg{T<:JavaObject}(argtype::Type{Array{T,1}}, arg)
     return carg, arrayptr
 end
 
-convert_result{T<:JString}(rettype::Type{T}, result) = bytestring(JString(result))
+convert_result{T<:JString}(rettype::Type{T}, result) = unsafe_string(JString(result))
 convert_result{T<:JavaObject}(rettype::Type{T}, result) = T(result)
 convert_result(rettype, result) = result
 
@@ -107,7 +106,7 @@ for (x, y, z) in [ (:jboolean, :(jnifunc.GetBooleanArrayElements), :(jnifunc.Rel
         function convert_result(rettype::Type{Array{$(x),1}}, result)
             sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, result)
             arr = ccall($(y), Ptr{$(x)}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{jboolean} ), penv, result, C_NULL )
-            jl_arr::Array = pointer_to_array(arr, (@compat Int(sz)), false)
+            jl_arr::Array = unsafe_wrap(Array, arr, (@compat Int(sz)), false)
             jl_arr = deepcopy(jl_arr)
             ccall($(z), Void, (Ptr{JNIEnv},Ptr{Void}, Ptr{$(x)}, jint), penv, result, arr, 0)
             return jl_arr
@@ -118,9 +117,9 @@ end
 
 function convert_result{T}(rettype::Type{Array{JavaObject{T},1}}, result)
     sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, result)
-    
+
     ret = Array(JavaObject{T}, sz)
-    
+
     for i=1:sz
         a=ccall(jnifunc.GetObjectArrayElement, Ptr{Void}, (Ptr{JNIEnv},Ptr{Void}, jint), penv, result, i-1)
         ret[i] = JavaObject{T}(a)
@@ -165,14 +164,25 @@ convert{X,Y}(::Type{@jimport(java.util.Map)}, K::Type{JavaObject{X}}, V::Type{Ja
 
 
 # Convert a reference to a java.lang.String into a Julia string. Copies the underlying byte buffer
-function bytestring(jstr::JString)  #jstr must be a jstring obtained via a JNI call
+function unsafe_string(jstr::JString)  #jstr must be a jstring obtained via a JNI call
     if isnull(jstr); return ""; end #Return empty string to keep type stability. But this is questionable
     pIsCopy = Array(jboolean, 1)
     buf::Ptr{UInt8} = ccall(jnifunc.GetStringUTFChars, Ptr{UInt8}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{jboolean}), penv, jstr.ptr, pIsCopy)
-    s=bytestring(buf)
+    s=unsafe_string(buf)
     ccall(jnifunc.ReleaseStringUTFChars, Void, (Ptr{JNIEnv}, Ptr{Void}, Ptr{UInt8}), penv, jstr.ptr, buf)
     return s
 end
+
+#This is necessary to properly deprecate bytestring in 0.5, while ensuring
+# callers don't need to change for 0.4. 
+function Base.bytestring(jstr::JString)  #jstr must be a jstring obtained via a JNI call
+    if VERSION >= v"0.5.0-dev+4612"
+        Base.depwarn("bytestring(jstr::JString) is deprecated. Use unsafe_string(jstr) instead", :bytestring )
+    end
+    return JavaCall.unsafe_string(jstr)
+end
+
+
 
 
 for (x, y, z) in [ (:jboolean, :(jnifunc.GetBooleanArrayElements), :(jnifunc.ReleaseBooleanArrayElements)),
@@ -185,9 +195,9 @@ for (x, y, z) in [ (:jboolean, :(jnifunc.GetBooleanArrayElements), :(jnifunc.Rel
                   (:jdouble, :(jnifunc.GetDoubleArrayElements), :(jnifunc.ReleaseDoubleArrayElements)) ]
     m=quote
         function convert(::Type{Array{$(x),1}}, obj::JObject)
-            sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, obj.ptr)    
+            sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, obj.ptr)
             arr = ccall($(y), Ptr{$(x)}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{jboolean} ), penv, obj.ptr, C_NULL )
-            jl_arr::Array = pointer_to_array(arr, (@compat Int(sz)), false)
+            jl_arr::Array = unsafe_wrap(Array, arr, (@compat Int(sz)), false)
             jl_arr = deepcopy(jl_arr)
             ccall($(z), Void, (Ptr{JNIEnv},Ptr{Void}, Ptr{$(x)}, jint), penv, obj.ptr, arr, 0)
             return jl_arr

@@ -17,17 +17,17 @@ const JNI_EEXIST       = convert(Cint, -5)              #/* VM already created *
 const JNI_EINVAL       = convert(Cint, -6)              #/* invalid arguments */
 
 
-@static is_unix() ? (global const libname = "libjvm") : nothing
-@static is_windows() ? (global const libname = "jvm") : nothing
+@static is_unix() ? (global const libname = "libjvm") : (global const libname = "jvm")
+
 function findjvm()
     javahomes = Any[]
     libpaths = Any[]
-    
+
     if haskey(ENV,"JAVA_HOME")
         push!(javahomes,ENV["JAVA_HOME"])
     end
     if isfile("/usr/libexec/java_home")
-        push!(javahomes,chomp(readall(`/usr/libexec/java_home`)))
+        push!(javahomes,chomp(readstring(`/usr/libexec/java_home`)))
     end
 
     if isdir("/usr/lib/jvm/default-java/")
@@ -36,15 +36,24 @@ function findjvm()
 
     push!(libpaths,pwd())
     for n in javahomes
-        @windows_only push!(libpaths, joinpath(n, "jre", "bin", "server"))
-        @windows_only push!(libpaths, joinpath(n, "bin", "client"))
-        @linux_only if WORD_SIZE==64; push!(libpaths, joinpath(n, "jre", "lib", "amd64", "server")); end
-        @linux_only if WORD_SIZE==32; push!(libpaths, joinpath(n, "jre", "lib", "i386", "server")); end
+        @static if is_windows()
+            push!(libpaths, joinpath(n, "jre", "bin", "server"))
+            push!(libpaths, joinpath(n, "bin", "client"))
+        end
+        @static if is_linux()
+             if WORD_SIZE==64
+                  push!(libpaths, joinpath(n, "jre", "lib", "amd64", "server"))
+             elseif WORD_SIZE==32
+                 push!(libpaths, joinpath(n, "jre", "lib", "i386", "server"))
+             end
+         end
         push!(libpaths, joinpath(n, "jre", "lib", "server"))
     end
-    
-    ext = "."*@windows? "dll":@osx? "dylib":"so"
-    try 
+
+    ext = @static is_windows()?"dll":(@static is_apple()?"dylib":"so")
+    ext = "."*ext
+
+    try
         for n in libpaths
             libpath = joinpath(n,libname*ext);
             if isfile(libpath)
@@ -56,7 +65,7 @@ function findjvm()
     end
 
     errorMsg =
-        [ 
+        [
          "Cannot find java library $libname$ext\n",
          "Search Path:"
          ];
@@ -70,7 +79,7 @@ end
 
 
 
-immutable JavaVMOption 
+immutable JavaVMOption
     optionString::Ptr{UInt8}
     extraInfo::Ptr{Void}
 end
@@ -107,7 +116,7 @@ function init{T<:AbstractString}(opts::Array{T, 1})
     ppjvm=Array(Ptr{JavaVM},1)
     ppenv=Array(Ptr{JNIEnv},1)
     vm_args = JavaVMInitArgs(JNI_VERSION_1_6, convert(Cint, length(opts)), convert(Ptr{JavaVMOption}, pointer(opt)), JNI_TRUE)
-    
+
     res = ccall(create, Cint, (Ptr{Ptr{JavaVM}}, Ptr{Ptr{JNIEnv}}, Ptr{JavaVMInitArgs}), ppjvm, ppenv, &vm_args)
     if res < 0; error("Unable to initialise Java VM: $(res)"); end
     global penv = ppenv[1]
