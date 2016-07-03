@@ -6,13 +6,13 @@ using Compat
 versioninfo();
 
 # JavaCall.init(["-Djava.class.path=$(joinpath(Pkg.dir(), "JavaCall", "test"))"])
-JavaCall.init(["-verbose:jni", "-verbose:gc","-Djava.class.path=$(joinpath(Pkg.dir(), "JavaCall", "test"))"])
+JavaCall.init(["-verbose:gc","-Djava.class.path=$(joinpath(Pkg.dir(), "JavaCall", "test"))"])
 
 a=JString("how are you")
 @test a.ptr != C_NULL
 @test 11==ccall(JavaCall.jnifunc.GetStringUTFLength, jint, (Ptr{JavaCall.JNIEnv}, Ptr{Void}), JavaCall.penv, a.ptr)
 b=ccall(JavaCall.jnifunc.GetStringUTFChars, Ptr{UInt8}, (Ptr{JavaCall.JNIEnv}, Ptr{Void}, Ptr{Void}), JavaCall.penv, a.ptr, C_NULL)
-@test bytestring(b) == "how are you"
+@test unsafe_string(b) == "how are you"
 
 # Test parameter passing
 T = @jimport Test
@@ -68,9 +68,9 @@ a=jcall(j_u_arrays, "copyOf", Array{jint, 1}, (Array{jint, 1}, jint), [1,2,3], 3
 
 a=jcall(j_u_arrays, "copyOf", Array{JObject, 1}, (Array{JObject, 1}, jint), ["a","b","c"], 3)
 @test 3==length(a)
-@test "a"==bytestring(convert(JString, a[1]))
-@test "b"==bytestring(convert(JString, a[2]))
-@test "c"==bytestring(convert(JString, a[3]))
+@test "a"==unsafe_string(convert(JString, a[1]))
+@test "b"==unsafe_string(convert(JString, a[2]))
+@test "c"==unsafe_string(convert(JString, a[3]))
 
 #Test for Dates
 
@@ -146,7 +146,7 @@ for i=1:100; @test jcall(ta_20[i], "size", jint, ()) == 0; end
 # Test array conversions
 jobj = jcall(T, "testArrayAsObject", JObject, ())
 arr = convert(Array{Array{UInt8, 1}, 1}, jobj)
-@test ["Hello", "World"] == map(bytestring, arr)
+@test ["Hello", "World"] == map(Compat.String, arr)
 
 
 # At the end, unload the JVM before exiting

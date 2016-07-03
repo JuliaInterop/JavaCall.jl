@@ -6,28 +6,22 @@ export JavaObject, JavaMetaClass,
        getname, listmethods, getreturntype, getparametertypes
 
 # using Debug
-using Memoize
+using Base.Dates
 using Compat
 import Compat.String
 
-import Base.bytestring, Base.convert
+import Base.convert, Base.isnull, Base.unsafe_convert
 
-if VERSION < v"0.4.0-dev+656"
-	import Compat.isnull
-else
-	import Base.isnull
-end
+# if VERSION < v"0.5.0-dev+4612"
+# 	const unsafe_string = Base.bytestring
+# else
+# 	const unsafe_string = Base.unsafe_string
+# end
 
-if VERSION < v"0.4-"
-	using Dates
+if VERSION < v"0.5.0-dev+4612"
+    import Compat.unsafe_string
 else
-	using Base.Dates
-end
-
-if VERSION < v"0.4-"
-	const unsafe_convert = Base.convert
-else
-	const unsafe_convert = Base.unsafe_convert
+    import Base.unsafe_string
 end
 
 
