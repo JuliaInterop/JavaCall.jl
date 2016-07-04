@@ -7,6 +7,7 @@ export JavaObject, JavaMetaClass,
 
 using Compat
 using WinReg
+import Compat.string
 
 import Base.convert, Base.isnull, Base.unsafe_convert
 
