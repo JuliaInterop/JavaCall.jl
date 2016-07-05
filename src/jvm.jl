@@ -16,6 +16,12 @@ const JNI_ENOMEM       = convert(Cint, -4)              #/* not enough memory */
 const JNI_EEXIST       = convert(Cint, -5)              #/* VM already created */
 const JNI_EINVAL       = convert(Cint, -6)              #/* invalid arguments */
 
+function javahome_winreg()
+    keypath = "SOFTWARE\\JavaSoft\\Java Development Kit"
+	value = querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "CurrentVersion")
+	keypath *= "\\"*value
+	return querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "JavaHome")
+end
 
 @static is_unix() ? (global const libname = "libjvm") : (global const libname = "jvm")
 
@@ -25,7 +31,11 @@ function findjvm()
 
     if haskey(ENV,"JAVA_HOME")
         push!(javahomes,ENV["JAVA_HOME"])
+    else
+        @static is_windows() ? ENV["JAVA_HOME"] = javahome_winreg() : nothing
+        @static is_windows() ? push!(javahomes, ENV["JAVA_HOME"]) : nothing
     end
+
     if isfile("/usr/libexec/java_home")
         push!(javahomes,chomp(readstring(`/usr/libexec/java_home`)))
     end
