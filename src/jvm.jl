@@ -17,10 +17,17 @@ const JNI_EEXIST       = convert(Cint, -5)              #/* VM already created *
 const JNI_EINVAL       = convert(Cint, -6)              #/* invalid arguments */
 
 function javahome_winreg()
-    keypath = "SOFTWARE\\JavaSoft\\Java Development Kit"
-	value = querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "CurrentVersion")
-	keypath *= "\\"*value
-	return querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "JavaHome")
+	try
+	    keypath = "SOFTWARE\\JavaSoft\\Java Runtime Environment"
+	    value = querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "CurrentVersion")
+	    keypath *= "\\"*value
+	    return querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "JavaHome")
+	catch
+	    keypath = "SOFTWARE\\JavaSoft\\Java Development Kit"
+	    value = querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "CurrentVersion")
+	    keypath *= "\\"*value
+	    return querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "JavaHome")
+	end
 end
 
 @static is_unix() ? (global const libname = "libjvm") : (global const libname = "jvm")
@@ -47,14 +54,15 @@ function findjvm()
     push!(libpaths,pwd())
     for n in javahomes
         @static if is_windows()
+            push!(libpaths, joinpath(n, "bin", "server"))
             push!(libpaths, joinpath(n, "jre", "bin", "server"))
             push!(libpaths, joinpath(n, "bin", "client"))
         end
         @static if is_linux()
              if WORD_SIZE==64
-                  push!(libpaths, joinpath(n, "jre", "lib", "amd64", "server"))
+                push!(libpaths, joinpath(n, "jre", "lib", "amd64", "server"))
              elseif WORD_SIZE==32
-                 push!(libpaths, joinpath(n, "jre", "lib", "i386", "server"))
+                push!(libpaths, joinpath(n, "jre", "lib", "i386", "server"))
              end
          end
         push!(libpaths, joinpath(n, "jre", "lib", "server"))
@@ -67,6 +75,11 @@ function findjvm()
         for n in libpaths
             libpath = joinpath(n,libname*ext);
             if isfile(libpath)
+                if is_windows()
+                    bindir = dirname(dirname(libpath))
+                    m = filter(x -> ismatch(r"msvcr(?:.*).dll",x), readdir(bindir))
+                    Libdl.dlopen(joinpath(bindir,m[1]))
+                end
                 global libjvm = Libdl.dlopen(libpath)
                 println("Loaded $libpath")
                 return
