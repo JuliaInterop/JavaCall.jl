@@ -125,31 +125,18 @@ end
 
 # Call static methods
 function jcall{T}(typ::Type{JavaObject{T}}, method::AbstractString, rettype::Type, argtypes::Tuple, args... )
-    try
-        gc_enable(false)
-        sig = method_signature(rettype, argtypes...)
-
-        jmethodId = ccall(jnifunc.GetStaticMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{UInt8}, Ptr{UInt8}), penv, metaclass(T), String(method), sig)
-        if jmethodId==C_NULL; geterror(true); end
-
-        _jcall(metaclass(T), jmethodId, C_NULL, rettype, argtypes, args...)
-    finally
-        gc_enable(true)
-    end
-
+    sig = method_signature(rettype, argtypes...)
+    jmethodId = ccall(jnifunc.GetStaticMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{UInt8}, Ptr{UInt8}), penv, metaclass(T), String(method), sig)
+    if jmethodId==C_NULL; geterror(true); end
+    _jcall(metaclass(T), jmethodId, C_NULL, rettype, argtypes, args...)
 end
 
 # Call instance methods
 function jcall(obj::JavaObject, method::AbstractString, rettype::Type, argtypes::Tuple, args... )
-    try
-        gc_enable(false)
-        sig = method_signature(rettype, argtypes...)
-        jmethodId = ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{UInt8}, Ptr{UInt8}), penv, metaclass(obj), String(method), sig)
-        if jmethodId==C_NULL; geterror(true); end
-        _jcall(obj, jmethodId, C_NULL, rettype,  argtypes, args...)
-    finally
-        gc_enable(true)
-    end
+    sig = method_signature(rettype, argtypes...)
+    jmethodId = ccall(jnifunc.GetMethodID, Ptr{Void}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{UInt8}, Ptr{UInt8}), penv, metaclass(obj), String(method), sig)
+    if jmethodId==C_NULL; geterror(true); end
+    _jcall(obj, jmethodId, C_NULL, rettype,  argtypes, args...)
 end
 
 function jfield{T}(typ::Type{JavaObject{T}}, field::AbstractString, fieldType::Type)
