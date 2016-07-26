@@ -14,7 +14,7 @@ Currently, as a debugging aid, the module will print the location of the jvm lib
 
 ##Initialisation
 
-The `JavaCall.init(args::Array{String, 1})` method must to used to load and initialise the Java Virtual Machine before any other functions in this module can be called. The `args` parameter is an array containing JVM initialisation arguments. This can be used to set, for example, the system classpath, and the maximum java heap. Any valid commandline argument to the `java` command can be used. Unrecognised arguments are silently discarded. 
+The `JavaCall.init(args::Array{String, 1})` method must to used to load and initialise the Java Virtual Machine before any other functions in this module can be called. The `args` parameter is an array containing JVM initialisation arguments. This can be used to set, for example, the system classpath, and the maximum Java heap. Any valid commandline argument to the `java` command can be used. Unrecognised arguments are silently discarded. 
 
 ```julia
 JavaCall.init(["-Xmx512M", "-Djava.class.path=$(joinpath(Pkg.dir(), "JavaCall", "test"))", "-verbose:jni", "-verbose:gc"])
@@ -51,7 +51,7 @@ jinner=@jimport myPackage.Outer$Inner
 ```
 ##Calling Static Methods
 
-The primary interface to Java methods is the `jcall` function. Like the inbuilt Julia `ccall` function, you need to supply the return type, a tuple of the argument types, and the method arguments themselves. The first argument to jcall however is the reciever of the method in Java. In case of static methods therefore, the reciever is the Julia type corresponding to the Java class that holds the method. 
+The primary interface to Java methods is the `jcall` function. Like the inbuilt Julia `ccall` function, you need to supply the return type, a tuple of the argument types, and the method arguments themselves. The first argument to jcall however is the receiver of the method in Java. In case of static methods therefore, the receiver is the Julia type corresponding to the Java class that holds the method. 
 
 Arguments are converted if possible to the specified types, via the usual Julia `convert` function. This includes converting `JavaObject` instances referencing a particular java class, to a `JavaObject` referencing its superclass. This allows some measure of the polymorphism inherent in Java methods. Strings are automatically converted, and hence Julia strings may be passed directly into `jcall`. 
 
@@ -60,7 +60,7 @@ jcall(jlm, "sin", jdouble, (jdouble,), pi/2) #1.0
 ```
 
 ##Initialising Objects via Constructors
-Each of the Julia `JavaObject` types contain a constructor that looks much like the `jcall` function. You provide a tuple of argument types, and the arguments themselves, and it return an instance of `JavaObject` that wraps a Java object of the corresponding class. Unlike `jcall` however, in this case the reciever and the return type is implicit, and does not need to specified. 
+Each of the Julia `JavaObject` types contain a constructor that looks much like the `jcall` function. You provide a tuple of argument types, and the arguments themselves, and it return an instance of `JavaObject` that wraps a Java object of the corresponding class. Unlike `jcall` however, in this case the receiver and the return type is implicit, and does not need to specified. 
 
 ```julia
 gurl = jnu((JString,), "http://www.google.com")
@@ -69,7 +69,7 @@ outerObj= jouter((),)
 
 ##Calling Instance Methods
 
-Calling instance methods uses the `jcall` function, with an instance of the `JavaObject` type as the reciever. As before, the method takes as arguments the return type, the tuple of the argument types, and the arguments themselves. 
+Calling instance methods uses the `jcall` function, with an instance of the `JavaObject` type as the receiver. As before, the method takes as arguments the return type, the tuple of the argument types, and the arguments themselves. 
 
 ```julia
 jcall(gurl, "getHost", JString,()) #"wwww.google.com"
