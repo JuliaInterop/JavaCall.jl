@@ -51,7 +51,7 @@ jinner=@jimport myPackage.Outer$Inner
 ```
 ##Calling Static Methods
 
-The primary interface to Java methods is the `jcall` function. Like the inbuilt Julia `ccall` function, you need to supply the return type, a tuple of the argument types, and the method arguments themselves. The first argument to jcall however is the reciever of the method in Java. In case of static methods therefore, the reciever is the Julia type corresponding to the Java class that holds the method. 
+The primary interface to Java methods is the `jcall` function. Like the inbuilt Julia `ccall` function, you need to supply the return type, a tuple of the argument types, and the method arguments themselves. The first argument to jcall however is the receiver of the method in Java. In case of static methods therefore, the reciever is the Julia type corresponding to the Java class that holds the method. 
 
 Arguments are converted if possible to the specified types, via the usual Julia `convert` function. This includes converting `JavaObject` instances referencing a particular java class, to a `JavaObject` referencing its superclass. This allows some measure of the polymorphism inherent in Java methods. Strings are automatically converted, and hence Julia strings may be passed directly into `jcall`. 
 
