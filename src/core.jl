@@ -221,7 +221,7 @@ for (x, y, z) in [ (:jboolean, :(jnifunc.CallBooleanMethodA), :(jnifunc.CallStat
 end
 
 #_jcall for Object return types
-#obj -- reciever - Class pointer or object prointer
+#obj -- receiver - Class pointer or object prointer
 #jmethodId -- Java method ID
 #callmethod -- the C method pointer to call
 function _jcall(obj,  jmethodId::Ptr{Void}, callmethod::Ptr{Void}, rettype::Type, argtypes::Tuple, args... )
