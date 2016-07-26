@@ -14,7 +14,7 @@ Currently, as a debugging aid, the module will print the location of the jvm lib
 
 ##Initialisation
 
-The `JavaCall.init(args::Array{String, 1})` method must to used to load and initialise the Java Virtual Machine before any other functions in this module can be called. The `args` parameter is an array containing JVM initialisation arguments. This can be used to set, for example, the system classpath, and the maximum java heap. Any valid commandline argument to the `java` command can be used. Unrecognised arguments are silently discarded. 
+The `JavaCall.init(args::Array{String, 1})` method must to used to load and initialise the Java Virtual Machine before any other functions in this module can be called. The `args` parameter is an array containing JVM initialisation arguments. This can be used to set, for example, the system classpath, and the maximum Java heap. Any valid commandline argument to the `java` command can be used. Unrecognised arguments are silently discarded. 
 
 ```julia
 JavaCall.init(["-Xmx512M", "-Djava.class.path=$(joinpath(Pkg.dir(), "JavaCall", "test"))", "-verbose:jni", "-verbose:gc"])
