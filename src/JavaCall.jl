@@ -6,9 +6,13 @@ export JavaObject, JavaMetaClass,
        getname, listmethods, getreturntype, getparametertypes
 
 using Base.Dates
-using WinReg
 using Compat
 import Compat.String
+
+@static if is_windows()
+    using WinReg
+end
+
 
 import Base.convert, Base.isnull, Base.unsafe_convert
 
