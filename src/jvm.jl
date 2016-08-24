@@ -59,9 +59,9 @@ function findjvm()
             push!(libpaths, joinpath(n, "bin", "client"))
         end
         @static if is_linux()
-             if WORD_SIZE==64
+             if Sys.WORD_SIZE==64
                 push!(libpaths, joinpath(n, "jre", "lib", "amd64", "server"))
-             elseif WORD_SIZE==32
+			elseif Sys.WORD_SIZE==32
                 push!(libpaths, joinpath(n, "jre", "lib", "i386", "server"))
              end
          end
