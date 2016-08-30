@@ -17,17 +17,21 @@ const JNI_EEXIST       = convert(Cint, -5)              #/* VM already created *
 const JNI_EINVAL       = convert(Cint, -6)              #/* invalid arguments */
 
 function javahome_winreg()
-	try
-	    keypath = "SOFTWARE\\JavaSoft\\Java Runtime Environment"
-	    value = querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "CurrentVersion")
-	    keypath *= "\\"*value
-	    return querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "JavaHome")
-	catch
-	    keypath = "SOFTWARE\\JavaSoft\\Java Development Kit"
-	    value = querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "CurrentVersion")
-	    keypath *= "\\"*value
-	    return querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "JavaHome")
-	end
+    try
+        keypath = "SOFTWARE\\JavaSoft\\Java Runtime Environment"
+        value = querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "CurrentVersion")
+        keypath *= "\\"*value
+        return querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "JavaHome")
+    catch
+        try
+            keypath = "SOFTWARE\\JavaSoft\\Java Development Kit"
+            value = querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "CurrentVersion")
+            keypath *= "\\"*value
+            return querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "JavaHome")
+        catch
+            error("Cannot find an installation of Java in the Windows Registry.  Please install Java from https://java.com/en/download/manual.jsp and subsequently reload JavaCall.")
+        end
+    end
 end
 
 @static is_unix() ? (global const libname = "libjvm") : (global const libname = "jvm")
