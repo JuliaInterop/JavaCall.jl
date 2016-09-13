@@ -128,7 +128,7 @@ addOpts(s::String) = isloaded()?warn("JVM already initialised. This call has no 
 
 function init()
     if isempty(cp)
-        init(AbstractString[])
+        init(opts)
     else
         init(vcat(opts, reduce((x,y)->string(x,sep,y),"-Djava.class.path=$(cp[1])",cp[2:end])))
     end
