@@ -141,7 +141,6 @@ assertnotloaded() = isloaded()?error("JVM already initialised"):nothing
 
 # Pointer to pointer to pointer to pointer alert! Hurrah for unsafe load
 function init{T<:AbstractString}(opts::Array{T, 1})
-    println("kek")
     assertnotloaded()
     opt = Array(JavaVMOption, length(opts))
     for i in 1:length(opts)
