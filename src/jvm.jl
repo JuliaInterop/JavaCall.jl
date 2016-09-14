@@ -126,7 +126,13 @@ opts=Array(String, 0)
 addClassPath(s::String) = isloaded()?warn("JVM already initialised. This call has no effect"): push!(cp, s)
 addOpts(s::String) = isloaded()?warn("JVM already initialised. This call has no effect"): push!(opts, s)
 
-init() = init(vcat(opts, reduce((x,y)->string(x,sep,y),"-Djava.class.path=$(cp[1])",cp[2:end]) ))
+function init()
+    if isempty(cp)
+        init(opts)
+    else
+        init(vcat(opts, reduce((x,y)->string(x,sep,y),"-Djava.class.path=$(cp[1])",cp[2:end])))
+    end
+end
 
 isloaded() = isdefined(JavaCall, :jnifunc) && isdefined(JavaCall, :penv) && penv != C_NULL
 
