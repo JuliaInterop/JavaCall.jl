@@ -5,4 +5,4 @@
 
 Call Java programs from Julia. 
 
-Documentation is available at http://aviks.github.io/JavaCall.jl
+Documentation is available at http://juliainterop.github.io/JavaCall.jl
