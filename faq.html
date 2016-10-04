@@ -55,11 +55,11 @@
       <section>
 	<h1 id="troubleshooting-and-frequently-asked-questions">Troubleshooting and Frequently Asked Questions</h1>
 
-<h3 id="error:-jnifunc-not-defined">ERROR: jnifunc not defined</h3>
+<h3 id="&quot;error:-jnifunc-not-defined&quot;">&quot;ERROR: jnifunc not defined&quot;</h3>
 
 <p>You are attempting to call Java methods without initialising the JVM. Call <code>JavaCall.init(...)</code> first.</p>
 
-<h3 id="cannot-find-libjvm-in:">Cannot find libjvm in:</h3>
+<h3 id="&quot;cannot-find-libjvm&quot;">&quot;Cannot find libjvm&quot;</h3>
 
 <p>The JVM dynamic library cannot be found. It is called <code>libjvm.so</code>, <code>libjvm.dylib</code> or <code>jvm.dll</code> depending on your system. Check that you have <code>JAVA_HOME</code> environment variable defined. If you do, verify the search logic in the code, and please file a pull request with an amemded version that can find your library. As a workaround, you can set the <code>JAVA_LIB</code> environment variable to point to the location of the library file.</p>
 
@@ -72,9 +72,16 @@ unknown function (ip: 0x31960c2b4)<br>
 </code><br>
 This message is usually benign. It is due to the way the JVM uses signals for its regular operations. Julia on OSX installs a signal handler, which generates the above message. However, since the signal is eventually caught and handled by the JVM, execution carries on normally. If the message troubles you for any reason, please start julia with the <code>--handle-signals=no</code> option. In this case, Julia&#39;s signal handler will be disabled, and you will no longer see the above message. However, this may cause issues with handling <code>^C</code> in Julia programs.</p>
 
-<p><em>References:</em><br>
-<a href="http://stackoverflow.com/questions/27241575/why-does-java-app-crash-in-gdb-but-runs-normally-in-real-life">http://stackoverflow.com/questions/27241575/why-does-java-app-crash-in-gdb-but-runs-normally-in-real-life</a><br>
-<a href="http://www.oracle.com/technetwork/java/javase/signals-139944.html#gbzbl">http://www.oracle.com/technetwork/java/javase/signals-139944.html#gbzbl</a></p>
+<p><em>References:</em></p>
+
+<ul>
+<li><a href="http://stackoverflow.com/questions/27241575/why-does-java-app-crash-in-gdb-but-runs-normally-in-real-life">http://stackoverflow.com/questions/27241575/why-does-java-app-crash-in-gdb-but-runs-normally-in-real-life</a></li>
+<li><a href="http://www.oracle.com/technetwork/java/javase/signals-139944.html#gbzbl">http://www.oracle.com/technetwork/java/javase/signals-139944.html#gbzbl</a></li>
+</ul>
+
+<h3 id="&quot;no-java-runtime-present,-requesting-install.&quot;-message-on-osx">&quot;No Java runtime present, requesting install.&quot; message on OSX</h3>
+
+<p>Unfortunately, Java on the Mac has a <a href="https://bugs.openjdk.java.net/browse/JDK-7131356">known bug</a>, wherein attempting to load a JVM via JNI fails unless the old OSX system Java 6 libraries are installed on the machine. This is strictly not necessary to run any Java programs, but is required due to a bug. This is scheduled to be fixed only in Java 9. In the meantime, the only option is to download and install the Apple Java 6 libraries from this url: <a href="https://support.apple.com/kb/dl1572?locale=en_US">https://support.apple.com/kb/dl1572?locale=en_US</a></p>
 
       </section>
       <footer>

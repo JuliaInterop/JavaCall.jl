@@ -57,12 +57,12 @@
 
 <p>The JavaCall package allows calling Java programs from within Julia code. It uses the Java Native Interface (<a href="http://docs.oracle.com/javase/1.5.0/docs/guide/jni/spec/jniTOC.html">JNI</a>) to call into an in-process Java Virtual Machine (JVM). The primary entry point to Java is the <code>jcall</code> function. This is modeled on the Julia <code>ccall</code> function, and takes as input the receiver object (or class, for static methods), the method name, the output type, a tuple of the method parameter types, and the parameters themselves. </p>
 
-<p>This package has been extensively tested using Oracle JDK 7 and Oracle JDK 8 on MacOSX and Ubuntu on 64 bit environments. It has also been shown to work with <code>OpenJDK</code> flavoue of java, versions 7 and 8. It <em>should</em> work on Windows. However, it is unlikely to work on a 32 bit environments without further work. It will not work with the Apple 1.6 JDK since that is a 32 bit environment, and Julia is typically built as a 64 bit executable on OSX. </p>
+<p>This package has been extensively tested using Oracle JDK 7 and Oracle JDK 8 on MacOSX and Ubuntu on 64 bit environments. It has also been shown to work with <code>OpenJDK</code> flavour of java, versions 7 and 8. It has also been tested on Windows 64 bit environments. However, it does not work on 32 bit environments. It will not work with the Apple 1.6 JDK since that is a 32 bit JVM, and Julia is typically built as a 64 bit executable on OSX. </p>
 
 <h2 id="installation">Installation</h2>
 <div class="highlight"><pre><code class="language-julia" data-lang="julia"><span class="n">Pkg</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s">&quot;JavaCall&quot;</span><span class="p">)</span>
 </code></pre></div>
-<p>This package has a dependency on the <code>Memoize</code> package</p>
+<p>This package has a dependency on the <code>WinReg</code> package which, on Windows, is used to derive the location of the JDK automatically. </p>
 
 <h2 id="usage">Usage</h2>
 
@@ -97,8 +97,7 @@
 <ul>
 <li><p>Multidimensional arrays, either as arguments or return values are not supported. Since Java uses Array-of-Arrays, unlike Julia&#39;s  true multidimensional arrays, supporting them is non-trivial, though certainly feasible.  </p></li>
 <li><p>Currently, only a low level interface is available, via <code>jcall</code>. As a result, this package is best suited for writing libraries that wrap around existing java packages. Writing user code direcly using this interface might be a bit tedious at present. A high level interface using reflection will eventually be built. </p></li>
-<li><p>Field access is not yet supported. It is unclear if a <code>Javabeans</code> style access (i.e. conflating field and getter/setter) is useful.</p></li>
-<li><p>While basic memory management has been implemented, there is likely to be some remaining memory leaks in this system. While this should be stable enough for scripting style tasks, more testing is neede before deplying this to long running tasks </p></li>
+<li><p>While basic memory management has been implemented, there is the possibility of some remaining memory leaks in this system. While this is stable enough for scripting style tasks, please test yourself before deplying this to long running tasks </p></li>
 </ul>
 
       </section>
