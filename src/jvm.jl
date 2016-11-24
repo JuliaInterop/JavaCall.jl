@@ -55,6 +55,10 @@ function findjvm()
         push!(javahomes, "/usr/lib/jvm/default-java/")
     end
 
+    if isdir("/usr/lib/jvm/")
+        push!(javahomes, "/usr/lib/jvm")
+    end
+
     push!(libpaths,pwd())
     for n in javahomes
         @static if is_windows()
