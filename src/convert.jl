@@ -174,7 +174,7 @@ function unsafe_string(jstr::JString)  #jstr must be a jstring obtained via a JN
 end
 
 #This is necessary to properly deprecate bytestring in 0.5, while ensuring
-# callers don't need to change for 0.4. 
+# callers don't need to change for 0.4.
 function Base.bytestring(jstr::JString)  #jstr must be a jstring obtained via a JNI call
     if VERSION >= v"0.5.0-dev+4612"
         Base.depwarn("bytestring(jstr::JString) is deprecated. Use unsafe_string(jstr) instead", :bytestring )
@@ -218,3 +218,13 @@ function convert{T}(::Type{Array{T, 1}}, obj::JObject)
     end
     return ret
 end
+
+##Iterator
+Base.start(itr::JavaObject) = true
+function Base.next(itr::JavaObject, state)
+     o = jcall(itr, "next", @jimport(java.lang.Object), (),)
+     c=jcall(o,"getClass", @jimport(java.lang.Class), ())
+     t=jcall(c, "getName", JString, ())
+     return (convert(JavaObject{Symbol(t)}, o), state)
+end
+Base.done(itr::JavaObject, state)  = (jcall(itr, "hasNext", jboolean, ()) == JNI_FALSE)

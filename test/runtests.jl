@@ -148,6 +148,42 @@ jobj = jcall(T, "testArrayAsObject", JObject, ())
 arr = convert(Array{Array{UInt8, 1}, 1}, jobj)
 @test ["Hello", "World"] == map(Compat.String, arr)
 
+#Test iterator conversions
+
+JArrayList = @jimport(java.util.ArrayList)
+a=JArrayList(())
+jcall(a, "add", jboolean, (JObject,), "abc")
+jcall(a, "add", jboolean, (JObject,), "cde")
+jcall(a, "add", jboolean, (JObject,), "efg")
+
+t=Array{Any, 1}()
+for i in jcall(a, "iterator", @jimport(java.util.Iterator), ())
+	push!(t, unsafe_string(i))
+end
+
+@test length(t) == 3
+@test t[1] == "abc"
+@test t[2] == "cde"
+@test t[3] == "efg"
+
+#Different iterator type - ListIterator
+t=Array{Any, 1}()
+for i in jcall(a, "listIterator", @jimport(java.util.ListIterator), ())
+	push!(t, unsafe_string(i))
+end
+
+@test length(t) == 3
+@test t[1] == "abc"
+@test t[2] == "cde"
+@test t[3] == "efg"
+
+#Empty List
+a=JArrayList(())
+t=Array{Any, 1}()
+for i in jcall(a, "iterator", @jimport(java.util.Iterator), ())
+	push!(t, unsafe_string(i))
+end
+@test length(t) == 0
 
 # At the end, unload the JVM before exiting
 JavaCall.destroy()
