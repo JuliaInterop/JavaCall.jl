@@ -162,6 +162,16 @@ end
 
 convert{X,Y}(::Type{@jimport(java.util.Map)}, K::Type{JavaObject{X}}, V::Type{JavaObject{Y}}, x::Dict) = convert(@jimport(java.util.Map), convert(@jimport(java.util.HashMap), K, V, x))
 
+function convert{X}(::Type{@jimport(java.util.ArrayList)}, x::Vector, V::Type{JavaObject{X}}=JObject)
+    ArrayList = @jimport(java.util.ArrayList)
+    a = ArrayList(())
+    for v in x
+        jcall(a, "add", jboolean, (JObject,), convert(V, v))
+    end
+    return a
+end
+
+convert{X}(::Type{@jimport(java.util.List)}, x::Vector, V::Type{JavaObject{X}}=JObject) = convert(@jimport(java.util.ArrayList), x, V)
 
 # Convert a reference to a java.lang.String into a Julia string. Copies the underlying byte buffer
 function unsafe_string(jstr::JString)  #jstr must be a jstring obtained via a JNI call

@@ -95,6 +95,13 @@ a=@compat Dict("a"=>"A", "b"=>"B")
 b=convert(@jimport(java.util.Map), JString, JString, a)
 @assert jcall(b, "size", jint, ()) == 2
 
+# test for ArrayList conversion
+JArrayList = @jimport(java.util.ArrayList)
+p = JArrayList(())
+a = ["hello", " ", "world"]
+b = convert(@jimport(java.util.ArrayList), a, JString)
+@assert jcall(b, "size", jint, ()) == 3
+
 #Inner Classes
 TestInner = @jimport(Test$TestInner)
 Test = @jimport(Test)
