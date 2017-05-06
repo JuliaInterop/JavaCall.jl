@@ -123,7 +123,25 @@ end
 @static is_windows() ? (const sep = ";") : nothing
 cp=Array(String, 0)
 opts=Array(String, 0)
-addClassPath(s::String) = isloaded()?warn("JVM already initialised. This call has no effect"): push!(cp, s)
+
+function addClassPath(s::String)
+    if isloaded()
+        warn("JVM already initialised. This call has no effect")
+        return
+    end
+    if s==""; return; end
+    if endswith(s, "/*")
+        for x in s[1:end-1] .* readdir(s[1:end-2])
+            if endswith(x, ".jar")
+                push!(cp, x)
+            end
+        end
+        return
+    end
+    push!(cp, s)
+    return
+end
+
 addOpts(s::String) = isloaded()?warn("JVM already initialised. This call has no effect"): push!(opts, s)
 
 function init()
