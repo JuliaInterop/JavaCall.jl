@@ -28,9 +28,8 @@ else
     import Base.unsafe_string
 end
 
-
-include("jvm.jl")
 include("jnienv.jl")
+include("jvm.jl")
 include("core.jl")
 include("convert.jl")
 include("reflect.jl")

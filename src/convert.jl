@@ -185,11 +185,13 @@ end
 
 #This is necessary to properly deprecate bytestring in 0.5, while ensuring
 # callers don't need to change for 0.4.
-function Base.bytestring(jstr::JString)  #jstr must be a jstring obtained via a JNI call
-    if VERSION >= v"0.5.0-dev+4612"
-        Base.depwarn("bytestring(jstr::JString) is deprecated. Use unsafe_string(jstr) instead", :bytestring )
+if VERSION <= v"0.5.0"
+    function Base.bytestring(jstr::JString)  #jstr must be a jstring obtained via a JNI call
+        if VERSION >= v"0.5.0-dev+4612"
+            Base.depwarn("bytestring(jstr::JString) is deprecated. Use unsafe_string(jstr) instead", :bytestring )
+        end
+        return JavaCall.unsafe_string(jstr)
     end
-    return JavaCall.unsafe_string(jstr)
 end
 
 

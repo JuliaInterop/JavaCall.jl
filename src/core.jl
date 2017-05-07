@@ -1,19 +1,19 @@
 
 # jni_md.h
-typealias jint Cint
+const jint = Cint
 #ifdef _LP64 /* 64-bit Solaris */
 # typedef long jlong;
-typealias jlong Clonglong
-typealias jbyte Cchar
+const jlong = Clonglong
+const jbyte = Cchar
 
 # jni.h
 
-typealias jboolean Cuchar
-typealias jchar Cushort
-typealias jshort Cshort
-typealias jfloat Cfloat
-typealias jdouble Cdouble
-typealias jsize jint
+const jboolean = Cuchar
+const jchar = Cushort
+const jshort = Cshort
+const jfloat = Cfloat
+const jdouble = Cdouble
+const jsize = jint
 jprimitive = @compat Union{jboolean, jchar, jshort, jfloat, jdouble, jint, jlong}
 
 immutable JavaMetaClass{T}
@@ -76,10 +76,10 @@ true if the passed object is null else false
 """
 isnull(obj::JavaMetaClass) = obj.ptr == C_NULL
 
-typealias JClass JavaObject{Symbol("java.lang.Class")}
-typealias JObject JavaObject{Symbol("java.lang.Object")}
-typealias JMethod JavaObject{Symbol("java.lang.reflect.Method")}
-typealias JString JavaObject{Symbol("java.lang.String")}
+const JClass = JavaObject{Symbol("java.lang.Class")}
+const JObject = JavaObject{Symbol("java.lang.Object")}
+const JMethod = JavaObject{Symbol("java.lang.reflect.Method")}
+const JString = JavaObject{Symbol("java.lang.String")}
 
 function JString(str::AbstractString)
     jstring = ccall(jnifunc.NewStringUTF, Ptr{Void}, (Ptr{JNIEnv}, Ptr{UInt8}), penv, String(str))

@@ -121,8 +121,8 @@ end
 
 @static is_unix() ? (const sep = ":") : nothing
 @static is_windows() ? (const sep = ";") : nothing
-cp=Array(String, 0)
-opts=Array(String, 0)
+cp=Array{String}(0)
+opts=Array{String}(0)
 
 function addClassPath(s::String)
     if isloaded()
