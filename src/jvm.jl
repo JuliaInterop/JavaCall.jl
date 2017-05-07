@@ -160,12 +160,12 @@ assertnotloaded() = isloaded()?error("JVM already initialised"):nothing
 # Pointer to pointer to pointer to pointer alert! Hurrah for unsafe load
 function init{T<:AbstractString}(opts::Array{T, 1})
     assertnotloaded()
-    opt = Array(JavaVMOption, length(opts))
+    opt = Array{JavaVMOption}(length(opts))
     for i in 1:length(opts)
         opt[i]=JavaVMOption(pointer(opts[i]), C_NULL)
     end
-    ppjvm=Array(Ptr{JavaVM},1)
-    ppenv=Array(Ptr{JNIEnv},1)
+    ppjvm=Array{Ptr{JavaVM}}(1)
+    ppenv=Array{Ptr{JNIEnv}}(1)
     vm_args = JavaVMInitArgs(JNI_VERSION_1_6, convert(Cint, length(opts)), convert(Ptr{JavaVMOption}, pointer(opt)), JNI_TRUE)
 
     res = ccall(create, Cint, (Ptr{Ptr{JavaVM}}, Ptr{Ptr{JNIEnv}}, Ptr{JavaVMInitArgs}), ppjvm, ppenv, &vm_args)

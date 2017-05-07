@@ -33,8 +33,8 @@ c=JString(C_NULL)
 
 # Test calling static methods
 jlm = @jimport "java.lang.Math"
-@test_approx_eq 1.0 jcall(jlm, "sin", jdouble, (jdouble,), pi/2)
-@test_approx_eq 1.0 jcall(jlm, "min", jdouble, (jdouble,jdouble), 1,2)
+@test 1.0 ≈ jcall(jlm, "sin", jdouble, (jdouble,), pi/2)
+@test 1.0 ≈ jcall(jlm, "min", jdouble, (jdouble,jdouble), 1,2)
 @test 1 == jcall(jlm, "abs", jint, (jint,), -1)
 
 #Test instance creation

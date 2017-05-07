@@ -282,29 +282,29 @@ function method_signature(rettype, argtypes...)
     end
     write(s, ")")
     write(s, signature(rettype))
-    return takebuf_string(s)
+    return String(take!(s))
 end
 
 
 #get the JNI signature string for a given type
 function signature(arg::Type)
-    if is(arg, jboolean)
+    if arg === jboolean
         return "Z"
-    elseif is(arg, jbyte)
+    elseif arg === jbyte
         return "B"
-    elseif is(arg, jchar)
+    elseif arg === jchar
         return "C"
-    elseif is(arg, jshort)
+    elseif arg === jshort
         return "S"
-    elseif is(arg, jint)
+    elseif arg === jint
         return "I"
-    elseif is(arg, jlong)
+    elseif arg === jlong
         return "J"
-    elseif is(arg, jfloat)
+    elseif arg === jfloat
         return "F"
-    elseif is(arg, jdouble)
+    elseif arg === jdouble
         return "D"
-    elseif is(arg, Void)
+    elseif arg === Void
         return "V"
     elseif issubtype(arg, Array)
         return string("[", signature(eltype(arg)))
