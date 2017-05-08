@@ -121,8 +121,8 @@ end
 
 @static is_unix() ? (const sep = ":") : nothing
 @static is_windows() ? (const sep = ";") : nothing
-cp=Array{String}(0)
-opts=Array{String}(0)
+cp=Set{String}()
+opts=Set{String}()
 
 function addClassPath(s::String)
     if isloaded()
@@ -130,7 +130,7 @@ function addClassPath(s::String)
         return
     end
     if s==""; return; end
-    if endswith(s, "/*")
+    if endswith(s, "/*") && isdir(s[1:end-2])
         for x in s[1:end-1] .* readdir(s[1:end-2])
             if endswith(x, ".jar")
                 push!(cp, x)
@@ -148,7 +148,7 @@ function init()
     if isempty(cp)
         init(opts)
     else
-        init(vcat(opts, reduce((x,y)->string(x,sep,y),"-Djava.class.path=$(cp[1])",cp[2:end])))
+        init(vcat(collect(opts), reduce((x,y)->string(x,sep,y),"-Djava.class.path=$(collect(cp)[1])",collect(cp)[2:end])))
     end
 end
 
@@ -158,12 +158,9 @@ assertloaded() = isloaded()?nothing:error("JVM not initialised. Please run init(
 assertnotloaded() = isloaded()?error("JVM already initialised"):nothing
 
 # Pointer to pointer to pointer to pointer alert! Hurrah for unsafe load
-function init{T<:AbstractString}(opts::Array{T, 1})
+function init(opts)
     assertnotloaded()
-    opt = Array{JavaVMOption}(length(opts))
-    for i in 1:length(opts)
-        opt[i]=JavaVMOption(pointer(opts[i]), C_NULL)
-    end
+    opt = [JavaVMOption(pointer(x), C_NULL) for x in opts]
     ppjvm=Array{Ptr{JavaVM}}(1)
     ppenv=Array{Ptr{JNIEnv}}(1)
     vm_args = JavaVMInitArgs(JNI_VERSION_1_6, convert(Cint, length(opts)), convert(Ptr{JavaVMOption}, pointer(opt)), JNI_TRUE)
