@@ -8,6 +8,7 @@ export JavaObject, JavaMetaClass,
 using Base.Dates
 using Compat
 import Compat.String
+import DataStructures: OrderedSet
 
 @static if is_windows()
     using WinReg

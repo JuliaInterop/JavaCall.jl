@@ -121,8 +121,8 @@ end
 
 @static is_unix() ? (const sep = ":") : nothing
 @static is_windows() ? (const sep = ";") : nothing
-cp=Set{String}()
-opts=Set{String}()
+cp=OrderedSet{String}()
+opts=OrderedSet{String}()
 
 function addClassPath(s::String)
     if isloaded()
@@ -148,7 +148,8 @@ function init()
     if isempty(cp)
         init(opts)
     else
-        init(vcat(collect(opts), reduce((x,y)->string(x,sep,y),"-Djava.class.path=$(collect(cp)[1])",collect(cp)[2:end])))
+        ccp = collect(cp)
+        init(vcat(collect(opts), reduce((x,y)->string(x,sep,y),"-Djava.class.path=$(ccp[1])",ccp[2:end])))
     end
 end
 
