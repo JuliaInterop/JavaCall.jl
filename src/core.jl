@@ -26,13 +26,16 @@ JavaMetaClass(T, ptr) = JavaMetaClass{T}(ptr)
 type JavaObject{T}
     ptr::Ptr{Void}
 
-    function JavaObject(ptr)
-        j=new(ptr)
+    #This below is ugly. Once we stop supporting 0.5, this can be replaced by
+    # function JavaObject{T}(ptr) where T
+    function (::Type{JavaObject{T}}){T}(ptr)
+        j=new{T}(ptr)
         finalizer(j, deleteref)
         return j
     end
 
-    JavaObject(argtypes::Tuple, args...) = jnew(T, argtypes, args...)
+    #replace with: JavaObject{T}(argtypes::Tuple, args...) where T
+    (::Type{JavaObject{T}}){T}(argtypes::Tuple, args...) = jnew(T, argtypes, args...)
 
 end
 
