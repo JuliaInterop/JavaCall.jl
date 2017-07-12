@@ -6,8 +6,7 @@ export JavaObject, JavaMetaClass,
        getname, listmethods, getreturntype, getparametertypes
 
 using Base.Dates
-using Compat
-import Compat.String
+
 import DataStructures: OrderedSet
 
 @static if is_windows()
@@ -15,19 +14,8 @@ import DataStructures: OrderedSet
 end
 
 
-import Base.convert, Base.isnull, Base.unsafe_convert
+import Base.convert, Base.isnull, Base.unsafe_convert, Base.unsafe_string
 
-# if VERSION < v"0.5.0-dev+4612"
-# 	const unsafe_string = Base.bytestring
-# else
-# 	const unsafe_string = Base.unsafe_string
-# end
-
-if VERSION < v"0.5.0-dev+4612"
-    import Compat.unsafe_string
-else
-    import Base.unsafe_string
-end
 
 include("jnienv.jl")
 include("jvm.jl")

@@ -14,7 +14,7 @@ const jshort = Cshort
 const jfloat = Cfloat
 const jdouble = Cdouble
 const jsize = jint
-jprimitive = @compat Union{jboolean, jchar, jshort, jfloat, jdouble, jint, jlong}
+jprimitive = Union{jboolean, jchar, jshort, jfloat, jdouble, jint, jlong}
 
 immutable JavaMetaClass{T}
     ptr::Ptr{Void}
@@ -94,10 +94,10 @@ function JString(str::AbstractString)
 end
 
 # jvalue(v::Integer) = int64(v) << (64-8*sizeof(v))
-jvalue(v::Integer) = @compat Int64(v)
+jvalue(v::Integer) = Int64(v)
 jvalue(v::Float32) = jvalue(reinterpret(Int32, v))
 jvalue(v::Float64) = jvalue(reinterpret(Int64, v))
-jvalue(v::Ptr) = jvalue(@compat Int(v))
+jvalue(v::Ptr) = jvalue(Int(v))
 
 
 

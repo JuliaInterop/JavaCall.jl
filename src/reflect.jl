@@ -4,7 +4,7 @@ function getclass(obj::JavaObject)
 end
 
 function conventional_name(name::AbstractString)
-    if @compat startswith(name, "[")
+    if startswith(name, "[")
         return conventional_name(name[2:end]) * "[]"
     elseif name == "Z"
         return "boolean"
@@ -22,7 +22,7 @@ function conventional_name(name::AbstractString)
         return "double"
     elseif name == "V"
         return "void"
-    elseif @compat startswith(name, "L")
+    elseif startswith(name, "L")
         return name[2:end-1]
     else
         return name
@@ -123,7 +123,7 @@ Returns the parameter types of the java method
 * method: The java method object
 
 ### Returns
-Vector the parametertypes 
+Vector the parametertypes
 """
 function getparametertypes(method::JMethod)
     jcall(method, "getParameterTypes", Vector{JClass}, ())
@@ -136,4 +136,3 @@ function Base.show(io::IO, method::JMethod)
     argtypestr = join(argtypes, ", ")
     print(io, "$rettype $name($argtypestr)")
 end
-

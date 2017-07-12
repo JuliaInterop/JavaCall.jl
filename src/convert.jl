@@ -106,7 +106,7 @@ for (x, y, z) in [ (:jboolean, :(jnifunc.GetBooleanArrayElements), :(jnifunc.Rel
         function convert_result(rettype::Type{Array{$(x),1}}, result)
             sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, result)
             arr = ccall($(y), Ptr{$(x)}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{jboolean} ), penv, result, C_NULL )
-            jl_arr::Array = unsafe_wrap(Array, arr, (@compat Int(sz)), false)
+            jl_arr::Array = unsafe_wrap(Array, arr, Int(sz), false)
             jl_arr = deepcopy(jl_arr)
             ccall($(z), Void, (Ptr{JNIEnv},Ptr{Void}, Ptr{$(x)}, jint), penv, result, arr, 0)
             return jl_arr
@@ -183,20 +183,6 @@ function unsafe_string(jstr::JString)  #jstr must be a jstring obtained via a JN
     return s
 end
 
-#This is necessary to properly deprecate bytestring in 0.5, while ensuring
-# callers don't need to change for 0.4.
-if VERSION <= v"0.5.0"
-    function Base.bytestring(jstr::JString)  #jstr must be a jstring obtained via a JNI call
-        if VERSION >= v"0.5.0-dev+4612"
-            Base.depwarn("bytestring(jstr::JString) is deprecated. Use unsafe_string(jstr) instead", :bytestring )
-        end
-        return JavaCall.unsafe_string(jstr)
-    end
-end
-
-
-
-
 for (x, y, z) in [ (:jboolean, :(jnifunc.GetBooleanArrayElements), :(jnifunc.ReleaseBooleanArrayElements)),
                   (:jchar, :(jnifunc.GetCharArrayElements), :(jnifunc.ReleaseCharArrayElements)),
                   (:jbyte, :(jnifunc.GetByteArrayElements), :(jnifunc.ReleaseByteArrayElements)),
@@ -209,7 +195,7 @@ for (x, y, z) in [ (:jboolean, :(jnifunc.GetBooleanArrayElements), :(jnifunc.Rel
         function convert(::Type{Array{$(x),1}}, obj::JObject)
             sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, obj.ptr)
             arr = ccall($(y), Ptr{$(x)}, (Ptr{JNIEnv}, Ptr{Void}, Ptr{jboolean} ), penv, obj.ptr, C_NULL )
-            jl_arr::Array = unsafe_wrap(Array, arr, (@compat Int(sz)), false)
+            jl_arr::Array = unsafe_wrap(Array, arr, Int(sz), false)
             jl_arr = deepcopy(jl_arr)
             ccall($(z), Void, (Ptr{JNIEnv},Ptr{Void}, Ptr{$(x)}, jint), penv, obj.ptr, arr, 0)
             return jl_arr
