@@ -82,6 +82,8 @@ isnull(obj::JavaMetaClass) = obj.ptr == C_NULL
 const JClass = JavaObject{Symbol("java.lang.Class")}
 const JObject = JavaObject{Symbol("java.lang.Object")}
 const JMethod = JavaObject{Symbol("java.lang.reflect.Method")}
+const JThread = JavaObject{Symbol("java.lang.Thread")}
+const JClassLoader = JavaObject{Symbol("java.lang.ClassLoader")}
 const JString = JavaObject{Symbol("java.lang.String")}
 
 function JString(str::AbstractString)

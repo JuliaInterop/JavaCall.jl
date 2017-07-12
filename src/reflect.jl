@@ -136,3 +136,23 @@ function Base.show(io::IO, method::JMethod)
     argtypestr = join(argtypes, ", ")
     print(io, "$rettype $name($argtypestr)")
 end
+
+
+"""
+```
+classforname(name::String)
+```
+Create an instance of `Class<name>` (same as `Class.forName(name)` in Java)
+
+### Args
+* name: The name of a class to instantiate
+
+### Returns
+JavaObject Instance of `Class<name>`
+"""
+function classforname(name::String)
+    thread = jcall(JThread, "currentThread", JThread, ())
+    loader = jcall(thread, "getContextClassLoader", JClassLoader, ())
+    return jcall(JClass, "forName", JClass, (JString, jboolean, JClassLoader),
+                 name, true, loader)
+end
