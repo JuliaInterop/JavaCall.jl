@@ -1,6 +1,5 @@
 using Base.Test
 using JavaCall
-using Compat
 
 
 versioninfo();
@@ -22,8 +21,8 @@ T = @jimport Test
 @test typemax(jint) == jcall(T, "testInt", jint, (jint,), typemax(jint))
 @test typemax(jlong) == jcall(T, "testLong", jlong, (jlong,), typemax(jlong))
 @test "Hello Java"==jcall(T, "testString", JString, (JString,), "Hello Java")
-@test @compat Float64(10.02) == jcall(T, "testDouble", jdouble, (jdouble,), 10.02) #Comparing exact float representations hence ==
-@test @compat Float32(10.02) == jcall(T, "testFloat", jfloat, (jfloat,), 10.02)
+@test Float64(10.02) == jcall(T, "testDouble", jdouble, (jdouble,), 10.02) #Comparing exact float representations hence ==
+@test Float32(10.02) == jcall(T, "testFloat", jfloat, (jfloat,), 10.02)
 @test realmax(jdouble) == jcall(T, "testDouble", jdouble, (jdouble,), realmax(jdouble))
 @test realmax(jfloat) == jcall(T, "testFloat", jfloat, (jfloat,), realmax(jfloat))
 
@@ -62,9 +61,9 @@ j_u_arrays = @jimport java.util.Arrays
 
 a=jcall(j_u_arrays, "copyOf", Array{jint, 1}, (Array{jint, 1}, jint), [1,2,3], 3)
 @test typeof(a) == Array{jint, 1}
-@test a[1] == @compat Int32(1)
-@test a[2] == @compat Int32(2)
-@test a[3] == @compat Int32(3)
+@test a[1] == Int32(1)
+@test a[2] == Int32(2)
+@test a[3] == Int32(3)
 
 a=jcall(j_u_arrays, "copyOf", Array{JObject, 1}, (Array{JObject, 1}, jint), ["a","b","c"], 3)
 @test 3==length(a)
@@ -91,7 +90,7 @@ Dates.year(convert(Dates.DateTime, nullcal)) == 1970
 
 JHashMap = @jimport(java.util.HashMap)
 p = JHashMap(())
-a=@compat Dict("a"=>"A", "b"=>"B")
+a= Dict("a"=>"A", "b"=>"B")
 b=convert(@jimport(java.util.Map), JString, JString, a)
 @assert jcall(b, "size", jint, ()) == 2
 
@@ -153,7 +152,7 @@ for i=1:100; @test jcall(ta_20[i], "size", jint, ()) == 0; end
 # Test array conversions
 jobj = jcall(T, "testArrayAsObject", JObject, ())
 arr = convert(Array{Array{UInt8, 1}, 1}, jobj)
-@test ["Hello", "World"] == map(Compat.String, arr)
+@test ["Hello", "World"] == map(String, arr)
 
 #Test iterator conversions
 
