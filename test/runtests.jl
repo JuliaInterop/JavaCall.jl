@@ -191,5 +191,9 @@ for i in jcall(a, "iterator", @jimport(java.util.Iterator), ())
 end
 @test length(t) == 0
 
+
+JStringClass = classforname("java.lang.String")
+@test isa(JStringClass, JavaObject{Symbol("java.lang.Class")})
+
 # At the end, unload the JVM before exiting
 JavaCall.destroy()
