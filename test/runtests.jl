@@ -163,7 +163,7 @@ jcall(a, "add", jboolean, (JObject,), "cde")
 jcall(a, "add", jboolean, (JObject,), "efg")
 
 t=Array{Any, 1}()
-for i in jcall(a, "iterator", @jimport(java.util.Iterator), ())
+for i in JavaCall.iterator(a)
 	push!(t, unsafe_string(i))
 end
 
@@ -186,14 +186,17 @@ end
 #Empty List
 a=JArrayList(())
 t=Array{Any, 1}()
-for i in jcall(a, "iterator", @jimport(java.util.Iterator), ())
+for i in JavaCall.iterator(a)
 	push!(t, unsafe_string(i))
 end
 @test length(t) == 0
 
-
 JStringClass = classforname("java.lang.String")
 @test isa(JStringClass, JavaObject{Symbol("java.lang.Class")})
+
+o = convert(JObject, "bla bla bla")
+@test isa(narrow(o), JString)
+
 
 # At the end, unload the JVM before exiting
 JavaCall.destroy()
