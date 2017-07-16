@@ -3,7 +3,8 @@ export JavaObject, JavaMetaClass,
        jint, jlong, jbyte, jboolean, jchar, jshort, jfloat, jdouble,
        JObject, JClass, JMethod, JString,
        @jimport, jcall, jfield, isnull,
-       getname, listmethods, getreturntype, getparametertypes, classforname
+       getname, getclass, listmethods, getreturntype, getparametertypes, classforname,
+       narrow
 
 using Base.Dates
 

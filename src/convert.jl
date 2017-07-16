@@ -218,11 +218,22 @@ function convert{T}(::Type{Array{T, 1}}, obj::JObject)
 end
 
 ##Iterator
+iterator(obj::JavaObject) = jcall(obj, "iterator", @jimport(java.util.Iterator), ())
+
+"""
+Given a `JavaObject{T}` narrows down `T` to a real class of the underlying object.
+For example, `JavaObject{:java.lang.Object}` pointing to `java.lang.String`
+will be narrowed down to `JavaObject{:java.lang.String}`
+"""
+function narrow(obj::JavaObject)
+    c = jcall(obj,"getClass", @jimport(java.lang.Class), ())
+    t = jcall(c, "getName", JString, ())
+    return convert(JavaObject{Symbol(t)}, obj)
+end
+
 Base.start(itr::JavaObject) = true
 function Base.next(itr::JavaObject, state)
-     o = jcall(itr, "next", @jimport(java.lang.Object), (),)
-     c=jcall(o,"getClass", @jimport(java.lang.Class), ())
-     t=jcall(c, "getName", JString, ())
-     return (convert(JavaObject{Symbol(t)}, o), state)
+     o = jcall(itr, "next", @jimport(java.lang.Object), ())
+     return (narrow(o), state)
 end
 Base.done(itr::JavaObject, state)  = (jcall(itr, "hasNext", jboolean, ()) == JNI_FALSE)
