@@ -312,7 +312,8 @@ function signature(arg::Type)
     elseif arg === Void
         return "V"
     elseif issubtype(arg, Array)
-        return string("[", signature(eltype(arg)))
+        dims = "[" ^ ndims(arg)
+        return string(dims, signature(eltype(arg)))
     end
 end
 

@@ -71,6 +71,12 @@ a=jcall(j_u_arrays, "copyOf", Array{JObject, 1}, (Array{JObject, 1}, jint), ["a"
 @test "b"==unsafe_string(convert(JString, a[2]))
 @test "c"==unsafe_string(convert(JString, a[3]))
 
+@test jcall(T, "testDoubleArray", Array{jdouble,1}, ()) == [0.1, 0.2, 0.3]
+@test jcall(T, "testDoubleArray2D", Array{Array{jdouble, 1},1}, ()) == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+@test jcall(T, "testDoubleArray2D", Array{jdouble,2}, ()) == [0.1 0.2 0.3; 0.4 0.5 0.6]
+@test size(jcall(T, "testStringArray2D", Array{JString,2}, ())) == (2,2)
+
+
 #Test for Dates
 
 jd = @jimport(java.util.Date)(())
