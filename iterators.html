@@ -55,20 +55,30 @@
       </div>
       </header>
       <section>
-	<h1 id="memory-management-and-garbage-collection">Memory management and Garbage Collection</h1>
+	<p>JavaCall supports iterating over Java collections (or anything exposing <code>java.util.Iterator</code> interface). E.g. the following code in Java:</p>
+<div class="highlight"><pre><code class="language-java" data-lang="java"><span></span><span class="kn">import</span> <span class="nn">java.util.ArrayList</span><span class="o">;</span>
 
-<p>In the typical use, memory management and garbage collection is automatic over both the Julia and Java runtimes. </p>
+<span class="n">ArrayList</span><span class="o">&lt;</span><span class="n">String</span><span class="o">&gt;</span> <span class="n">words</span> <span class="o">=</span> <span class="k">new</span> <span class="n">ArrayList</span><span class="o">&lt;&gt;();</span>
+<span class="n">words</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="s">&quot;hello&quot;</span><span class="o">);</span>
+<span class="n">words</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="s">&quot;world&quot;</span><span class="o">);</span>
 
-<p>All objects returned from Java via the JNI interface has a local reference automatically created in the JVM, to prevent it from being garbage collected. On the Julia side, these object references are wrapped in a JavaObject object. Each JavaObject instance is associated with a finalizer, that deletes the java local reference to the java object when the julia wrapper goes out of reference. This enables the java object to be garbage collected when no longer needed on the Julia side. </p>
+<span class="k">for</span> <span class="o">(</span><span class="n">String</span> <span class="n">word</span> <span class="o">:</span> <span class="n">words</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="n">word</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre></div>
+<p>may be equivalently written in Julia as:</p>
+<div class="highlight"><pre><code class="language-julia" data-lang="julia"><span></span><span class="k">import</span> <span class="n">JavaCall</span><span class="o">:</span> <span class="n">iterator</span>
 
-<p>One importance caveat to remember is that the memory pressure on the Java and Julia heaps are different. Thus, even if a Julia object has gone out of reference, the Julia runtime may not run the garbage collector for a long time. Which keeps the java objects in memory, even when no longer required. If you are allocating large amount of Java objects, the JVM may run out of heap before the Julia runtime decides to run a garbage collection cycle. </p>
+<span class="n">JArrayList</span> <span class="o">=</span> <span class="nd">@jimport</span> <span class="n">java</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">ArrayList</span>
 
-<p>If you are facing this problem, the simple workaround is to manually run the Julia garbage collector, via the <code>gc()</code> call, occasionally. </p>
+<span class="n">words</span> <span class="o">=</span> <span class="n">JArrayList</span><span class="p">(())</span>
+<span class="n">jcall</span><span class="p">(</span><span class="n">words</span><span class="p">,</span> <span class="s">&quot;add&quot;</span><span class="p">,</span> <span class="n">jboolean</span><span class="p">,</span> <span class="p">(</span><span class="n">JObject</span><span class="p">,),</span> <span class="s">&quot;hello&quot;</span><span class="p">)</span>
+<span class="n">jcall</span><span class="p">(</span><span class="n">words</span><span class="p">,</span> <span class="s">&quot;add&quot;</span><span class="p">,</span> <span class="n">jboolean</span><span class="p">,</span> <span class="p">(</span><span class="n">JObject</span><span class="p">,),</span> <span class="s">&quot;world&quot;</span><span class="p">)</span>
 
-<p>Any <code>Class</code> objects referenced in Julia (which includes a reference to objects of that class) is never freed. This is usually not a problem, since they do not usually consume large amounts of memory. That is, unless you are generating many anonymous classes (for example, via proxy objects). You may need to increase your <code>PermGen</code> space if this is a problem for you. </p>
-
-<p>There are possibly some leaks still left in the system, please report issues as you find them. </p>
-
+<span class="k">for</span> <span class="n">word</span> <span class="kp">in</span> <span class="n">iterator</span><span class="p">(</span><span class="n">words</span><span class="p">)</span>
+    <span class="n">println</span><span class="p">(</span><span class="n">word</span><span class="p">)</span>
+<span class="k">end</span>
+</code></pre></div>
       </section>
       <footer>
         <p></p>
