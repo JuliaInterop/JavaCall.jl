@@ -32,3 +32,9 @@ _References:_
 
 Unfortunately, Java on the Mac has a [known bug](https://bugs.openjdk.java.net/browse/JDK-7131356), wherein attempting to load a JVM via JNI fails unless the old OSX system Java 6 libraries are installed on the machine. This is strictly not necessary to run any Java programs, but is required due to a bug. This is scheduled to be fixed only in Java 9. In the meantime, the only option is to download and install the Apple Java 6 libraries from this url: [https://support.apple.com/kb/dl1572?locale=en_US](https://support.apple.com/kb/dl1572?locale=en_US)
 
+
+### "java.lang.NoSuchMethodError"
+
+1. Make sure the signature of the method is what you expect it to be. See `listmethods()` function from [Reflection API](reflection.html). 
+
+2. Make sure `JavaObject{T}` has an expected type parameter `T`. To call a Java method, `jcall` uses `T` as the name of a class to call the method on, even if actual object class is different. See **Inspecting classes** section from [Reflection API](reflection.html).
