@@ -79,6 +79,12 @@ function listmethods(obj::JavaObject)
     jcall(cls, "getMethods", Vector{JMethod}, ())
 end
 
+
+function listmethods(cls::JClass)
+    jcall(cls, "getMethods", Vector{JMethod}, ())
+end
+
+
 """
 ```
 listmethods(obj::JavaObject, name::AbstractString)
@@ -96,6 +102,7 @@ function listmethods(obj::JavaObject, name::AbstractString)
     allmethods = listmethods(obj)
     filter(m -> getname(m) == name, allmethods)
 end
+
 
 """
 ```
