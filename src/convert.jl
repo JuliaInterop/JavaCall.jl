@@ -115,6 +115,7 @@ for (x, y, z) in [ (:jboolean, :(jnifunc.GetBooleanArrayElements), :(jnifunc.Rel
     eval(m)
 end
 
+
 function convert_result{T}(rettype::Type{Array{JavaObject{T},1}}, result)
     sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, result)
 
@@ -126,6 +127,70 @@ function convert_result{T}(rettype::Type{Array{JavaObject{T},1}}, result)
     end
     return ret
 end
+
+
+# covers return types like Vector{Vector{T}}
+function convert_result{T}(rettype::Type{Array{T,1}}, result)
+    sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, result)
+
+    ret = Array{T}(sz)
+
+    for i=1:sz
+        a=ccall(jnifunc.GetObjectArrayElement, Ptr{Void}, (Ptr{JNIEnv},Ptr{Void}, jint), penv, result, i-1)
+        ret[i] = convert_result(T, a)
+    end
+    return ret
+end
+
+
+function convert_result{T}(rettype::Type{Array{JavaObject{T},2}}, result)
+    sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, result)
+    if sz == 0
+        return Array{T}(0,0)
+    end
+    a_1 = ccall(jnifunc.GetObjectArrayElement, Ptr{Void}, (Ptr{JNIEnv},Ptr{Void}, jint), penv, result, 0)
+    sz_1 = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, a_1)
+    ret = Array{JavaObject{T}}(sz, sz_1)
+    for i=1:sz
+        a = ccall(jnifunc.GetObjectArrayElement, Ptr{Void}, (Ptr{JNIEnv},Ptr{Void}, jint), penv, result, i-1)
+        # check that size of the current subarray is the same as for the first one
+        sz_a = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, a)
+        @assert(sz_a == sz_1, "Size of $(i)th subrarray is $sz_a, but size of the 1st subarray was $sz_1")
+        for j=1:sz_1
+            x = ccall(jnifunc.GetObjectArrayElement, Ptr{Void}, (Ptr{JNIEnv},Ptr{Void}, jint), penv, a, j-1)
+            ret[i, j] = JavaObject{T}(x)
+        end
+    end
+    return ret
+end
+
+
+# matrices of primitive types and other arrays
+function convert_result{T}(rettype::Type{Array{T,2}}, result)
+    sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, result)
+    if sz == 0
+        return Array{T}(0,0)
+    end
+    a_1 = ccall(jnifunc.GetObjectArrayElement, Ptr{Void}, (Ptr{JNIEnv},Ptr{Void}, jint), penv, result, 0)
+    sz_1 = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, a_1)
+    ret = Array{T}(sz, sz_1)
+    for i=1:sz        
+        a = ccall(jnifunc.GetObjectArrayElement, Ptr{Void}, (Ptr{JNIEnv},Ptr{Void}, jint), penv, result, i-1)
+        # check that size of the current subarray is the same as for the first one
+        sz_a = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Void}), penv, a)
+        @assert(sz_a == sz_1, "Size of $(i)th subrarray is $sz_a, but size of the 1st subarray was $sz_1")
+        ret[i, :] = convert_result(Vector{T}, a)
+    end
+    return ret
+end
+
+
+convert(::Type{jlong}, obj::JavaObject{Symbol("java.lang.Long")}) = jcall(obj, "longValue", jlong, ())
+convert(::Type{jint}, obj::JavaObject{Symbol("java.lang.Integer")}) = jcall(obj, "intValue", jint, ())
+convert(::Type{jdouble}, obj::JavaObject{Symbol("java.lang.Double")}) = jcall(obj, "doubleValue", jdouble, ())
+convert(::Type{jfloat}, obj::JavaObject{Symbol("java.lang.Float")}) = jcall(obj, "floatValue", jfloat, ())
+convert(::Type{jboolean}, obj::JavaObject{Symbol("java.lang.Boolean")}) = jcall(obj, "booleanValue", jboolean, ())
+
 
 #The second term in this addition is due to the fact that Java converts all times to local time
 convert(::Type{DateTime}, x::@jimport(java.util.Date)) = isnull(x)?Dates.DateTime(1970,1,1,0,0,0):

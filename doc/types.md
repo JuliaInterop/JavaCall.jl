@@ -38,7 +38,29 @@ Some commonly used Java types have pre defined Julia aliases to make them easier
 
 ##Strings
 
-A Java string object is represented in Julia as the `JString` type. A `JString` can be created from a plain Julia string using its constructor `JString(str::String)`. A `JString` object, returned, for example, from a Java method call, can be converted to a plain Julia string using the `bytestring(jstr::JString)` method. 
+A Java string object is represented in Julia as the `JString` type. A `JString` can be created from a plain Julia string using its constructor `JString(str::String)`. A `JString` object, returned, for example, from a Java method call, can be converted to a plain Julia string using the `bytestring(jstr::JString)` method.
+
+##Multidimensional Arrays
+
+Unlike Julia, Java doesn't support multidimensional arrays, but may emulate them using array of arrays, e.g.:
+
+```java
+double[][] create2DArray() { ... }
+```
+
+The result of such a function may be interpreted in Julia as both - `Vector{Vector{jdouble}}` or `Matrix{jdouble}`. JavaCall supports both cases (in the later case JavaCall also checks that all nested arrays have the same length):
+
+```julia
+jcall(obj, "create2DArray", Vector{Vector{jdouble}}, ())
+jcall(obj, "create2DArray", Matrix{jdouble}, ())
+```
+
+Arrays with more than 2 dimensions are not supported, but one may still extract all the data using nested `Vector{...}` type, e.g.:
+
+```julia
+jcall(obj, "create3DArray", Vector{Vector{Vector{jdouble}}}, ())
+```
+
 
 ##Conversions
 

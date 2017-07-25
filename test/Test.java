@@ -47,8 +47,22 @@ public class Test {
     return res;
   }
 
-  public static ArrayList<String> testArrayList() {
+  public static double[] testDoubleArray() throws UnsupportedEncodingException {
+    double[] res = {0.1, 0.2, 0.3};    
+    return res;
+  }
+    
+  public static double[][] testDoubleArray2D() throws UnsupportedEncodingException {
+    double[][] res = {{0.1, 0.2, 0.3}, {0.4, 0.5, 0.6}};
+    return res;
+  }
 
+  public static String[][] testStringArray2D() throws UnsupportedEncodingException {
+    String[][] res = {{"Hello", "World"}, {"Goodbye", "World"}};
+    return res;
+  }
+
+  public static ArrayList<String> testArrayList() {
       ArrayList<String> res=new ArrayList<String>();
       res.add("Hello");
       res.add("World");
@@ -58,7 +72,7 @@ public class Test {
 
   public static void main(String[] args) {
        testInt(1);
-       testFloat(1.0f); 
+       testFloat(1.0f);
        testDouble(1.0d);
        testString("Hello Java");
   }

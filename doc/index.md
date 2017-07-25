@@ -20,7 +20,7 @@ This package has a dependency on the `WinReg` package which, on Windows, is used
 
 ##Usage
 
-Static and instance methods with primitive or object arguments and return values are callable. One dimensional Array arguments and return values are also supported. Primitive, string, object or array arguments are converted as required. 
+Static and instance methods with primitive or object arguments and return values are callable. Array arguments and return values are also supported. Primitive, string, object or array arguments are converted as required. 
 
 
 ```jlcon
@@ -53,8 +53,6 @@ julia> jcall(j_u_arrays, "binarySearch", jint, (Array{jint,1}, jint), [10,20,30,
 ```
 
 ##Major TODOs and Caveats
-
-*    Multidimensional arrays, either as arguments or return values are not supported. Since Java uses Array-of-Arrays, unlike Julia's  true multidimensional arrays, supporting them is non-trivial, though certainly feasible.  
 
 *   Currently, only a low level interface is available, via `jcall`. As a result, this package is best suited for writing libraries that wrap around existing java packages. Writing user code direcly using this interface might be a bit tedious at present. A high level interface using reflection will eventually be built. 
 
