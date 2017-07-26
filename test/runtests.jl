@@ -142,6 +142,12 @@ end
 
 @test length(listmethods(JString("test"))) >= 72
 @test length(listmethods(JString("test"), "indexOf")) >= 3
+# the same for the type
+@test length(listmethods(JString)) >= 72
+@test length(listmethods(JString, "indexOf")) >= 3
+# the same for class
+@test length(listmethods(getclass(JString("test")))) >= 72
+@test length(listmethods(getclass(JString("test")), "indexOf")) >= 3
 m = listmethods(JString("test"), "indexOf")[1]
 @test getname(getreturntype(m)) == "int"
 @test [getname(typ) for typ in getparametertypes(m)] == ["java.lang.String", "int"]
