@@ -79,6 +79,16 @@ function listmethods(obj::JavaObject)
     jcall(cls, "getMethods", Vector{JMethod}, ())
 end
 
+function listmethods{C}(::Type{JavaObject{C}})
+    cls = classforname(string(C))
+    jcall(cls, "getMethods", Vector{JMethod}, ())
+end
+
+function listmethods(cls::JClass)
+    jcall(cls, "getMethods", Vector{JMethod}, ())
+end
+
+
 """
 ```
 listmethods(obj::JavaObject, name::AbstractString)
@@ -92,7 +102,7 @@ Lists the methods that are available on the java object passed. The methods are 
 ### Returns
 List of methods available on the java object and matching the name passed
 """
-function listmethods(obj::JavaObject, name::AbstractString)
+function listmethods{C}(obj::Union{JavaObject{C}, Type{JavaObject{C}}}, name::AbstractString)
     allmethods = listmethods(obj)
     filter(m -> getname(m) == name, allmethods)
 end
