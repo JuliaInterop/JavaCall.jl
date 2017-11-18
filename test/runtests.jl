@@ -150,7 +150,16 @@ end
 @test length(listmethods(getclass(JString("test")), "indexOf")) >= 3
 m = listmethods(JString("test"), "indexOf")[1]
 @test getname(getreturntype(m)) == "int"
-@test [getname(typ) for typ in getparametertypes(m)] == ["java.lang.String", "int"]
+
+v=jcall(@jimport("java.lang.System"), "getProperty", JString, (JString,), "java.version")
+java_ver = macroexpand(:(@v_str($v)))
+
+#Order of methods is different in JDK 9
+if java_ver < v"9"
+    @test [getname(typ) for typ in getparametertypes(m)] == ["java.lang.String", "int"]
+else
+    @test [getname(typ) for typ in getparametertypes(m)] == ["int"]
+end
 
 #Test for double free bug, #20
 #Fix in #28. The following lines will segfault without the fix
