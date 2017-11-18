@@ -152,6 +152,7 @@ m = listmethods(JString("test"), "indexOf")[1]
 @test getname(getreturntype(m)) == "int"
 
 v=jcall(@jimport("java.lang.System"), "getProperty", JString, (JString,), "java.version")
+v=replace(v, '_', '-')
 java_ver = macroexpand(:(@v_str($v)))
 
 #Order of methods is different in JDK 9
