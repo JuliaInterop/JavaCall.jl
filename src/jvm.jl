@@ -70,6 +70,7 @@ function findjvm()
              end
          end
         push!(libpaths, joinpath(n, "jre", "lib", "server"))
+        push!(libpaths, joinpath(n, "lib", "server"))
     end
 
     ext = @static is_windows()?"dll":(@static is_apple()?"dylib":"so")
