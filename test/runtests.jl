@@ -8,9 +8,9 @@ if VERSION ≥ v"0.7-"
 end
 
 
-# JavaCall.init(["-Djava.class.path=$(joinpath(Pkg.dir(), "JavaCall", "test"))"])
+JavaCall.init(["-Djava.class.path=$(joinpath(Pkg.dir(), "JavaCall", "test"))"])
 # JavaCall.init(["-verbose:gc","-Djava.class.path=$(joinpath(Pkg.dir(), "JavaCall", "test"))"])
-JavaCall.init()
+# JavaCall.init()
 
 @testset "unsafe_strings_1" begin
     a=JString("how are you")

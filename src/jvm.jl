@@ -161,9 +161,7 @@ assertnotloaded() = isloaded() ? @error("JVM already initialised") : nothing
 # Pointer to pointer to pointer to pointer alert! Hurrah for unsafe load
 function init(opts)
     assertnotloaded()
-    # TODO THIS IS A HACK WHILE DataStructures.jl gets fixed!
-    # opt = [JavaVMOption(pointer(x), C_NULL) for x in opts]
-    opt = JavaVMOption[]
+    opt = [JavaVMOption(pointer(x), C_NULL) for x in opts]
     ppjvm = Array{Ptr{JavaVM}}(undef, 1)
     ppenv = Array{Ptr{JNIEnv}}(undef, 1)
     vm_args = JavaVMInitArgs(JNI_VERSION_1_6, convert(Cint, length(opts)),
