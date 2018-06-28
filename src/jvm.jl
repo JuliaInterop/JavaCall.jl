@@ -93,6 +93,7 @@ function findjvm()
                 return
             end
         end
+    catch
     end
 
     errorMsg =
