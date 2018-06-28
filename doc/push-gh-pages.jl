@@ -1,6 +1,6 @@
 #Adapted from https://github.com/github/developer.github.com/blob/master/Rakefile#L21-L48
 
-cd(Pkg.dir()*"/JavaCall/doc")
+cd(@__DIR__)
 
 last_commit=readchomp(`git --no-pager log -1 --pretty=format:"%h:%s"`)
 
@@ -17,7 +17,7 @@ cd("_site") do
 	ENV["GIT_WORK_TREE"]=pwd()
 	run(`git add -A`)
 	tsha=chomp(readall(`git write-tree`))
-	mesg="Deploy docs for master@$last_commit" 
+	mesg="Deploy docs for master@$last_commit"
 
 	if length(old_sha) == 40
 	  	csha = chomp(readall(`git commit-tree $tsha -p $old_sha -m $(mesg)`))

@@ -6,16 +6,26 @@ export JavaObject, JavaMetaClass,
        getname, getclass, listmethods, getreturntype, getparametertypes, classforname,
        narrow
 
-using Base.Dates
+using Compat, Compat.Dates
+
+using Compat.Sys: iswindows, islinux, isunix, isapple
 
 import DataStructures: OrderedSet
 
-@static if is_windows()
+if VERSION < v"0.7-"
+    using Compat: @warn, @error
+    import Base: isnull
+    Base.finalizer(f::Function, o) = Base.finalizer(o, f)
+else
+    using Libdl
+end
+
+@static if iswindows()
     using WinReg
 end
 
 
-import Base.convert, Base.isnull, Base.unsafe_convert, Base.unsafe_string
+import Base: convert, unsafe_convert, unsafe_string
 
 
 include("jnienv.jl")
