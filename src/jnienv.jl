@@ -187,9 +187,9 @@ struct JNINativeInterface #struct JNINativeInterface_ {
     CallStaticDoubleMethodV::Ptr{Nothing} # jdouble ( *CallStaticDoubleMethodV) (JNIEnv *env, jclass clazz, jmethodID methodID, va_list args);
     CallStaticDoubleMethodA::Ptr{Nothing} # jdouble ( *CallStaticDoubleMethodA) (JNIEnv *env, jclass clazz, jmethodID methodID, const jvalue *args);
 
-    CallStaticNothingMethod::Ptr{Nothing} # void ( *CallStaticNothingMethod) (JNIEnv *env, jclass cls, jmethodID methodID, ...);
-    CallStaticNothingMethodV::Ptr{Nothing} # void ( *CallStaticNothingMethodV) (JNIEnv *env, jclass cls, jmethodID methodID, va_list args);
-    CallStaticNothingMethodA::Ptr{Nothing} # void ( *CallStaticNothingMethodA) (JNIEnv *env, jclass cls, jmethodID methodID, const jvalue * args);
+    CallStaticVoidMethod::Ptr{Nothing} # void ( *CallStaticVoidMethod) (JNIEnv *env, jclass cls, jmethodID methodID, ...);
+    CallStaticVoidMethodV::Ptr{Nothing} # void ( *CallStaticVoidMethodV) (JNIEnv *env, jclass cls, jmethodID methodID, va_list args);
+    CallStaticVoidMethodA::Ptr{Nothing} # void ( *CallStaticVoidMethodA) (JNIEnv *env, jclass cls, jmethodID methodID, const jvalue * args);
 
     GetStaticFieldID::Ptr{Nothing} # jfieldID ( *GetStaticFieldID) (JNIEnv *env, jclass clazz, const char *name, const char *sig);
     GetStaticObjectField::Ptr{Nothing} # jobject ( *GetStaticObjectField) (JNIEnv *env, jclass clazz, jfieldID fieldID);
