@@ -83,9 +83,9 @@ struct JNINativeInterface #struct JNINativeInterface_ {
     CallDoubleMethodV::Ptr{Nothing} #jdouble ( *CallDoubleMethodV) (JNIEnv *env, jobject obj, jmethodID methodID, va_list args);
     CallDoubleMethodA::Ptr{Nothing} #jdouble ( *CallDoubleMethodA) (JNIEnv *env, jobject obj, jmethodID methodID, const jvalue *args);
 
-    CallNothingMethod::Ptr{Nothing} #void ( *CallNothingMethod) (JNIEnv *env, jobject obj, jmethodID methodID, ...);
-    CallNothingMethodV::Ptr{Nothing} #void ( *CallNothingMethodV) (JNIEnv *env, jobject obj, jmethodID methodID, va_list args);
-    CallNothingMethodA::Ptr{Nothing} #void ( *CallNothingMethodA) (JNIEnv *env, jobject obj, jmethodID methodID, const jvalue * args);
+    CallVoidMethod::Ptr{Nothing} #void ( *CallVoidMethod) (JNIEnv *env, jobject obj, jmethodID methodID, ...);
+    CallVoidMethodV::Ptr{Nothing} #void ( *CallVoidMethodV) (JNIEnv *env, jobject obj, jmethodID methodID, va_list args);
+    CallVoidMethodA::Ptr{Nothing} #void ( *CallVoidMethodA) (JNIEnv *env, jobject obj, jmethodID methodID, const jvalue * args);
 
     CallNonvirtualObjectMethod::Ptr{Nothing} #jobject ( *CallNonvirtualObjectMethod) (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, ...);
     CallNonvirtualObjectMethodV::Ptr{Nothing} #jobject ( *CallNonvirtualObjectMethodV) (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, va_list args);
@@ -123,9 +123,9 @@ struct JNINativeInterface #struct JNINativeInterface_ {
     CallNonvirtualDoubleMethodV::Ptr{Nothing} # jdouble ( *CallNonvirtualDoubleMethodV) (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, va_list args);
     CallNonvirtualDoubleMethodA::Ptr{Nothing} # jdouble ( *CallNonvirtualDoubleMethodA) (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID,  const jvalue *args);
 
-    CallNonvirtualNothingMethod::Ptr{Nothing} # void ( *CallNonvirtualNothingMethod) (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, ...);
-    CallNonvirtualNothingMethodV::Ptr{Nothing} # void ( *CallNonvirtualNothingMethodV) (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, va_list args);
-    CallNonvirtualNothingMethodA::Ptr{Nothing} # void ( *CallNonvirtualNothingMethodA) (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, const jvalue * args);
+    CallNonvirtualVoidMethod::Ptr{Nothing} # void ( *CallNonvirtualVoidMethod) (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, ...);
+    CallNonvirtualVoidMethodV::Ptr{Nothing} # void ( *CallNonvirtualVoidMethodV) (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, va_list args);
+    CallNonvirtualVoidMethodA::Ptr{Nothing} # void ( *CallNonvirtualVoidMethodA) (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, const jvalue * args);
 
     GetFieldID::Ptr{Nothing} # jfieldID ( *GetFieldID) (JNIEnv *env, jclass clazz, const char *name, const char *sig);
 
