@@ -127,7 +127,7 @@ function jnew(T::Symbol, argtypes::Tuple, args...)
                       (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{UInt8}, Ptr{UInt8}), penv, metaclass(T),
                       String("<init>"), sig)
     if jmethodId == C_NULL
-        @error("No constructor for $T with signature $sig")
+        throw(JavaCallError("No constructor for $T with signature $sig"))
     end
     return  _jcall(metaclass(T), jmethodId, jnifunc.NewObjectA, JavaObject{T}, argtypes, args...)
 end
@@ -217,7 +217,7 @@ for (x, y, z) in [ (:jboolean, :(jnifunc.CallBooleanMethodA), :(jnifunc.CallStat
             end
             @assert callmethod != C_NULL
             @assert jmethodId != C_NULL
-            isnull(obj) && @error("Attempt to call method on Java NULL")
+            isnull(obj) && throw(JavaCallError("Attempt to call method on Java NULL"))
             savedArgs, convertedArgs = convert_args(argtypes, args...)
             result = ccall(callmethod, $x , (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}), penv, obj.ptr, jmethodId, convertedArgs)
             result==C_NULL && geterror()
@@ -254,7 +254,7 @@ global const _jmc_cache = Dict{Symbol, JavaMetaClass}()
 function _metaclass(class::Symbol)
     jclass=javaclassname(class)
     jclassptr = ccall(jnifunc.FindClass, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{UInt8}), penv, jclass)
-    jclassptr == C_NULL && @error("Class Not Found $jclass")
+    jclassptr == C_NULL && throw(JavaCallError("Class Not Found $jclass"))
     return JavaMetaClass(class, jclassptr)
 end
 
@@ -275,28 +275,28 @@ function geterror(allow=false)
 
     if isexception == JNI_TRUE
         jthrow = ccall(jnifunc.ExceptionOccurred, Ptr{Nothing}, (Ptr{JNIEnv},), penv)
-        jthrow==C_NULL && @error("Java Exception thrown, but no details could be retrieved from the JVM")
+        jthrow==C_NULL && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
         ccall(jnifunc.ExceptionDescribe, Nothing, (Ptr{JNIEnv},), penv ) #Print java stackstrace to stdout
         ccall(jnifunc.ExceptionClear, Nothing, (Ptr{JNIEnv},), penv )
         jclass = ccall(jnifunc.FindClass, Ptr{Nothing}, (Ptr{JNIEnv},Ptr{UInt8}), penv,
                        "java/lang/Throwable")
-        jclass==C_NULL && @error("Java Exception thrown, but no details could be retrieved from the JVM")
+        jclass==C_NULL && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
         jmethodId=ccall(jnifunc.GetMethodID, Ptr{Nothing},
                         (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{UInt8}, Ptr{UInt8}), penv, jclass, "toString",
                         "()Ljava/lang/String;")
-        jmethodId==C_NULL && @error("Java Exception thrown, but no details could be retrieved from the JVM")
+        jmethodId==C_NULL && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
         res = ccall(jnifunc.CallObjectMethodA, Ptr{Nothing},
                     (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}), penv, jthrow, jmethodId,
                     C_NULL)
-        res==C_NULL && error("Java Exception thrown, but no details could be retrieved from the JVM")
+        res==C_NULL && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
         msg = unsafe_string(JString(res))
         ccall(jnifunc.DeleteLocalRef, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}), penv, jthrow)
-        @error(string("Error calling Java: ",msg))
+        throw(JavaCallError(string("Error calling Java: ",msg)))
     else
         if allow==false
             return #No exception pending, legitimate NULL returned from Java
         else
-            @error("Null from Java. Not known how")
+            throw(JavaCallError("Null from Java. Not known how"))
         end
     end
 end

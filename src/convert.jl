@@ -8,14 +8,14 @@ function convert(::Type{JavaObject{T}}, obj::JavaObject{S}) where {T,S}
         ptr === C_NULL && geterror()
         return JavaObject{T}(ptr)
     end
-    isnull(obj) && @error("Cannot convert NULL")
+    isnull(obj) && throw(ArgumentError("Cannot convert NULL"))
     realClass = ccall(jnifunc.GetObjectClass, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing} ), penv, obj.ptr)
     if isConvertible(T, realClass)  #dynamic cast
         ptr = ccall(jnifunc.NewLocalRef, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing}), penv, obj.ptr)
         ptr === C_NULL && geterror()
         return JavaObject{T}(ptr)
     end
-    @error("Cannot cast java object from $S to $T")
+    throw(JavaCallError("Cannot cast java object from $S to $T"))
 end
 
 #Is java type convertible from S to T.

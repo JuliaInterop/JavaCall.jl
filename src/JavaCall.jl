@@ -13,7 +13,7 @@ using Compat.Sys: iswindows, islinux, isunix, isapple
 import DataStructures: OrderedSet
 
 if VERSION < v"0.7-"
-    using Compat: @warn, @error
+    using Compat: @warn
     import Base: isnull
     Base.finalizer(f::Function, o) = Base.finalizer(o, f)
 else
