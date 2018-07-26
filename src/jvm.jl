@@ -104,7 +104,7 @@ function findjvm()
     for path in libpaths
         push!(errorMsg,"\n   $path")
     end
-    error(reduce(*,errorMsg));
+    throw(JavaCallError(reduce(*,errorMsg)))
 end
 
 
@@ -158,8 +158,8 @@ end
 
 isloaded() = isdefined(JavaCall, :jnifunc) && isdefined(JavaCall, :penv) && penv != C_NULL
 
-assertloaded() = isloaded() ? nothing : @error("JVM not initialised. Please run init()")
-assertnotloaded() = isloaded() ? @error("JVM already initialised") : nothing
+assertloaded() = isloaded() ? nothing : throw(JavaCallError("JVM not initialised. Please run init()"))
+assertnotloaded() = isloaded() ? throw(JavaCallError("JVM already initialised")) : nothing
 
 # Pointer to pointer to pointer to pointer alert! Hurrah for unsafe load
 function init(opts)
@@ -171,7 +171,7 @@ function init(opts)
                              convert(Ptr{JavaVMOption}, pointer(opt)), JNI_TRUE)
     res = ccall(create, Cint, (Ptr{Ptr{JavaVM}}, Ptr{Ptr{JNIEnv}}, Ptr{JavaVMInitArgs}), ppjvm, ppenv,
                 Ref(vm_args))
-    res < 0 && @error("Unable to initialise Java VM: $(res)")
+    res < 0 && throw(JavaCallError("Unable to initialise Java VM: $(res)"))
     global penv = ppenv[1]
     global pjvm = ppjvm[1]
     jnienv = unsafe_load(penv)
@@ -183,9 +183,9 @@ end
 
 function destroy()
     if (!isdefined(JavaCall, :penv) || penv == C_NULL)
-        @error("Called destroy without initialising Java VM")
+        throw(JavaCallError("Called destroy without initialising Java VM"))
     end
     res = ccall(jvmfunc.DestroyJavaVM, Cint, (Ptr{Nothing},), pjvm)
-    res < 0 && @error("Unable to destroy Java VM")
+    res < 0 && throw(JavaCallError("Unable to destroy Java VM"))
     global penv=C_NULL; global pjvm=C_NULL;
 end
