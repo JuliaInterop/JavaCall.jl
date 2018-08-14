@@ -6,21 +6,15 @@ export JavaObject, JavaMetaClass,
        getname, getclass, listmethods, getreturntype, getparametertypes, classforname,
        narrow
 
-using Compat, Compat.Dates
+# using Compat, Compat.Dates
 
-using Compat.Sys: iswindows, islinux, isunix, isapple
+# using Sys: iswindows, islinux, isunix, isapple
 
 import DataStructures: OrderedSet
+import Libdl
+using Dates
 
-if VERSION < v"0.7-"
-    using Compat: @warn
-    import Base: isnull
-    Base.finalizer(f::Function, o) = Base.finalizer(o, f)
-else
-    using Libdl
-end
-
-@static if iswindows()
+@static if Sys.iswindows()
     using WinReg
 end
 

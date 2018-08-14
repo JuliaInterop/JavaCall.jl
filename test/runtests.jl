@@ -1,11 +1,8 @@
-using Compat, Compat.Test
+using Test
 using JavaCall
 
-if VERSION ≥ v"0.7-"
-    import Pkg
-    import Dates
-    using Base.GC: gc
-end
+import Dates
+using Base.GC: gc
 
 
 JavaCall.init(["-Djava.class.path=$(@__DIR__)"])
@@ -33,8 +30,8 @@ T = @jimport Test
     @test "Hello Java"==jcall(T, "testString", JString, (JString,), "Hello Java")
     @test Float64(10.02) == jcall(T, "testDouble", jdouble, (jdouble,), 10.02) #Comparing exact float representations hence ==
     @test Float32(10.02) == jcall(T, "testFloat", jfloat, (jfloat,), 10.02)
-    @test realmax(jdouble) == jcall(T, "testDouble", jdouble, (jdouble,), realmax(jdouble))
-    @test realmax(jfloat) == jcall(T, "testFloat", jfloat, (jfloat,), realmax(jfloat))
+    @test floatmax(jdouble) == jcall(T, "testDouble", jdouble, (jdouble,), floatmax(jdouble))
+    @test floatmax(jfloat) == jcall(T, "testFloat", jfloat, (jfloat,), floatmax(jfloat))
     c=JString(C_NULL)
     @test isnull(c)
     @test "" == jcall(T, "testString", JString, (JString,), c)
@@ -123,9 +120,9 @@ end
 
 @testset "inner_classes_1" begin
     TestInner = @jimport(Test$TestInner)
-    Test = @jimport(Test)
-    t=Test(())
-    inner = TestInner((Test,), t)
+    JTest = @jimport(Test)
+    t=JTest(())
+    inner = TestInner((JTest,), t)
     @test jcall(inner, "innerString", JString, ()) == "from inner"
     @test jfield(@jimport(java.lang.Math), "E", jdouble) == 2.718281828459045
     @test jfield(@jimport(java.lang.Math), "PI", jdouble) == 3.141592653589793

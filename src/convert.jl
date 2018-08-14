@@ -30,7 +30,7 @@ unsafe_convert(::Type{Ptr{Nothing}}, cls::JavaMetaClass) = cls.ptr
 
 # Get the JNI/C type for a particular Java type
 function real_jtype(rettype)
-    if issubtype(rettype, JavaObject) || issubtype(rettype, Array) || issubtype(rettype, JavaMetaClass)
+    if rettype <: JavaObject || rettype <: Array || rettype <: JavaMetaClass
         jnitype = Ptr{Nothing}
     else
         jnitype = rettype
@@ -324,10 +324,13 @@ function narrow(obj::JavaObject)
     return convert(JavaObject{Symbol(t)}, obj)
 end
 
-# TODO replace once iterate is available in Compat
-Base.start(itr::JavaObject) = true
-function Base.next(itr::JavaObject, state)
-     o = jcall(itr, "next", @jimport(java.lang.Object), ())
-     return (narrow(o), state)
+has_next(itr::JavaObject) = (jcall(itr, "hasNext", jboolean, ()) == JNI_TRUE)
+
+function Base.iterate(itr::JavaObject, state=nothing)
+    if has_next(itr)
+        o = jcall(itr, "next", @jimport(java.lang.Object), ())
+        return (narrow(o), state)
+    else
+        return nothing
+    end
 end
-Base.done(itr::JavaObject, state)  = (jcall(itr, "hasNext", jboolean, ()) == JNI_FALSE)
