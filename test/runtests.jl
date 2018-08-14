@@ -89,7 +89,7 @@ end
 @testset "dates_1" begin
     jd = @jimport(java.util.Date)(())
     jcal = @jimport(java.util.GregorianCalendar)(())
-    jsd =  @jimport(java.sql.Date)((jlong,),round(jlong, time()))
+    jsd =  @jimport(java.sql.Date)((jlong,),round(jlong, digits=time()))
 
     @test typeof(convert(Dates.DateTime, jd)) == Dates.DateTime
     @test typeof(convert(Dates.DateTime, jcal)) == Dates.DateTime
