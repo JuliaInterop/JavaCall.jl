@@ -74,7 +74,7 @@ Calling instance methods uses the `jcall` function, with an instance of the `Jav
 ```julia
 jcall(gurl, "getHost", JString,()) #"wwww.google.com"
 innerObj=jcall(outerObj, "createrInnerObject", jinner,())
-jcall(innerObj, "innerMethod", Void,()) #Prints "In Inner class Method"
+jcall(innerObj, "innerMethod", Nothing,()) #Prints "In Inner class Method"
 ```
 
 ##Calling Array Methods

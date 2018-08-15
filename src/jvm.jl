@@ -34,7 +34,7 @@ function javahome_winreg()
     end
 end
 
-@static isunix() ? (global const libname = "libjvm") : (global const libname = "jvm")
+@static Sys.isunix() ? (global const libname = "libjvm") : (global const libname = "jvm")
 
 function findjvm()
     javahomes = Any[]
@@ -43,12 +43,12 @@ function findjvm()
     if haskey(ENV,"JAVA_HOME")
         push!(javahomes,ENV["JAVA_HOME"])
     else
-        @static iswindows() ? ENV["JAVA_HOME"] = javahome_winreg() : nothing
-        @static iswindows() ? push!(javahomes, ENV["JAVA_HOME"]) : nothing
+        @static Sys.iswindows() ? ENV["JAVA_HOME"] = javahome_winreg() : nothing
+        @static Sys.iswindows() ? push!(javahomes, ENV["JAVA_HOME"]) : nothing
     end
 
     if isfile("/usr/libexec/java_home")
-        push!(javahomes,chomp(readstring(`/usr/libexec/java_home`)))
+        push!(javahomes,chomp(read(`/usr/libexec/java_home`, String)))
     end
 
     if isdir("/usr/lib/jvm/default-java/")
@@ -57,12 +57,12 @@ function findjvm()
 
     push!(libpaths, pwd())
     for n in javahomes
-        @static if iswindows()
+        @static if Sys.iswindows()
             push!(libpaths, joinpath(n, "bin", "server"))
             push!(libpaths, joinpath(n, "jre", "bin", "server"))
             push!(libpaths, joinpath(n, "bin", "client"))
         end
-        @static if islinux()
+        @static if Sys.islinux()
             if Sys.WORD_SIZE==64
                 push!(libpaths, joinpath(n, "jre", "lib", "amd64", "server"))
                 push!(libpaths, joinpath(n, "lib", "amd64", "server"))
@@ -76,16 +76,16 @@ function findjvm()
         push!(libpaths, joinpath(n, "lib", "server"))
     end
 
-    ext = @static iswindows() ? "dll" : (@static isapple() ? "dylib" : "so")
+    ext = @static Sys.iswindows() ? "dll" : (@static Sys.isapple() ? "dylib" : "so")
     ext = "."*ext
 
     try
         for n in libpaths
             libpath = joinpath(n,libname*ext);
             if isfile(libpath)
-                if iswindows()
+                if Sys.iswindows()
                     bindir = dirname(dirname(libpath))
-                    m = filter(x -> ismatch(r"msvcr(?:.*).dll",x), readdir(bindir))
+                    m = filter(x -> occursin(r"msvcr(?:.*).dll",x), readdir(bindir))
                     Libdl.dlopen(joinpath(bindir,m[1]))
                 end
                 global libjvm = Libdl.dlopen(libpath)
@@ -124,14 +124,14 @@ struct JavaVMInitArgs
 end
 
 
-@static isunix() ? (const sep = ":") : nothing
-@static iswindows() ? (const sep = ";") : nothing
+@static Sys.isunix() ? (const sep = ":") : nothing
+@static Sys.iswindows() ? (const sep = ";") : nothing
 cp = OrderedSet{String}()
 opts = OrderedSet{String}()
 
 function addClassPath(s::String)
     if isloaded()
-        warn("JVM already initialised. This call has no effect")
+        @warn("JVM already initialised. This call has no effect")
         return
     end
     if s==""; return; end
