@@ -16,8 +16,6 @@ const JNI_ENOMEM       = convert(Cint, -4)              #/* not enough memory */
 const JNI_EEXIST       = convert(Cint, -5)              #/* VM already created */
 const JNI_EINVAL       = convert(Cint, -6)              #/* invalid arguments */
 
-const LIBEXEC_JAVA_HOME = "/usr/libexec/java_home"
-
 const JAVA_HOME_CANDIDATES = ["/usr/lib/jvm/default-java/",
                               "/usr/lib/jvm/default/"]
 
@@ -53,7 +51,7 @@ function findjvm()
             push!(javahomes, ENV["JAVA_HOME"])
         end
     end
-    isfile(LIBEXEC_JAVA_HOME) && push!(javahomes, chomp(read(LIBEXEC_JAVA_HOME, String)))
+    isfile("/usr/libexec/java_home") && push!(javahomes, chomp(read(`/usr/libexec/java_home`, String)))
 
     for fname ∈ JAVA_HOME_CANDIDATES
         isdir(fname) && push!(javahomes, fname)
@@ -93,7 +91,7 @@ function findjvm()
                     Libdl.dlopen(joinpath(bindir,m[1]))
                 end
                 global libjvm = Libdl.dlopen(libpath)
-                @info("Loaded $libpath")
+                @debug("Loaded $libpath")
                 return
             end
         end
