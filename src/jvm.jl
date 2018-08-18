@@ -16,8 +16,9 @@ const JNI_ENOMEM       = convert(Cint, -4)              #/* not enough memory */
 const JNI_EEXIST       = convert(Cint, -5)              #/* VM already created */
 const JNI_EINVAL       = convert(Cint, -6)              #/* invalid arguments */
 
-const JAVA_HOME_CANDIDATES = ["/usr/libexec/java_home/",
-                              "/usr/lib/jvm/default-java/",
+const LIBEXEC_JAVA_HOME = "/usr/libexec/java_home"
+
+const JAVA_HOME_CANDIDATES = ["/usr/lib/jvm/default-java/",
                               "/usr/lib/jvm/default/"]
 
 function javahome_winreg()
@@ -44,13 +45,15 @@ function findjvm()
     javahomes = Any[]
     libpaths = Any[]
 
-    if haskey(ENV,"JAVA_HOME")
-        push!(javahomes,ENV["JAVA_HOME"])
-    end
-    @static if Sys.iswindows()
-        ENV["JAVA_HOME"] = javahome_winreg()
+    if haskey(ENV, "JAVA_HOME")
         push!(javahomes, ENV["JAVA_HOME"])
+    else
+        @static if Sys.iswindows()
+            ENV["JAVA_HOME"] = javahome_winreg()
+            push!(javahomes, ENV["JAVA_HOME"])
+        end
     end
+    isfile(LIBEXEC_JAVA_HOME) && push!(javahomes, chomp(read(LIBEXEC_JAVA_HOME, String)))
 
     for fname ∈ JAVA_HOME_CANDIDATES
         isdir(fname) && push!(javahomes, fname)
