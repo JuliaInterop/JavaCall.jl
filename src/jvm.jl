@@ -16,6 +16,9 @@ const JNI_ENOMEM       = convert(Cint, -4)              #/* not enough memory */
 const JNI_EEXIST       = convert(Cint, -5)              #/* VM already created */
 const JNI_EINVAL       = convert(Cint, -6)              #/* invalid arguments */
 
+const JAVA_HOME_CANDIDATES = ["/usr/lib/jvm/default-java/",
+                              "/usr/lib/jvm/default/"]
+
 function javahome_winreg()
     try
         keypath = "SOFTWARE\\JavaSoft\\Java Runtime Environment"
@@ -40,19 +43,18 @@ function findjvm()
     javahomes = Any[]
     libpaths = Any[]
 
-    if haskey(ENV,"JAVA_HOME")
-        push!(javahomes,ENV["JAVA_HOME"])
+    if haskey(ENV, "JAVA_HOME")
+        push!(javahomes, ENV["JAVA_HOME"])
     else
-        @static Sys.iswindows() ? ENV["JAVA_HOME"] = javahome_winreg() : nothing
-        @static Sys.iswindows() ? push!(javahomes, ENV["JAVA_HOME"]) : nothing
+        @static if Sys.iswindows()
+            ENV["JAVA_HOME"] = javahome_winreg()
+            push!(javahomes, ENV["JAVA_HOME"])
+        end
     end
+    isfile("/usr/libexec/java_home") && push!(javahomes, chomp(read(`/usr/libexec/java_home`, String)))
 
-    if isfile("/usr/libexec/java_home")
-        push!(javahomes,chomp(read(`/usr/libexec/java_home`, String)))
-    end
-
-    if isdir("/usr/lib/jvm/default-java/")
-        push!(javahomes, "/usr/lib/jvm/default-java/")
+    for fname ∈ JAVA_HOME_CANDIDATES
+        isdir(fname) && push!(javahomes, fname)
     end
 
     push!(libpaths, pwd())
@@ -70,8 +72,8 @@ function findjvm()
                 push!(libpaths, joinpath(n, "jre", "lib", "i386", "server"))
 
                 push!(libpaths, joinpath(n, "lib", "i386", "server"))
-             end
-         end
+            end
+        end
         push!(libpaths, joinpath(n, "jre", "lib", "server"))
         push!(libpaths, joinpath(n, "lib", "server"))
     end
@@ -89,7 +91,7 @@ function findjvm()
                     Libdl.dlopen(joinpath(bindir,m[1]))
                 end
                 global libjvm = Libdl.dlopen(libpath)
-                println("Loaded $libpath")
+                @debug("Loaded $libpath")
                 return
             end
         end
