@@ -154,7 +154,7 @@ function init()
         init(opts)
     else
         ccp = collect(cp)
-        init(vcat(collect(opts), reduce((x,y)->string(x,sep,y),"-Djava.class.path=$(ccp[1])",ccp[2:end])))
+        init(vcat(collect(opts), reduce((x,y)->string(x,sep,y),ccp[2:end],init="-Djava.class.path=$(ccp[1])")))
     end
 end
 
