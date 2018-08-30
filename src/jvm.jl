@@ -128,34 +128,66 @@ end
 
 @static Sys.isunix() ? (const sep = ":") : nothing
 @static Sys.iswindows() ? (const sep = ";") : nothing
-cp = OrderedSet{String}()
-opts = OrderedSet{String}()
-
 function addClassPath(s::String)
+    #println("addClassPath called")
     if isloaded()
         @warn("JVM already initialised. This call has no effect")
         return
     end
     if s==""; return; end
-    if endswith(s, "/*") && isdir(s[1:end-2])
-        for x in s[1:end-1] .* readdir(s[1:end-2])
-            endswith(x, ".jar") && push!(cp, x)
-        end
-        return
-    end
-    push!(cp, s)
+    # classpathstring=Base.eval( isempty(__JavaCall_classpathstring));
+    try
+        pathstring=ENV["JULIA_JAVACALL_CLASSPATH"];
+    catch error
+       #if isa(error, KeyError)
+           # println("sorry, I couldn't classpath")
+       #end
+       pathstring=string("-Djava.class.path=");
+   end
+   if endswith(s, "$(Base.Filesystem.path_separator)*") && isdir(s[1:end-2])
+       for x in s[1:end-1] .* readdir(s[1:end-2])
+           if endswith(x, ".jar")
+               pathstring=string(pathstring,x,sep)
+           end
+       end
+   else
+       pathstring=string(pathstring,s,sep)
+   end
+    # @show pathstring
+    Main.ENV["JULIA_JAVACALL_CLASSPATH"]=pathstring;
     return
 end
 
-addOpts(s::String) = isloaded() ? @warn("JVM already initialised. This call has no effect") : push!(opts, s)
+function addOpts(s::String)
+if isloaded()
+    @warn("JVM already initialised. This call has no effect")
+else
+    opts=""; # OrderedSet{String}()
+    try
+        opts=Main.ENV["JULIA_JAVACALL_OPTS"];
+    catch error
+    end
+    Main.ENV["JULIA_JAVACALL_OPTS"]=string(opts,s," ");
+end
+end
 
 function init()
-    if isempty(cp)
-        init(opts)
-    else
-        ccp = collect(cp)
-        init(vcat(collect(opts), reduce((x,y)->string(x,sep,y),"-Djava.class.path=$(ccp[1])",ccp[2:end])))
-    end
+    # println("init called")
+    callstring="";
+    opts=OrderedSet{String}();
+        try
+            callstring=Main.ENV["JULIA_JAVACALL_CLASSPATH"];
+            push!(opts, callstring)
+            #println(callstring)
+        catch error
+        end
+        try
+            optsstring=Main.ENV["JULIA_JAVACALL_OPTS"];
+            push!(opts, optsstring)
+            #println(optsstring)
+        catch error
+        end
+        init(opts);
 end
 
 isloaded() = isdefined(JavaCall, :jnifunc) && isdefined(JavaCall, :penv) && penv != C_NULL
