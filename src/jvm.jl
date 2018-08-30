@@ -154,7 +154,9 @@ function init()
         init(opts)
     else
         ccp = collect(cp)
-        init(vcat(collect(opts), reduce((x,y)->string(x,sep,y),"-Djava.class.path=$(ccp[1])",ccp[2:end])))
+        options = collect(opts)
+        classpath = "-Djava.class.path="*join(ccp,sep)
+        init(vcat(options, classpath))
     end
 end
 
