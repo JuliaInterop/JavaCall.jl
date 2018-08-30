@@ -16,9 +16,6 @@ const JNI_ENOMEM       = convert(Cint, -4)              #/* not enough memory */
 const JNI_EEXIST       = convert(Cint, -5)              #/* VM already created */
 const JNI_EINVAL       = convert(Cint, -6)              #/* invalid arguments */
 
-const JAVA_HOME_CANDIDATES = ["/usr/lib/jvm/default-java/",
-                              "/usr/lib/jvm/default/"]
-
 function javahome_winreg()
     try
         keypath = "SOFTWARE\\JavaSoft\\Java Runtime Environment"
@@ -43,18 +40,19 @@ function findjvm()
     javahomes = Any[]
     libpaths = Any[]
 
-    if haskey(ENV, "JAVA_HOME")
-        push!(javahomes, ENV["JAVA_HOME"])
+    if haskey(ENV,"JAVA_HOME")
+        push!(javahomes,ENV["JAVA_HOME"])
     else
-        @static if Sys.iswindows()
-            ENV["JAVA_HOME"] = javahome_winreg()
-            push!(javahomes, ENV["JAVA_HOME"])
-        end
+        @static Sys.iswindows() ? ENV["JAVA_HOME"] = javahome_winreg() : nothing
+        @static Sys.iswindows() ? push!(javahomes, ENV["JAVA_HOME"]) : nothing
     end
-    isfile("/usr/libexec/java_home") && push!(javahomes, chomp(read(`/usr/libexec/java_home`, String)))
 
-    for fname ∈ JAVA_HOME_CANDIDATES
-        isdir(fname) && push!(javahomes, fname)
+    if isfile("/usr/libexec/java_home")
+        push!(javahomes,chomp(read(`/usr/libexec/java_home`, String)))
+    end
+
+    if isdir("/usr/lib/jvm/default-java/")
+        push!(javahomes, "/usr/lib/jvm/default-java/")
     end
 
     push!(libpaths, pwd())
@@ -72,8 +70,8 @@ function findjvm()
                 push!(libpaths, joinpath(n, "jre", "lib", "i386", "server"))
 
                 push!(libpaths, joinpath(n, "lib", "i386", "server"))
-            end
-        end
+             end
+         end
         push!(libpaths, joinpath(n, "jre", "lib", "server"))
         push!(libpaths, joinpath(n, "lib", "server"))
     end
@@ -91,7 +89,7 @@ function findjvm()
                     Libdl.dlopen(joinpath(bindir,m[1]))
                 end
                 global libjvm = Libdl.dlopen(libpath)
-                @debug("Loaded $libpath")
+                println("Loaded $libpath")
                 return
             end
         end
@@ -110,9 +108,6 @@ function findjvm()
 end
 
 
-
-
-
 struct JavaVMOption
     optionString::Ptr{UInt8}
     extraInfo::Ptr{Nothing}
@@ -128,34 +123,70 @@ end
 
 @static Sys.isunix() ? (const sep = ":") : nothing
 @static Sys.iswindows() ? (const sep = ";") : nothing
-cp = OrderedSet{String}()
-opts = OrderedSet{String}()
 
 function addClassPath(s::String)
+    #println("addClassPath called")
     if isloaded()
         @warn("JVM already initialised. This call has no effect")
         return
     end
     if s==""; return; end
-    if endswith(s, "/*") && isdir(s[1:end-2])
-        for x in s[1:end-1] .* readdir(s[1:end-2])
-            endswith(x, ".jar") && push!(cp, x)
-        end
-        return
-    end
-    push!(cp, s)
+    # classpathstring=Base.eval( isempty(__JavaCall_classpathstring));
+    try
+        pathstring=ENV["JULIA_JAVACALL_CLASSPATH"];
+    catch error
+       #if isa(error, KeyError)
+           # println("sorry, I couldn't classpath")
+       #end
+       pathstring=string("-Djava.class.path=");
+   end
+   if endswith(s, "$(Base.Filesystem.path_separator)*") && isdir(s[1:end-2])
+       for x in s[1:end-1] .* readdir(s[1:end-2])
+           if endswith(x, ".jar")
+               pathstring=string(pathstring,x,sep)
+           end
+       end
+   else
+       pathstring=string(pathstring,s,sep)
+   end
+    # @show pathstring
+    Main.ENV["JULIA_JAVACALL_CLASSPATH"]=pathstring;
     return
 end
 
-addOpts(s::String) = isloaded() ? @warn("JVM already initialised. This call has no effect") : push!(opts, s)
+# addOpts(s::String) = isloaded() ? @warn("JVM already initialised. This call has no effect") : push!(opts, s)
+
+function addOpts(s::String)
+if isloaded()
+    @warn("JVM already initialised. This call has no effect")
+else
+    opts=""; # OrderedSet{String}()
+    try
+        opts=Main.ENV["JULIA_JAVACALL_OPTS"];
+    catch error
+    end
+    # push!(opts, s)
+    Main.ENV["JULIA_JAVACALL_OPTS"]=string(opts,s," ");
+end
+end
 
 function init()
-    if isempty(cp)
-        init(opts)
-    else
-        ccp = collect(cp)
-        init(vcat(collect(opts), reduce((x,y)->string(x,sep,y),"-Djava.class.path=$(ccp[1])",ccp[2:end])))
-    end
+    # println("init called")
+    callstring="";
+    opts=OrderedSet{String}();
+        try
+            callstring=Main.ENV["JULIA_JAVACALL_CLASSPATH"];
+            push!(opts, callstring)
+            #println(callstring)
+        catch error
+        end
+        try
+            optsstring=Main.ENV["JULIA_JAVACALL_OPTS"];
+            push!(opts, optsstring)
+            #println(optsstring)
+        catch error
+        end
+        init(opts);
 end
 
 isloaded() = isdefined(JavaCall, :jnifunc) && isdefined(JavaCall, :penv) && penv != C_NULL
