@@ -20,7 +20,9 @@ The `JavaCall.init(args::Array{String, 1})` method must to used to load and init
 JavaCall.init(["-Xmx512M", "-Djava.class.path=$(@__DIR__)", "-verbose:jni", "-verbose:gc"])
 ```
 
-Note that only one JVM can be initialised within a process. Hence, the `init` function can be called only once per process.
+Note that only one JVM can be initialised within a process.
+
+Hence, the `init` function can be called only once per process.
 If you are writing a module "MyModule" that makes use of JavaCall, you should therefore use the following structure in your module:
 
 ```julia
@@ -37,9 +39,9 @@ myviewer=jcall(V, "MyFunction", V, myargs);
 end
 ```
 
-In which case you should make a folder "jars" in your module directory and stort the MyModule.jar file having a class MyModule, that your wish to call. Note that init() should finally be called without any arguments as it will use the previously collected information.
+In which case you should make a folder "jars" in your module directory and store the MyModule.jar file having a class MyModule, that your wish to call. Note that init() should finally be called without any arguments as it will use the previously collected information.
 
-In this way multiple JavaCall modules can be registered as long as they are not yet used, which happens with the first call of aJavausingFkt() in the example above.
+In this way multiple JavaCall modules can be registered as long as they are not yet used, which happens with the first call of aJavaUsingFkt() in the example above.
 
 Even options can be registerd before first use as in:
 
