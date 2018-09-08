@@ -198,31 +198,31 @@ package zot.julia;
 import com.sun.jna.Native;
 
 public class Julia {
-	static {
-		Native.register("julia");
-		jl_init__threading();
-	}
+    static {
+        Native.register("julia");
+        jl_init__threading();
+    }
 
-	public static double bubba = Math.random();
+    public static double bubba = Math.random();
 
-	public static native void jl_init__threading();
-	public static native void jl_eval_string(String code);
-	public static native void jl_atexit_hook(int status);
+    public static native void jl_init__threading();
+    public static native void jl_eval_string(String code);
+    public static native void jl_atexit_hook(int status);
 
-	public static void main(String args[]) {
-		System.out.println("test");
-		jl_eval_string("println(\"test from Julia\")");
-		jl_eval_string("using JavaCall");
-		jl_eval_string("JavaCall.init_current_vm()");
-		jl_eval_string("println(\"initialized VM\")");
-		jl_eval_string("jlm = @jimport java.lang.Math");
-	    jl_eval_string("println(jcall(jlm, \"sin\", jdouble, (jdouble,), pi/2))");
-		jl_eval_string("jl = @jimport zot.julia.Julia");
-		System.out.println("Bubba should be " + bubba);
-		jl_eval_string("println(\"bubba: \", jfield(jl, \"bubba\", jdouble))");
-		jl_eval_string("println(\"Done with tests\")");
-		jl_atexit_hook(0);
-	}
+    public static void main(String args[]) {
+        System.out.println("test");
+        jl_eval_string("println(\"test from Julia\")");
+        jl_eval_string("using JavaCall");
+        jl_eval_string("JavaCall.init_current_vm()");
+        jl_eval_string("println(\"initialized VM\")");
+        jl_eval_string("jlm = @jimport java.lang.Math");
+        jl_eval_string("println(jcall(jlm, \"sin\", jdouble, (jdouble,), pi/2))");
+        jl_eval_string("jl = @jimport zot.julia.Julia");
+        System.out.println("Bubba should be " + bubba);
+        jl_eval_string("println(\"bubba: \", jfield(jl, \"bubba\", jdouble))");
+        jl_eval_string("println(\"Done with tests\")");
+        jl_atexit_hook(0);
+    }
 }
 ```
 """
