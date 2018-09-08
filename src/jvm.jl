@@ -185,6 +185,61 @@ function init(opts)
     return
 end
 
+"""
+    init_current_vm()
+
+Allow initialization from running VM. Uses the first VM it finds.
+
+# Example using JNA
+
+```java
+package zot.julia;
+
+import com.sun.jna.Native;
+
+public class Julia {
+	static {
+		Native.register("julia");
+		jl_init__threading();
+	}
+
+	public static double bubba = Math.random();
+
+	public static native void jl_init__threading();
+	public static native void jl_eval_string(String code);
+	public static native void jl_atexit_hook(int status);
+
+	public static void main(String args[]) {
+		System.out.println("test");
+		jl_eval_string("println(\"test from Julia\")");
+		jl_eval_string("using JavaCall");
+		jl_eval_string("JavaCall.init_current_vm()");
+		jl_eval_string("println(\"initialized VM\")");
+		jl_eval_string("jlm = @jimport java.lang.Math");
+	    jl_eval_string("println(jcall(jlm, \"sin\", jdouble, (jdouble,), pi/2))");
+		jl_eval_string("jl = @jimport zot.julia.Julia");
+		System.out.println("Bubba should be " + bubba);
+		jl_eval_string("println(\"bubba: \", jfield(jl, \"bubba\", jdouble))");
+		jl_eval_string("println(\"Done with tests\")");
+		jl_atexit_hook(0);
+	}
+}
+```
+"""
+function init_current_vm()
+    ppjvm = Array{Ptr{JavaVM}}(undef, 1)
+    ppenv = Array{Ptr{JNIEnv}}(undef, 1)
+    pnum = Array{Cint}(undef, 1)
+    ccall(Libdl.dlsym(libjvm, :JNI_GetCreatedJavaVMs), Cint, (Ptr{Ptr{JavaVM}}, Cint, Ptr{Cint}), ppjvm, 1, pnum)
+    global pjvm = ppjvm[1]
+    jvm = unsafe_load(pjvm)
+    global jvmfunc = unsafe_load(jvm.JNIInvokeInterface_)
+    ccall(jvmfunc.GetEnv, Cint, (Ptr{Nothing}, Ptr{Ptr{JNIEnv}}, Cint), pjvm, ppenv, JNI_VERSION_1_8)
+    global penv = ppenv[1]
+    jnienv = unsafe_load(penv)
+    global jnifunc = unsafe_load(jnienv.JNINativeInterface_) #The JNI Function table
+end
+
 function destroy()
     if (!isdefined(JavaCall, :penv) || penv == C_NULL)
         throw(JavaCallError("Called destroy without initialising Java VM"))
