@@ -52,10 +52,9 @@ julia> jcall(j_u_arrays, "binarySearch", jint, (Array{jint,1}, jint), [10,20,30,
 
 ```
 
-##To call from a running JVM
+##Usage from a running JVM
 
-Use JNI or JNA to initialize a Julia VM and call `JavaCall.init_current_vm()`. Here's an example
-using JNA:
+Use JNI or JNA to initialize a Julia VM, then call `JavaCall.init_current_vm()`. Here's an example using JNA:
 
 ```java
 package zot.julia;
