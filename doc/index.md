@@ -52,6 +52,44 @@ julia> jcall(j_u_arrays, "binarySearch", jint, (Array{jint,1}, jint), [10,20,30,
 
 ```
 
+##Usage from a running JVM
+
+Use JNI or JNA to initialize a Julia VM, then call `JavaCall.init_current_vm()`. Here's an example using JNA:
+
+```java
+package zot.julia;
+
+import com.sun.jna.Native;
+
+public class Julia {
+    static {
+        Native.register("julia");
+        jl_init__threading();
+    }
+
+    public static double bubba = Math.random();
+
+    public static native void jl_init__threading();
+    public static native void jl_eval_string(String code);
+    public static native void jl_atexit_hook(int status);
+
+    public static void main(String args[]) {
+        System.out.println("test");
+        jl_eval_string("println(\"test from Julia\")");
+        jl_eval_string("using JavaCall");
+        jl_eval_string("JavaCall.init_current_vm()");
+        jl_eval_string("println(\"initialized VM\")");
+        jl_eval_string("jlm = @jimport java.lang.Math");
+        jl_eval_string("println(jcall(jlm, \"sin\", jdouble, (jdouble,), pi/2))");
+        jl_eval_string("jl = @jimport zot.julia.Julia");
+        System.out.println("Bubba should be " + bubba);
+        jl_eval_string("println(\"bubba: \", jfield(jl, \"bubba\", jdouble))");
+        jl_eval_string("println(\"Done with tests\")");
+        jl_atexit_hook(0);
+    }
+}
+```
+
 ##Major TODOs and Caveats
 
 *   Currently, only a low level interface is available, via `jcall`. As a result, this package is best suited for writing libraries that wrap around existing java packages. Writing user code direcly using this interface might be a bit tedious at present. A high level interface using reflection will eventually be built. 
