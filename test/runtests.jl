@@ -237,7 +237,7 @@ end
 @testset "proxy_tests" begin
     JAL = @jimport java.util.ArrayList
     @test JProxy(JavaCall.jnew(Symbol("java.lang.Integer"), (jint,), 3)).toString() == "3"
-    @test JProxy(convert(JObject, 3)).toString() == "3"
+    @test JProxy(convert(@jimport(java.lang.Integer), 3)).toString() == "3"
     a = JProxy(JAL(()))
     @test a.size() == 0
     a.add("one")
