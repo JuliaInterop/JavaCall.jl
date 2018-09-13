@@ -36,6 +36,8 @@ mutable struct JavaObject{T}
 
     #replace with: JavaObject{T}(argtypes::Tuple, args...) where T
     JavaObject{T}(argtypes::Tuple, args...) where {T} = jnew(T, argtypes, args...)
+    JavaObject{T}() where {T} = jnew(T, ())
+    JavaObject(::Nothing) = new{Symbol("java.lang.Object")}(C_NULL)
 end
 
 JavaObject(T, ptr) = JavaObject{T}(ptr)
@@ -84,6 +86,7 @@ const JMethod = JavaObject{Symbol("java.lang.reflect.Method")}
 const JThread = JavaObject{Symbol("java.lang.Thread")}
 const JClassLoader = JavaObject{Symbol("java.lang.ClassLoader")}
 const JString = JavaObject{Symbol("java.lang.String")}
+const JNull = JavaObject(nothing)
 
 function JString(str::AbstractString)
     jstring = ccall(jnifunc.NewStringUTF, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{UInt8}), penv, String(str))
@@ -269,6 +272,7 @@ metaclass(::Type{JavaObject{T}}) where {T} = metaclass(T)
 metaclass(::JavaObject{T}) where {T} = metaclass(T)
 
 javaclassname(class::Symbol) = replace(string(class), "."=>"/")
+javaclassname(class::AbstractString) = replace(class, "."=>"/")
 
 function geterror(allow=false)
     isexception = ccall(jnifunc.ExceptionCheck, jboolean, (Ptr{JNIEnv},), penv )

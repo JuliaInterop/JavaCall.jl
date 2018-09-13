@@ -234,6 +234,19 @@ end
     @test isa(narrow(o), JString)
 end
 
+@testset "proxy_tests" begin
+    JAL = @jimport java.util.ArrayList
+    @test JProxy(JavaCall.jnew(Symbol("java.lang.Integer"), (jint,), 3)).toString() == "3"
+    @test JProxy(convert(JObject, 3)).toString() == "3"
+    a = JProxy(JAL(()))
+    @test a.size() == 0
+    a.add("one")
+    @test a.size() == 1
+    @test a.toString() == "[one]"
+    removed = a.remove(0)
+    @test typeof(removed) == String
+    @test removed == "one"
+end
 
 # At the end, unload the JVM before exiting
 JavaCall.destroy()

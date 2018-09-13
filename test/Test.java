@@ -83,4 +83,11 @@ public class Test {
       }
   }
 
+  public int getInt() {
+    return integerField;
+  }
+
+  public void setInt(int v) {
+    integerField = v;
+  }
 }

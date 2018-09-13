@@ -4,7 +4,7 @@ export JavaObject, JavaMetaClass,
        JObject, JClass, JMethod, JString,
        @jimport, jcall, jfield, isnull,
        getname, getclass, listmethods, getreturntype, getparametertypes, classforname,
-       narrow
+       narrow, JProxy
 
 # using Compat, Compat.Dates
 
@@ -27,10 +27,12 @@ include("jvm.jl")
 include("core.jl")
 include("convert.jl")
 include("reflect.jl")
+include("proxy.jl")
 
 function __init__()
 	findjvm()
 	global create = Libdl.dlsym(libjvm, :JNI_CreateJavaVM)
+    initProxy()
 end
 
 
