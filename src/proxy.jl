@@ -80,6 +80,8 @@ Create a proxy for a Java object that you can use like a Java object. Field and 
 
 To invoke static methods, set static to true.
 
+To get a JProxy's Java object, use `JavaObject(proxy)`
+
 #Example
 ```jldoctest
 julia> a=JProxy(@jimport(java.util.ArrayList)(()))

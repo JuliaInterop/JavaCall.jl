@@ -103,6 +103,10 @@ Primitive types and strings are converted to Julia objects on field accesses and
 
 *NOTE: Because of this, if you need to call Java methods on a string that you got from Java, you'll have to use `JProxy(str)` to convert the Julia string to a proxied Java string*
 
+To invoke static methods, set static to true (see below).
+
+To get a JProxy's Java object, use `JavaObject(proxy)`
+
 ### Examples
 ```jldoctest
 julia> a=JProxy(@jimport(java.util.ArrayList)(()))
