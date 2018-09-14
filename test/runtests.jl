@@ -263,8 +263,8 @@ end
 end
 
 @testset "proxy_meta" begin
-    @test(JProxy(@jimport(java.lang.Integer), true).MAX_VALUE == 2147483647)
-    @test(JProxy(@jimport(java.lang.Long), true).MAX_VALUE == 9223372036854775807)
+    @test(JProxy(@jimport(java.lang.Integer); static=true).MAX_VALUE == 2147483647)
+    @test(JProxy(@jimport(java.lang.Long); static=true).MAX_VALUE == 9223372036854775807)
     #This currently fails
     #@testprintln(JProxy(@jimport(java.lang.Double), true).MAX_VALUE == 1.7976931348623157e308)
 end
