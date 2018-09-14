@@ -32,7 +32,6 @@ include("proxy.jl")
 function __init__()
 	findjvm()
 	global create = Libdl.dlsym(libjvm, :JNI_CreateJavaVM)
-    initProxy()
 end
 
 

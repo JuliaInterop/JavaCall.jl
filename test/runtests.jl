@@ -234,7 +234,7 @@ end
     @test isa(narrow(o), JString)
 end
 
-@testset "proxy_tests" begin
+@testset "proxy_array_list" begin
     JAL = @jimport java.util.ArrayList
     @test JProxy(JavaCall.jnew(Symbol("java.lang.Integer"), (jint,), 3)).toString() == "3"
     @test JProxy(convert(@jimport(java.lang.Integer), 3)).toString() == "3"
@@ -246,6 +246,27 @@ end
     removed = a.remove(0)
     @test typeof(removed) == String
     @test removed == "one"
+end
+
+@testset "proxy_test_class" begin
+    T = @jimport(Test)
+    t = JProxy(T(()))
+    t.integerField = 3
+    @test(t.integerField == 3)
+    t.stringField = "hello"
+    @test(t.stringField == "hello")
+    @test(t.toString() == "Test(3, hello)")
+    t.objectField = t
+    @test(t.objectField.stringField == "hello")
+    @test(t.objectField.getInt() == 3)
+    @test(t.objectField.getString() == "hello")
+end
+
+@testset "proxy_meta" begin
+    @test(JProxy(@jimport(java.lang.Integer), true).MAX_VALUE == 2147483647)
+    @test(JProxy(@jimport(java.lang.Long), true).MAX_VALUE == 9223372036854775807)
+    #This currently fails
+    #@testprintln(JProxy(@jimport(java.lang.Double), true).MAX_VALUE == 1.7976931348623157e308)
 end
 
 # At the end, unload the JVM before exiting

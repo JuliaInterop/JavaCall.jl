@@ -182,6 +182,7 @@ function init(opts)
     jvm = unsafe_load(pjvm)
     global jvmfunc = unsafe_load(jvm.JNIInvokeInterface_)
     global jnifunc = unsafe_load(jnienv.JNINativeInterface_) #The JNI Function table
+    initProxy()
     return
 end
 

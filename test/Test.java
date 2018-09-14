@@ -5,6 +5,7 @@ public class Test {
 
   public int integerField = 100;
   public String stringField = "A STRING";
+  public Object objectField = null;
 
   public static short testShort(short i) {
       System.out.print("In Java, recd: ");System.out.println(i);
@@ -89,5 +90,25 @@ public class Test {
 
   public void setInt(int v) {
     integerField = v;
+  }
+
+  public String getString() {
+    return stringField;
+  }
+
+  public void setString(String s) {
+    stringField = s;
+  }
+
+  public Object getObject() {
+    return objectField;
+  }
+
+  public void setObject(Object val) {
+    objectField = val;
+  }
+
+  public String toString() {
+      return "Test(" + integerField + ", " + stringField + ")";
   }
 }

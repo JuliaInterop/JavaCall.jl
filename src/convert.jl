@@ -1,3 +1,4 @@
+convert(::AbstractString, str::Type{JString}) = unsafe_string(str)
 convert(::Type{JString}, str::AbstractString) = JString(str)
 convert(::Type{JObject}, str::AbstractString) = convert(JObject, JString(str))
 convert(::Type{JavaObject{Symbol("java.lang.Double")}}, n::Real) = jnew(Symbol("java.lang.Double"), (jdouble,), Float64(n))
@@ -43,6 +44,7 @@ isConvertible(T, S::Ptr{Nothing}) = (ccall(jnifunc.IsAssignableFrom, jboolean,
                                            metaclass(T)) == JNI_TRUE)
 
 unsafe_convert(::Type{Ptr{Nothing}}, cls::JavaMetaClass) = cls.ptr
+unsafe_convert(::Type{Ptr{Nothing}}, cls::JavaObject{Symbol("java.lang.Class")}) = cls.ptr
 
 # Get the JNI/C type for a particular Java type
 function real_jtype(rettype)
