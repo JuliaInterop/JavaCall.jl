@@ -1,26 +1,28 @@
 import Base.==
 
-const jvoid = Cvoid
+# See documentation for JProxy for infomation
+
 const JField = JavaObject{Symbol("java.lang.reflect.Field")}
 genericFieldInfo = nothing
 
 struct JMethodInfo
     name::String
-    returnType::Type
+    juliaType::Type
     void::Bool
     argTypes::Tuple
     argClasses::Array{JavaObject}
     id::Ptr{Nothing}
-    juliaType::Type
     static::Bool
     owner::JavaMetaClass
     primitive::Bool
+    convertType::Type
 end
 
 struct JavaTypeInfo
     setterFunc
     signature::AbstractString
     juliaType::Type
+    convertType::Type
     getter::Ptr{Nothing}
     staticGetter::Ptr{Nothing}
     setter::Ptr{Nothing}
@@ -65,16 +67,65 @@ struct JClassInfo
     JClassInfo(class) = new(class, fieldDict(class), methodDict(class))
 end
 
+"""
+    JProxy(s::AbstractString)
+    JProxy(::JavaMetaClass)
+    JProxy(::Type{JavaObject}; static=false)
+    JProxy(obj::JavaObject; static=false)
+
+Create a proxy for a Java object that you can use like a Java object. Field and method syntax is like in Java. Primitive types and strings are converted to Julia objects on field accesses and method returns and converted back to Java types when sent as arguments to Java methods.
+
+*NOTE: Because of this, if you need to call Java methods on a string that you got from Java, you'll have to use `JProxy(str)` to convert the Julia string to a proxied Java string*
+
+To invoke static methods, set static to true.
+
+#Example
+```jldoctest
+julia> a=JProxy(@jimport(java.util.ArrayList)(()))
+[]
+
+julia> a.size()
+0
+
+julia> a.add("hello")
+true
+
+julia> a.get(0)
+"hello"
+
+julia> a.isEmpty()
+false
+
+julia> a.toString()
+"[hello]"
+
+julia> b = a.clone()
+[hello]
+
+julia> b.add("derp")
+true
+
+julia> a == b
+false
+
+julia> b == b
+true
+
+julia> JProxy(@jimport(java.lang.System)).getName()
+"java.lang.System"
+
+julia> JProxy(@jimport(java.lang.System);static=true).out.println("hello")
+hello
+```
+"""
 struct JProxy
     obj::JavaObject
     info::JClassInfo
     static::Bool
     JProxy(s::AbstractString) = JProxy(JString(s))
-    JProxy(::JavaMetaClass{C}) where C = JProxy(JavaObject{C}, true)
-    JProxy(::Type{JavaObject{C}}) where C = JProxy(JavaObject{C}, false)
-    JProxy(::Type{JavaObject{C}}, static) where C = JProxy(classforname(string(C)), static)
-    JProxy(obj::JavaObject) = JProxy(obj, false)
-    JProxy(obj::JavaObject, static) = new(static ? obj : narrow(obj), infoFor(static ? obj : getclass(obj)), static)
+    JProxy(::JavaMetaClass{C}) where C = JProxy(JavaObject{C}; static=true)
+    JProxy(::Type{JavaObject{C}}; static=false) where C = JProxy(classforname(string(C)); static=static)
+    JProxy(obj::JavaObject; static=false) = new(static ? obj : narrow(obj), infoFor(static ? obj : getclass(obj)), static)
 end
 
 classes = Dict()
@@ -88,6 +139,8 @@ pxyPtr(p::JProxy) = pxyObj(p).ptr
 pxyInfo(p::JProxy) = getfield(p, :info)
 pxyStatic(p::JProxy) = getfield(p, :static)
 
+==(j1::JProxy, j2::JProxy) = Int64(ccall(jnifunc.IsSameObject, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}), penv, pxyPtr(j1), pxyPtr(j2))) != 0
+
 function methodInfo(m::JMethod)
     name, returnType, argTypes = getname(m), getreturntype(m), getparametertypes(m)
     cls = jcall(m, "getDeclaringClass", JClass, ())
@@ -95,15 +148,14 @@ function methodInfo(m::JMethod)
     get!(methodCache, methodKey) do
         methodId = getmethodid(m, cls, name, returnType, argTypes)
         typeName = getname(returnType)
-        info = get(typeInfo, typeName, nothing)
+        info = get(typeInfo, typeName, genericFieldInfo)
         juliaType = juliaTypeFor(typeName)
         owner = metaclass(getname(cls))
-        JMethodInfo(name, juliaType, typeName == "void", Tuple(juliaTypeFor.(argTypes)), argTypes, methodId, juliaType, isStatic(m), owner, info != nothing && length(info.signature) == 1)
+        JMethodInfo(name, juliaType, typeName == "void", Tuple(juliaTypeFor.(argTypes)), argTypes, methodId, isStatic(m), owner, length(info.signature) == 1, info.convertType)
     end
 end
 
 isClass(obj::JavaObject) = false
-#isClass(obj::JavaObject) = p((::JavaObject{C}) where {C} -> string(C))(narrow(obj))
 
 function isStatic(meth::Union{JMethod,JField})
     global modifiers
@@ -114,35 +166,32 @@ end
 
 conv(func::Function, typ::String) = juliaConverters[typ] = func
 
-macro typeInf(sig, typ, object, Typ)
+macro typeInf(sig, typ, jtyp, object, Typ)
     s = (p, t)-> :(jnifunc.$(Symbol(p * string(t) * "Field")))
-    :(JavaTypeInfo($sig, $typ, $(s("Get", Typ)), $(s("GetStatic", Typ)), $(s("Set", Typ)), $(s("SetStatic", Typ))) do field, obj, value::$(object ? :JavaObject : typ)
+    :(JavaTypeInfo($sig, $typ, $jtyp, $(s("Get", Typ)), $(s("GetStatic", Typ)), $(s("Set", Typ)), $(s("SetStatic", Typ))) do field, obj, value::$(object ? :JavaObject : typ)
         ccall(field.static ? field.info.staticSetter : field.info.setter, Ptr{Nothing},
             (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, $(object ? :(Ptr{Nothing}) : typ)),
             penv, (field.static ? field.owner : obj).ptr, field.id, $(object ? :(value.ptr) : :value))
     end)
 end
 
-==(j1::JProxy, j2::JProxy) = ccall(jnifunc.IsSameObject, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}), penv, pxyPtr(j1), pxyPtr(j2)) != 0
-
 function initProxy()
-    #conv("java.lang.String") do x; JProxy(x).toString(); end
     conv("java.lang.String") do x; unsafe_string(x); end
     conv("java.lang.Integer") do x; JProxy(x).intValue(); end
     conv("java.lang.Long") do x; JProxy(x).longValue(); end
     global typeInfo = Dict([
-        "int" => @typeInf("I", jint, false, Int)
-        "long" => @typeInf("J", jlong, false, Long)
-        "byte" => @typeInf("B", jbyte, false, Byte)
-        "boolean" => @typeInf("Z", jboolean, false, Boolean)
-        "char" => @typeInf("C", jchar, false, Char)
-        "short" => @typeInf("S", jshort, false, Short)
-        "float" => @typeInf("F", jfloat, false, Float)
-        "double" => @typeInf("D", jdouble, false, Double)
-        "void" => @typeInf("V", jint, false, Object)
-        "java.lang.String" => @typeInf("Ljava/lang/String;", String, true, Object)
+        "int" => @typeInf("I", jint, Int32, false, Int)
+        "long" => @typeInf("J", jlong, Int64, false, Long)
+        "byte" => @typeInf("B", jbyte, Int8, false, Byte)
+        "boolean" => @typeInf("Z", jboolean, Bool, false, Boolean)
+        "char" => @typeInf("C", jchar, Char, false, Char)
+        "short" => @typeInf("S", jshort, Int16, false, Short)
+        "float" => @typeInf("F", jfloat, Float32, false, Float)
+        "double" => @typeInf("D", jdouble, Float64, false, Double)
+        "void" => @typeInf("V", jint, Nothing, false, Object)
+        "java.lang.String" => @typeInf("Ljava/lang/String;", String, String, true, Object)
     ])
-    global genericFieldInfo = @typeInf("Ljava/lang/Object", Any, true, Object)
+    global genericFieldInfo = @typeInf("Ljava/lang/Object", Any, JObject, true, Object)
 end
 
 metaclass(class::AbstractString) = metaclass(Symbol(class))
@@ -249,7 +298,7 @@ function (pxy::JMethodProxy)(args...)
         meth = reduce(((x, y)-> generality(x, y) < generality(y, x) ? x : y), filterStatic(pxy, targets))
         convertedArgs = convert.(meth.argTypes, args)
         result = _jcall(meth.static ? meth.owner : pxy.receiver, meth.id, C_NULL, meth.juliaType, meth.argTypes, convertedArgs...)
-        if !meth.void; asJulia(result); end
+        if !meth.void; asJulia(meth.convertType, result); end
     end
 end
 
@@ -263,18 +312,19 @@ convertPointers(typ, val) = isa(val, Ptr) ? convert(typ, val) : val
 isNull(obj::JavaObject) = isNull(obj.ptr)
 isNull(ptr::Ptr{Nothing}) = Int64(ptr) == 0
 
-asJulia(obj) = obj
-function asJulia(obj::JavaObject)
+asJulia(t, obj) = obj
+asJulia(::Type{Bool}, obj) = obj != 0
+function asJulia(x, obj::JavaObject)
     if isNull(obj)
         obj
     else
         obj = narrow(obj)
-        (get(juliaConverters, classtypename(obj), identity))(obj)
+        (get(juliaConverters, classtypename(obj), JProxy))(obj)
     end
 end
 
-function asJulia(ptr::Ptr{Nothing})
-    isNull(ptr) ? JNull : asJulia(JObject(ptr))
+function asJulia(x, ptr::Ptr{Nothing})
+    isNull(ptr) ? JNull : asJulia(x, JObject(ptr))
 end
 
 classtypename(obj::JavaObject{T}) where T = string(T)
@@ -315,7 +365,7 @@ function Base.getproperty(p::JProxy, name::Symbol)
                        penv, static ? getclass(obj) : obj.ptr, field.id)
         result == C_NULL && geterror()
         result = (field.primitive ? convert(field.juliaType, result) : result == C_NULL ? JNull : narrow(JavaObject(JObject, result)))
-        asJulia(result)
+        asJulia(field.juliaType, result)
     end
     result != JNull && isa(result, JavaObject) ? JProxy(result) : result
 end
