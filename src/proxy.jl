@@ -4,6 +4,7 @@ import Base.==
 
 const JField = JavaObject{Symbol("java.lang.reflect.Field")}
 genericFieldInfo = nothing
+objectClass = nothing
 
 struct JMethodInfo
     name::String
@@ -125,7 +126,7 @@ struct JProxy
     JProxy(s::AbstractString) = JProxy(JString(s))
     JProxy(::JavaMetaClass{C}) where C = JProxy(JavaObject{C}; static=true)
     JProxy(::Type{JavaObject{C}}; static=false) where C = JProxy(classforname(string(C)); static=static)
-    JProxy(obj::JavaObject; static=false) = new(static ? obj : narrow(obj), infoFor(static ? obj : getclass(obj)), static)
+    JProxy(obj::JavaObject; static=false) = new(static ? obj : isNull(obj) ? obj : narrow(obj), infoFor(static ? obj : isNull(obj) ? objectClass : getclass(obj)), static)
 end
 
 classes = Dict()
@@ -192,6 +193,7 @@ function initProxy()
         "java.lang.String" => @typeInf("Ljava/lang/String;", String, String, true, Object)
     ])
     global genericFieldInfo = @typeInf("Ljava/lang/Object", Any, JObject, true, Object)
+    global objectClass = classforname("java.lang.Object")
 end
 
 metaclass(class::AbstractString) = metaclass(Symbol(class))
@@ -316,7 +318,7 @@ asJulia(t, obj) = obj
 asJulia(::Type{Bool}, obj) = obj != 0
 function asJulia(x, obj::JavaObject)
     if isNull(obj)
-        obj
+        nothing
     else
         obj = narrow(obj)
         (get(juliaConverters, classtypename(obj), JProxy))(obj)
@@ -324,7 +326,7 @@ function asJulia(x, obj::JavaObject)
 end
 
 function asJulia(x, ptr::Ptr{Nothing})
-    isNull(ptr) ? JNull : asJulia(x, JObject(ptr))
+    isNull(ptr) ? jnull : asJulia(x, JObject(ptr))
 end
 
 classtypename(obj::JavaObject{T}) where T = string(T)
@@ -364,10 +366,10 @@ function Base.getproperty(p::JProxy, name::Symbol)
                        (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}),
                        penv, static ? getclass(obj) : obj.ptr, field.id)
         result == C_NULL && geterror()
-        result = (field.primitive ? convert(field.juliaType, result) : result == C_NULL ? JNull : narrow(JavaObject(JObject, result)))
+        result = (field.primitive ? convert(field.juliaType, result) : result == C_NULL ? jnull : narrow(JavaObject(JObject, result)))
         asJulia(field.juliaType, result)
     end
-    result != JNull && isa(result, JavaObject) ? JProxy(result) : result
+    result != jnull && isa(result, JavaObject) ? JProxy(result) : result
 end
 
 function Base.setproperty!(p::JProxy, name::Symbol, value)
