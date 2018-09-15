@@ -163,8 +163,8 @@ end
 
 conv(func::Function, typ::String) = juliaConverters[typ] = func
 
-macro typeInf(jclass, sig, jtyp, Typ, object)
-    _typeInf(jclass, Symbol("j" * string(jclass)), sig, jtyp, Typ, object)
+macro typeInf(jclass, sig, jtyp)
+    _typeInf(jclass, Symbol("j" * string(jclass)), sig, jtyp, uppercasefirst(string(jclass)), false)
 end
 
 macro vtypeInf(jclass, ctyp, sig, jtyp, Typ, object)
@@ -188,14 +188,14 @@ function initProxy()
     conv("java.lang.Integer") do x; JProxy(x).intValue(); end
     conv("java.lang.Long") do x; JProxy(x).longValue(); end
     global typeInfo = Dict([
-        "int" => @typeInf(int, "I", Int32, Int, false)
-        "long" => @typeInf(long, "J", Int64, Long, false)
-        "byte" => @typeInf(byte, "B", Int8, Byte, false)
-        "boolean" => @typeInf(boolean, "Z", Bool, Boolean, false)
-        "char" => @typeInf(char, "C", Char, Char, false)
-        "short" => @typeInf(short, "S", Int16, Short, false)
-        "float" => @typeInf(float, "F", Float32, Float, false)
-        "double" => @typeInf(double, "D", Float64, Double, false)
+        "int" => @typeInf(int, "I", Int32)
+        "long" => @typeInf(long, "J", Int64)
+        "byte" => @typeInf(byte, "B", Int8)
+        "boolean" => @typeInf(boolean, "Z", Bool)
+        "char" => @typeInf(char, "C", Char)
+        "short" => @typeInf(short, "S", Int16)
+        "float" => @typeInf(float, "F", Float32)
+        "double" => @typeInf(double, "D", Float64)
         "void" => @vtypeInf(void, jint, "V", Nothing, Object, false)
         "java.lang.String" => @vtypeInf("java.lang.String", String, "Ljava/lang/String;", String, Object, true)
     ])
