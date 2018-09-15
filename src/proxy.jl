@@ -6,57 +6,48 @@ const JField = JavaObject{Symbol("java.lang.reflect.Field")}
 genericFieldInfo = nothing
 objectClass = nothing
 
-struct JMethodInfo
-    name::String
-    juliaType::Type
-    void::Bool
-    argTypes::Tuple
-    argClasses::Array{JavaObject}
-    id::Ptr{Nothing}
-    static::Bool
-    owner::JavaMetaClass
-    primitive::Bool
-    convertType::Type
-end
-
 struct JavaTypeInfo
     setterFunc
+    class::Type{JavaObject{T}} where T # narrowed JavaObject type
     signature::AbstractString
-    juliaType::Type
-    convertType::Type
+    juliaType::Type # the Julia representation of the Java type, like jboolean (which is a UInt8), for call-in
+    convertType::Type # the Julia type to convert results to, like Bool or String
     getter::Ptr{Nothing}
     staticGetter::Ptr{Nothing}
     setter::Ptr{Nothing}
     staticSetter::Ptr{Nothing}
 end
 
+struct JMethodInfo
+    name::String
+    typeInfo::JavaTypeInfo
+    argTypes::Tuple
+    argClasses::Array{JavaObject}
+    id::Ptr{Nothing}
+    static::Bool
+    owner::JavaMetaClass
+end
+
 struct JFieldInfo
     field::JField
-    name::String
     info::JavaTypeInfo
     static::Bool
-    id
-    juliaType::Type
-    fieldClass::JClass
-    fieldJType::Type
+    id::Ptr{Nothing}
     owner::JClass
     primitive::Bool
-    function JFieldInfo(field)
-        name = getname(field)
+    function JFieldInfo(field::JField)
         fcl = jcall(field, "getType", JClass, ())
-        fjt = JavaObject{Symbol(getname(fcl))}
         typ = juliaTypeFor(getname(fcl))
         static = isStatic(field)
         cls = jcall(field, "getDeclaringClass", JClass, ())
-        id = fieldId(name, JavaObject{Symbol(getname(fcl))}, static, field, cls)
+        id = fieldId(getname(field), JavaObject{Symbol(getname(fcl))}, static, field, cls)
         info = get(typeInfo, getname(fcl), genericFieldInfo)
-        new(field, name, info, static, id, typ, fcl, fjt, cls, isPrimitive(fcl))
+        new(field, info, static, id, cls, isPrimitive(fcl))
     end
 end
                       
 struct JMethodProxy
     receiver
-    name
     methods::Set{JMethodInfo}
     static::Bool
 end
@@ -152,11 +143,14 @@ function methodInfo(m::JMethod)
         methodId = getmethodid(m, cls, name, returnType, argTypes)
         typeName = getname(returnType)
         info = get(typeInfo, typeName, genericFieldInfo)
-        juliaType = juliaTypeFor(typeName)
         owner = metaclass(getname(cls))
-        JMethodInfo(name, juliaType, typeName == "void", Tuple(juliaTypeFor.(argTypes)), argTypes, methodId, isStatic(m), owner, length(info.signature) == 1, info.convertType)
+        JMethodInfo(name, info, Tuple(juliaTypeFor.(argTypes)), argTypes, methodId, isStatic(m), owner)
     end
 end
+
+isVoid(meth::JMethodInfo) = meth.typeInfo.convertType == Nothing
+
+isPrimitive(cls::JavaObject) = jcall(cls, "isPrimitive", jboolean, ()) != 0
 
 isClass(obj::JavaObject) = false
 
@@ -169,11 +163,22 @@ end
 
 conv(func::Function, typ::String) = juliaConverters[typ] = func
 
-macro typeInf(sig, typ, jtyp, object, Typ)
+macro typeInf(jclass, sig, jtyp, Typ, object)
+    _typeInf(jclass, Symbol("j" * string(jclass)), sig, jtyp, Typ, object)
+end
+
+macro vtypeInf(jclass, ctyp, sig, jtyp, Typ, object)
+    if typeof(jclass) == String
+        jclass = Symbol(jclass)
+    end
+    _typeInf(jclass, ctyp, sig, jtyp, Typ, object)
+end
+
+function _typeInf(jclass, ctyp, sig, jtyp, Typ, object)
     s = (p, t)-> :(jnifunc.$(Symbol(p * string(t) * "Field")))
-    :(JavaTypeInfo($sig, $typ, $jtyp, $(s("Get", Typ)), $(s("GetStatic", Typ)), $(s("Set", Typ)), $(s("SetStatic", Typ))) do field, obj, value::$(object ? :JavaObject : typ)
+    :(JavaTypeInfo(JavaObject{Symbol($(string(jclass)))}, $sig, $ctyp, $jtyp, $(s("Get", Typ)), $(s("GetStatic", Typ)), $(s("Set", Typ)), $(s("SetStatic", Typ))) do field, obj, value::$(object ? :JavaObject : ctyp)
         ccall(field.static ? field.info.staticSetter : field.info.setter, Ptr{Nothing},
-            (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, $(object ? :(Ptr{Nothing}) : typ)),
+            (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, $(object ? :(Ptr{Nothing}) : ctyp)),
             penv, (field.static ? field.owner : obj).ptr, field.id, $(object ? :(value.ptr) : :value))
     end)
 end
@@ -183,18 +188,18 @@ function initProxy()
     conv("java.lang.Integer") do x; JProxy(x).intValue(); end
     conv("java.lang.Long") do x; JProxy(x).longValue(); end
     global typeInfo = Dict([
-        "int" => @typeInf("I", jint, Int32, false, Int)
-        "long" => @typeInf("J", jlong, Int64, false, Long)
-        "byte" => @typeInf("B", jbyte, Int8, false, Byte)
-        "boolean" => @typeInf("Z", jboolean, Bool, false, Boolean)
-        "char" => @typeInf("C", jchar, Char, false, Char)
-        "short" => @typeInf("S", jshort, Int16, false, Short)
-        "float" => @typeInf("F", jfloat, Float32, false, Float)
-        "double" => @typeInf("D", jdouble, Float64, false, Double)
-        "void" => @typeInf("V", jint, Nothing, false, Object)
-        "java.lang.String" => @typeInf("Ljava/lang/String;", String, String, true, Object)
+        "int" => @typeInf(int, "I", Int32, Int, false)
+        "long" => @typeInf(long, "J", Int64, Long, false)
+        "byte" => @typeInf(byte, "B", Int8, Byte, false)
+        "boolean" => @typeInf(boolean, "Z", Bool, Boolean, false)
+        "char" => @typeInf(char, "C", Char, Char, false)
+        "short" => @typeInf(short, "S", Int16, Short, false)
+        "float" => @typeInf(float, "F", Float32, Float, false)
+        "double" => @typeInf(double, "D", Float64, Double, false)
+        "void" => @vtypeInf(void, jint, "V", Nothing, Object, false)
+        "java.lang.String" => @vtypeInf("java.lang.String", String, "Ljava/lang/String;", String, Object, true)
     ])
-    global genericFieldInfo = @typeInf("Ljava/lang/Object", Any, JObject, true, Object)
+    global genericFieldInfo = @vtypeInf("java.lang.Object", Any, "Ljava/lang/Object", JObject, Object, true)
     global objectClass = classforname("java.lang.Object")
 end
 
@@ -301,8 +306,8 @@ function (pxy::JMethodProxy)(args...)
         # Find the most specific method
         meth = reduce(((x, y)-> generality(x, y) < generality(y, x) ? x : y), filterStatic(pxy, targets))
         convertedArgs = convert.(meth.argTypes, args)
-        result = _jcall(meth.static ? meth.owner : pxy.receiver, meth.id, C_NULL, meth.juliaType, meth.argTypes, convertedArgs...)
-        if !meth.void; asJulia(meth.convertType, result); end
+        result = _jcall(meth.static ? meth.owner : pxy.receiver, meth.id, C_NULL, meth.typeInfo.juliaType, meth.argTypes, convertedArgs...)
+        if !isVoid(meth); asJulia(meth.typeInfo.convertType, result); end
     end
 end
 
@@ -353,23 +358,21 @@ function generality(c1::JClass, c2::JClass)
     end
 end
 
-isPrimitive(cls::JavaObject) = jcall(cls, "isPrimitive", jboolean, ()) != 0
-
 function Base.getproperty(p::JProxy, name::Symbol)
     obj = pxyObj(p)
     info = pxyInfo(p)
     meths = get(info.methods, name, nothing)
     static = pxyStatic(p)
     result = if meths != nothing
-        JMethodProxy(obj, name, meths, static)
+        JMethodProxy(obj, meths, static)
     else
         field = info.fields[name]
         result = ccall(static ? field.info.staticGetter : field.info.getter, Ptr{Nothing},
                        (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}),
                        penv, static ? getclass(obj) : obj.ptr, field.id)
         result == C_NULL && geterror()
-        result = (field.primitive ? convert(field.juliaType, result) : result == C_NULL ? jnull : narrow(JavaObject(JObject, result)))
-        asJulia(field.juliaType, result)
+        result = (field.primitive ? convert(field.info.juliaType, result) : result == C_NULL ? jnull : narrow(JavaObject(JObject, result)))
+        asJulia(field.info.juliaType, result)
     end
     result != jnull && isa(result, JavaObject) ? JProxy(result) : result
 end
@@ -384,7 +387,7 @@ function Base.setproperty!(p::JProxy, name::Symbol, value)
     else
         if isa(value, JProxy); value = JavaObject(value); end
         field = info.fields[name]
-        value = convert(field.primitive ? field.juliaType : field.fieldJType, value)
+        value = convert(field.primitive ? field.info.juliaType : field.info.class, value)
         result = field.info.setterFunc(field, obj, value)
         result == C_NULL && geterror()
         value
