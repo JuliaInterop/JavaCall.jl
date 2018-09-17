@@ -106,9 +106,9 @@ end
 function convert_arg(argtype::Type{Array{T,1}}, arg) where T<:JavaObject
     carg = convert(argtype, arg)
     sz = length(carg)
-    init = carg[1]
+    init = sz > 0 ? carg[1].ptr : C_NULL
     arrayptr = ccall(jnifunc.NewObjectArray, Ptr{Nothing},
-                     (Ptr{JNIEnv}, jint, Ptr{Nothing}, Ptr{Nothing}), penv, sz, metaclass(T), init.ptr)
+                     (Ptr{JNIEnv}, jint, Ptr{Nothing}, Ptr{Nothing}), penv, sz, metaclass(T), init)
     for i=2:sz
         ccall(jnifunc.SetObjectArrayElement, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}, jint, Ptr{Nothing}),
               penv, arrayptr, i-1, carg[i].ptr)
@@ -283,14 +283,16 @@ function convert(::Type{@jimport(java.util.List)}, x::Vector, V::Type{JavaObject
 end
 
 # Convert a reference to a java.lang.String into a Julia string. Copies the underlying byte buffer
-function unsafe_string(jstr::JString)  #jstr must be a jstring obtained via a JNI call
-    if isnull(jstr); return ""; end #Return empty string to keep type stability. But this is questionable
+unsafe_string(jstr::JString) = unsafe_string(jstr.ptr)  #jstr must be a jstring obtained via a JNI call
+
+function unsafe_string(jstr::Ptr{Nothing})  #jstr must be a jstring obtained via a JNI call
+    if jstr == C_NULL; return ""; end #Return empty string to keep type stability. But this is questionable
     pIsCopy = Array{jboolean}(undef, 1)
     buf::Ptr{UInt8} = ccall(jnifunc.GetStringUTFChars, Ptr{UInt8},
-                            (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{jboolean}), penv, jstr.ptr, pIsCopy)
+                            (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{jboolean}), penv, jstr, pIsCopy)
     s = unsafe_string(buf)
     ccall(jnifunc.ReleaseStringUTFChars, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{UInt8}), penv,
-          jstr.ptr, buf)
+          jstr, buf)
     return s
 end
 

@@ -135,7 +135,7 @@ Returns the parameter types of the java method
 ### Returns
 Vector the parametertypes
 """
-function getparametertypes(method::JMethod)
+function getparametertypes(method::Union{JMethod,JConstructor})
     jcall(method, "getParameterTypes", Vector{JClass}, ())
 end
 
