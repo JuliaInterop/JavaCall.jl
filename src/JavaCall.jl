@@ -28,6 +28,7 @@ include("core.jl")
 include("convert.jl")
 include("reflect.jl")
 include("proxy.jl")
+include("collections.jl")
 
 function __init__()
 	findjvm()
