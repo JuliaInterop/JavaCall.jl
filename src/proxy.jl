@@ -91,7 +91,7 @@ struct JReadWriteField
     set
 end
 
-struct JFieldInfo
+struct JFieldInfo{T}
     field::JField
     typeInfo::JavaTypeInfo
     static::Bool
@@ -231,6 +231,7 @@ const boxers = Dict()
 const juliaConverters = Dict()
 global jnicalls = Dict()
 const defaultjnicall = (instance=:CallObjectMethod,static=:CallStaticObjectMethod)
+global useVerbose = false
 
 #function classnamefor(t::Type{<:java_lang})
 #    s = replace(string(nameof(t)), "___" => "_")
@@ -263,9 +264,14 @@ global genericFieldInfo
 global objectClass
 global sigTypes
 
+setVerbose() = global useVerbose = true
+clearVerbose() = global useVerbose = false
+
+verbose(args...) = useVerbose && println(args...)
+
 macro jnicall(func, rettype, types, args...)
     quote
-        result = ccall($(esc(func)), $(esc(rettype)),
+        local result = ccall($(esc(func)), $(esc(rettype)),
                        (Ptr{JNIEnv}, $(esc.(types.args)...)),
                        penv, $(esc.(args)...))
         result == C_NULL && geterror()
@@ -275,11 +281,12 @@ end
 
 macro message(obj, rettype, methodid, args...)
     func = get(jnicalls, rettype, defaultjnicall).instance
-    #println("INSTANCE FUNC: ", func)
+    verbose("INSTANCE FUNC: ", func, " RETURNING ", rettype, " ARGS ", typeof.(args))
     flush(stdout)
     quote
         result = ccall(jnifunc.$func, Ptr{Nothing},
-                       (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, $((Ptr{Nothing} for i in args)...)),
+                       #(Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, $((Ptr{Nothing} for i in args)...)),
+                       (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, $((typeof(arg) for arg in args)...)),
                        penv, $(esc(obj)), $(esc(methodid)), $(esc.(args)...))
         result == C_NULL && geterror()
         result
@@ -288,21 +295,15 @@ end
 
 macro staticmessage(rettype, methodid, args...)
     func = get(jnicalls, rettype, defaultjnicall).static
-    #println("STATIC FUNC: ", func)
+    verbose("STATIC FUNC: ", func, " RETURNING ", rettype, " ARGS ", typeof.(args))
     flush(stdout)
-    expr = quote
+    quote
         result = ccall(jnifunc.$func, $(esc(rettype)),
                        (Ptr{JNIEnv}, Ptr{Nothing}, $((Ptr{Nothing} for i in args)...)),
                        penv, $(esc(methodid)), $(esc.(args)...))
         result == C_NULL && geterror()
         result
     end
-    #println("STATIC CALL: ", expr)
-    #if func == defaultjnicall.static && true
-    #    expr
-    #else
-    #    :(objectClass)
-    #end
 end
 
 globalref(ptr::Ptr{Nothing}) = @jnicall(jnifunc.NewGlobalRef, Ptr{Nothing}, (Ptr{Nothing},), ptr)
@@ -356,7 +357,7 @@ function JProxy(ptr::Ptr{Nothing})
         n = legalClassName(getname(cls))
     end
     c = Symbol(n)
-    #println("JPROXY INFO FOR ", n, ", ", getname(cls))
+    #verbose("JPROXY INFO FOR ", n, ", ", getname(cls))
     info = infoFor(cls)
     aType, dim = arrayinfo(n)
     if dim != 0
@@ -395,7 +396,7 @@ function JFieldInfo(field::JField)
     cls = jcall(field, "getDeclaringClass", JClass, ())
     id = fieldId(getname(field), JavaObject{Symbol(legalClassName(fcl))}, static, field, cls)
     info = get(typeInfo, legalClassName(fcl), genericFieldInfo)
-    JFieldInfo(field, info, static, id, cls)
+    JFieldInfo{info.convertType}(field, info, static, id, cls)
 end
 
 function Boxing(info)
@@ -434,6 +435,7 @@ end
 
 gen(name::Symbol; genmode=:none, print=false, eval=true) = _gen(classforname(string(name)), genmode, print, eval)
 gen(name::AbstractString; genmode=:none, print=false, eval=true) = _gen(classforname(name), genmode, print, eval)
+gen(pxy::JProxy{T, C}) where {T, C} = gen(C)
 gen(class::JClass; genmode=:none, print=false, eval=true) = _gen(class, genmode, eval)
 function _gen(class::JClass, genmode, print, evalResult)
     n = legalClassName(class)
@@ -482,7 +484,7 @@ function genClass(class::JClass, gen::GenInfo, info::JClassInfo)
         gen.fielddicts[legalClassName(class)] = fielddict(class)
         push!(gen.classList, class)
         sc = superclass(class)
-        #println("SUPERCLASS OF $name is $(isNull(sc) ? "" : "not ")null")
+        #verbose("SUPERCLASS OF $name is $(isNull(sc) ? "" : "not ")null")
         push!(genned, Symbol(legalClassName(class)))
         if !isNull(sc)
             supertype = typeNameFor(sc)
@@ -522,7 +524,7 @@ legalClassName(pxy::JProxy) = legalClassName(getclassname(pxystatic(pxy) ? pxypt
 legalClassName(cls::JavaObject) = legalClassName(getname(cls))
 legalClassName(cls::Symbol) = legalClassName(string(cls))
 function legalClassName(name::AbstractString)
-    if (m = match(r"^(.*)((\[])+)$", name)) != nothing
+    if (m = match(r"^([^[]*)((\[])+)$", name)) != nothing
         dimensions = Integer(length(m.captures[2]) / 2)
         info = get(typeInfo, m.captures[1], nothing)
         base = if info != nothing && info.primitive
@@ -630,7 +632,7 @@ function genMethods(class, gen, info)
                 callinfo = jnicalls[minfo.typeInfo.classname]
                 push!(gen.code, :($methodIdName = getmethodid($(minfo.static), $classVar, $name, $(legalClassName(minfo.returnClass)), $(legalClassName.(minfo.argClasses)))))
                 push!(gen.code, :(function (pxy::JMethodProxy{Symbol($name), <: $typeName})($(argDecs...))::$(genReturnType(minfo, gen))
-                                      println($("Generated method $name$(multiple ? "(" * string(symId) * ")" : "")"))
+                                      verbose($("Generated method $name$(multiple ? "(" * string(symId) * ")" : "")"))
                                       $(genConvertResult(minfo.typeInfo.convertType, minfo, :(call(pxy.obj, $methodIdName, $(static ? callinfo.static : callinfo.instance), $(minfo.typeInfo.juliaType), ($(argSpec.(args)...),), $((argCode(arg) for arg in args)...)))))
                                   end))
             end
@@ -668,10 +670,10 @@ function JClassInfo(class::JClass)
     sc = superclass(class)
     parentinfo = !isNull(sc) ? infoFor(sc) : nothing
     tname = typeNameFor(string(n))
-    #println("JCLASS INFO FOR ", n)
+    #verbose("JCLASS INFO FOR ", n)
     jtype = get!(types, n) do
         if tname != String
-            #println("DEFINING ", repr(tname), quote
+            #verbose("DEFINING ", repr(tname), quote
             #    abstract type $tname <: JavaCall.$(isNull(sc) ? :java_lang : typeNameFor(Symbol(legalClassName(sc)))) end
             #    $tname
             #end)
@@ -698,6 +700,7 @@ function asJulia(x, ptr::Ptr{Nothing})
     if ptr == C_NULL
         jnull
     else
+        verbose("UNBOXING ", ptr)
         unbox(JavaObject{Symbol(legalClassName(getclassname(getclass(ptr))))}, ptr)
     end
 end
@@ -712,7 +715,7 @@ function unbox(::Type{JavaObject{T}}, obj::Ptr{Nothing}) where T
     if  obj == C_NULL
         nothing
     else
-        #println("UNBOXING ", T)
+        #verbose("UNBOXING ", T)
         (get(juliaConverters, string(T)) do
             (x)-> JProxy(x)
         end)(obj)
@@ -737,6 +740,8 @@ end
 function getConstructor(class::Type, argTypes...)
     jcall(classfortype(class), "getConstructor", JConstructor, (Vector{JClass},), collect(argTypes))
 end
+
+getConstructors(class::Type) = jcall(classfortype(class), "getConstructors", Array{JConstructor}, ())
 
 methodInfo(class::AbstractString, name::AbstractString, argTypeNames::Array) = methodCache[(class, name, argTypeNames)]
 function methodInfo(m::Union{JMethod, JConstructor})
@@ -783,7 +788,7 @@ function _typeInf(jclass, ctyp, sig, jtyp, Typ, object, accessor, boxType)
             JavaTypeInfo(Symbol($(string(jclass))), $sig, $ctyp, $jtyp, $accessor, JavaObject{Symbol($boxType)}, $(s("Get", Typ)), $(s("GetStatic", Typ)), $(s("Set", Typ)), $(s("SetStatic", Typ))) do field, obj, value::$(object ? :JavaObject : ctyp)
                 @jnicall(field.static ? field.typeInfo.staticSetter : field.typeInfo.setter, Ptr{Nothing},
                       (Ptr{Nothing}, Ptr{Nothing}, $(object ? :(Ptr{Nothing}) : ctyp)),
-                      (field.static ? field.owner : obj).ptr, field.id, $(object ? :(value.ptr) : :value))
+                      (field.static ? field.owner.ptr : pxyptr(obj)), field.id, $(object ? :(pxyptr(value)) : :value))
             end
         end
     end
@@ -799,6 +804,7 @@ function initProxy()
           :long => (static=:CallStaticLongMethodA, instance=:CallLongMethodA),
           :float => (static=:CallStaticFloatMethodA, instance=:CallFloatMethodA),
           :double => (static=:CallStaticDoubleMethodA, instance=:CallDoubleMethodA),
+          :Nothing => (static=:CallStaticVoidMethodA, instance=:CallVoidMethodA),
     )
     global objectClass = classforname("java.lang.Object")
     global classClass = classforname("java.lang.Class")
@@ -823,6 +829,7 @@ function initProxy()
     global genericFieldInfo = @vtypeInf("java.lang.Object", Any, "Ljava/lang/Object", JObject, Object, true, Object)
     global methodId_object_getClass = getmethodid("java.lang.Object", "getClass", "java.lang.Class")
     global methodId_class_getName = getmethodid("java.lang.Class", "getName", "java.lang.String")
+    global methodId_system_gc = getmethodid(true, "java.lang.System", "gc", "void", String[])
     for info in (t->typeInfo[string(t)]).(:(int, long, byte, boolean, char, short, float, double).args)
         infoName = string(info.classname)
         boxVar = Symbol(infoName * "Box")
@@ -857,11 +864,14 @@ function initProxy()
                 end)
             end
         end
-        #println("BOX METHOD FOR ", box.boxType)
-        #println(expr)
+        #verbose("BOX METHOD FOR ", box.boxType)
+        #verbose(expr)
         eval(expr)
     end
 end
+
+#jgc() = @staticmessage(Nothing, methodId_system_gc)
+jgc() = staticcall(methodId_system_gc, Nothing, ())
 
 metaclass(class::AbstractString) = metaclass(Symbol(class))
 
@@ -879,7 +889,7 @@ getmethodid(static, cls::JClass, name, rettype, argtypes) = getmethodid(static, 
 function getmethodid(static::Bool, clsname::AbstractString, name::AbstractString, rettype::AbstractString, argtypes::Vector{<:Union{JClass, AbstractString}})
     sig = proxyMethodSignature(rettype, argtypes)
     jclass = metaclass(clsname)
-    #println(@macroexpand @jnicall(static ? jnifunc.GetStaticMethodID : jnifunc.GetMethodID, Ptr{Nothing},
+    #verbose(@macroexpand @jnicall(static ? jnifunc.GetStaticMethodID : jnifunc.GetMethodID, Ptr{Nothing},
     #        (Ptr{Nothing}, Ptr{UInt8}, Ptr{UInt8}),
     #        jclass, name, sig))
     @jnicall(static ? jnifunc.GetStaticMethodID : jnifunc.GetMethodID, Ptr{Nothing},
@@ -962,7 +972,7 @@ function infoFor(class::JClass)
         nothing
     else
         name = legalClassName(class)
-        #println("INFO FOR ", name)
+        #verbose("INFO FOR ", name)
         haskey(classes, name) ? classes[name] : classes[name] = JClassInfo(class)
     end
 end
@@ -976,7 +986,7 @@ function classforlegalname(n::AbstractString)
     try
         (i = get(typeInfo, n, nothing)) != nothing && i.primitive ? i.primClass : classforname(n)
     catch x
-        #println("Error finding class: $n, type: $(typeof(n))")
+        #verbose("Error finding class: $n, type: $(typeof(n))")
         throw(x)
     end
 end
@@ -1037,19 +1047,99 @@ function Base.getproperty(p::JProxy{T}, name::Symbol) where T
     if haskey(info.methods, name)
         JMethodProxy(name, T, p, info.methods[name])
     else
-        finfo = info.fields[name]
-        asJulia(finfo.typeInfo, getproxyfield(p, info, finfo))
+        getproxyfield(p, info.fields[name])
     end
 end
 
-getproxyfield(p::JProxy, info::JClassInfo, field::JReadonlyField) = field.get(pxyptr(p))
-function getproxyfield(p::JProxy, info::JClassInfo, field::JFieldInfo)
+getter(field::JFieldInfo) = field.static ? field.typeInfo.staticGetter : field.typeInfo.getter
+
+setter(field::JFieldInfo) = field.static ? field.typeInfo.staticSetter : field.typeInfo.setter
+
+getproxyfield(p::JProxy, field::JReadonlyField) = field.get(pxyptr(p))
+function getproxyfield(p::JProxy, field::JFieldInfo)
     static = pxystatic(p)
     ptr = pxyptr(p)
-    asJulia(field.typeInfo.juliaType, @jnicall(static ? field.typeInfo.staticGetter : field.typeInfo.getter, Ptr{Nothing},
-                                          (Ptr{Nothing}, Ptr{Nothing}),
-                                          static ? getclass(ptr) : ptr, field.id))
+    result = _getproxyfield(p, field)
+    geterror()
+    verbose("FIELD CONVERT RESULT ", repr(result), " TO ", field.typeInfo.convertType)
+    asJulia(field.typeInfo.convertType, result)
 end
+_getproxyfield(p::JProxy, field::JFieldInfo) = @jnicall(getter(field), Ptr{Nothing},
+  (Ptr{Nothing}, Ptr{Nothing}),
+  field.static ? C_NULL : pxyptr(p), field.id)
+_getproxyfield(p::JProxy, field::JFieldInfo{Bool}) = @jnicall(getter(field), jboolean,
+  (Ptr{Nothing}, Ptr{Nothing}),
+  field.static ? C_NULL : pxyptr(p), field.id)
+_getproxyfield(p::JProxy, field::JFieldInfo{jbyte}) = @jnicall(getter(field), jbyte,
+  (Ptr{Nothing}, Ptr{Nothing}),
+  field.static ? C_NULL : pxyptr(p), field.id)
+_getproxyfield(p::JProxy, field::JFieldInfo{jchar}) = @jnicall(getter(field), jchar,
+  (Ptr{Nothing}, Ptr{Nothing}),
+  field.static ? C_NULL : pxyptr(p), field.id)
+_getproxyfield(p::JProxy, field::JFieldInfo{jshort}) = @jnicall(getter(field), jshort,
+  (Ptr{Nothing}, Ptr{Nothing}),
+  field.static ? C_NULL : pxyptr(p), field.id)
+_getproxyfield(p::JProxy, field::JFieldInfo{jint}) = @jnicall(getter(field), jint,
+  (Ptr{Nothing}, Ptr{Nothing}),
+  field.static ? C_NULL : pxyptr(p), field.id)
+_getproxyfield(p::JProxy, field::JFieldInfo{jlong}) = @jnicall(getter(field), jlong,
+  (Ptr{Nothing}, Ptr{Nothing}),
+  field.static ? C_NULL : pxyptr(p), field.id)
+_getproxyfield(p::JProxy, field::JFieldInfo{jfloat}) = @jnicall(getter(field), jfloat,
+  (Ptr{Nothing}, Ptr{Nothing}),
+  field.static ? C_NULL : pxyptr(p), field.id)
+_getproxyfield(p::JProxy, field::JFieldInfo{jdouble}) = @jnicall(getter(field), jdouble,
+  (Ptr{Nothing}, Ptr{Nothing}),
+  field.static ? C_NULL : pxyptr(p), field.id)
+
+function setproxyfield(p::JProxy, field::JFieldInfo{T}, value) where T
+    primsetproxyfield(p, field, convert(T, value))
+end
+setproxyfield(p::JProxy, field::JFieldInfo, value::JProxy) = primsetproxyfield(p, field, pxyptr(value))
+setproxyfield(p::JProxy, field::JFieldInfo, value::JavaObject) = primsetproxyfield(p, field, value.ptr)
+function setproxyfield(p::JProxy, field::JFieldInfo{String}, value::AbstractString)
+    str = JString(convert(String, value))
+    primsetproxyfield(p, field, str.ptr)
+end
+function primsetproxyfield(p::JProxy, field::JFieldInfo, value)
+    result = _setproxyfield(pxystatic(p) ? C_NULL : pxyptr(p), field, value)
+    geterror()
+    verbose("FIELD CONVERT RESULT ", repr(result), " TO ", field.typeInfo.convertType)
+    asJulia(field.typeInfo.convertType, result)
+end
+function _setproxyfield(p::Ptr{Nothing}, field::JFieldInfo{JavaObject{T}}, value::Ptr{Nothing}) where T
+    @jnicall(setter(field), Nothing,
+             (Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
+             p, field.id, value)
+end
+_setproxyfield(p::Ptr{Nothing}, field::JFieldInfo{String}, value::Ptr{Nothing}) = @jnicall(setter(field), Nothing,
+  (Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
+  p, field.id, value)
+_setproxyfield(p::Ptr{Nothing}, field::JFieldInfo{Bool}, value::jboolean) = @jnicall(setter(field), Nothing,
+  (Ptr{Nothing}, Ptr{Nothing}, jboolean),
+  p, field.id, value)
+_setproxyfield(p::Ptr{Nothing}, field::JFieldInfo{jbyte}, value::jbyte) = @jnicall(setter(field), Nothing,
+  (Ptr{Nothing}, Ptr{Nothing}, jbyte),
+  p, field.id, value)
+_setproxyfield(p::Ptr{Nothing}, field::JFieldInfo{jchar}, value::jchar) = @jnicall(setter(field), Nothing,
+  (Ptr{Nothing}, Ptr{Nothing}, jchar),
+  p, field.id, value)
+_setproxyfield(p::Ptr{Nothing}, field::JFieldInfo{jshort}, value::jshort) = @jnicall(setter(field), Nothing,
+  (Ptr{Nothing}, Ptr{Nothing}, jshort),
+  p, field.id, value)
+_setproxyfield(p::Ptr{Nothing}, field::JFieldInfo{jint}, value::jint) = @jnicall(setter(field), Nothing,
+  (Ptr{Nothing}, Ptr{Nothing}, jint),
+  p, field.id, value)
+_setproxyfield(p::Ptr{Nothing}, field::JFieldInfo{jlong}, value::jlong) = @jnicall(setter(field), Nothing,
+  (Ptr{Nothing}, Ptr{Nothing}, jlong),
+  p, field.id, value)
+_setproxyfield(p::Ptr{Nothing}, field::JFieldInfo{jfloat}, value::jfloat) = @jnicall(setter(field), Nothing,
+  (Ptr{Nothing}, Ptr{Nothing}, jfloat),
+  p, field.id, value)
+_setproxyfield(p::Ptr{Nothing}, field::JFieldInfo{jdouble}) = @jnicall(setter(field), Nothing,
+  (Ptr{Nothing}, Ptr{Nothing}, jdouble),
+  p, field.id, value)
+
 
 function Base.setproperty!(p::JProxy, name::Symbol, value)
     info = pxyinfo(p)
@@ -1058,10 +1148,12 @@ function Base.setproperty!(p::JProxy, name::Symbol, value)
     result = if meths != nothing
         throw(JavaCallError("Attempt to set a method"))
     else
-        field = info.fields[name]
-        value = convert(field.typeInfo.primitive ? field.typeInfo.juliaType : field.typeInfo.class, value)
-        result = field.typeInfo.setterFunc(field, obj, value)
-        result == C_NULL && geterror()
+        #field = info.fields[name]
+        #value = convert(field.typeInfo.primitive ? field.typeInfo.juliaType : field.typeInfo.class, value)
+        #result = field.typeInfo.setterFunc(field, p, value)
+        #result == C_NULL && geterror()
+        #value
+        setproxyfield(p, info.fields[name], value)
         value
     end
     isa(result, JavaObject) ? JProxy(result) : result
@@ -1069,16 +1161,29 @@ end
 
 function (pxy::JMethodProxy{N})(args...) where N
     targets = Set(m for m in pxy.methods if fits(m, args))
-    #println("LOCATING MESSAGE ", N, " FOR ARGS ", repr(args))
+    #verbose("LOCATING MESSAGE ", N, " FOR ARGS ", repr(args))
     if !isempty(targets)
         # Find the most specific method
         argTypes = typeof(args).parameters
         meth = reduce(((x, y)-> moreGeneral(argTypes, x, y) < moreGeneral(argTypes, y, x) ? x : y), filterStatic(pxy, targets))
-        #println("SEND MESSAGE ", N, " RETURNING ", meth.typeInfo.juliaType)
-        #withlocalref((meth.static ? staticcall : call)(pxy.obj, meth.id, meth.typeInfo.juliaType, meth.argTypes, args...)) do result
-        withlocalref((meth.static ? staticcall : call)(pxy.obj, meth.id, meth.typeInfo.juliaType, meth.dynArgTypes, args...)) do result
-            asJulia(meth.typeInfo.convertType, result)
+        verbose("SEND MESSAGE ", N, " RETURNING ", meth.typeInfo.juliaType, " ARG TYPES ", meth.argTypes)
+        #withlocalref((meth.static ? staticcall : call)(pxy.obj, meth.id, meth.typeInfo.convertType, meth.dynArgTypes, args...)) do result
+        #    #asJulia(meth.typeInfo.convertType, result)
+        #    result
+        #end
+        if meth.static
+            staticcall(meth.id, meth.typeInfo.convertType, meth.dynArgTypes, args...)
+        else
+            call(pxy.obj, meth.id, meth.typeInfo.convertType, meth.dynArgTypes, args...)
         end
+    end
+end
+
+function findmethod(pxy::JMethodProxy, args::Tuple)
+    targets = Set(m for m in pxy.methods if fits(m, args))
+    if !isempty(targets)
+        argTypes = typeof(args).parameters
+        reduce(((x, y)-> moreGeneral(argTypes, x, y) < moreGeneral(argTypes, y, x) ? x : y), filterStatic(pxy, targets))
     end
 end
 
@@ -1136,8 +1241,8 @@ isPrimitive(cls::JavaObject) = jcall(cls, "isPrimitive", jboolean, ()) != 0
 function moreGeneral(argType::Type, c1::JClass, t1::Type, c2::JClass, t2::Type)
     p1 = t1 <: JPrimitive
     p2 = t2 <: JPrimitive
-    g1 = !p1 ? 0 : argType <: t1 ? 1 : -1
-    g2 = !p2 ? 0 : argType <: t2 ? 1 : -1
+    g1 = !p1 ? 0 : argType <: t1 ? -1 : 1
+    g2 = !p2 ? 0 : argType <: t2 ? -1 : 1
     g = if !p1 && p2 || jcall(c1, "isAssignableFrom", jboolean, (@jimport(java.lang.Class),), c2) != 0
         1
     else
@@ -1148,11 +1253,11 @@ end
 
 function call(ptr::Ptr{Nothing}, mId::Ptr{Nothing}, rettype::Type{T}, argtypes::Tuple, args...) where T
     ptr == C_NULL && error("Attempt to call method on Java NULL")
-
+    verbose("CALL METHOD RETURNING ", rettype)
     savedargs, convertedargs = convert_args(argtypes, args...)
     result = _call(T, ptr, mId, convertedargs)
     result == C_NULL && geterror()
-    asJulia(rettype, convert_result(rettype, result))
+    asJulia(rettype, result)
 end
 
 _call(::Type, obj, mId, args) = ccall(jnifunc.CallObjectMethodA, Ptr{Nothing},
@@ -1182,43 +1287,49 @@ _call(::Type{jfloat}, obj, mId, args) = ccall(jnifunc.CallFloatMethodA, jfloat,
 _call(::Type{jdouble}, obj, mId, args) = ccall(jnifunc.CallDoubleMethodA, jdouble,
   (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
   penv, obj, mId, args)
+_call(::Type{Nothing}, obj, mId, args) = ccall(jnifunc.CallNothingMethodA, Nothing,
+  (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
+  penv, obj, mId, args)
 
-function staticcall(class::Ptr{Nothing}, mId, rettype::Type{T}, argtypes::Tuple, args...) where T
+function staticcall(mId, rettype::Type{T}, argtypes::Tuple, args...) where T
     savedargs, convertedargs = convert_args(argtypes, args...)
-    result = _staticcall(T, class, mId, convertedargs)
-    #println("CONVERTING RESULT ", repr(result), " TO ", rettype)
+    result = _staticcall(T, mId, convertedargs)
+    verbose("CONVERTING RESULT ", repr(result), " TO ", rettype)
     result == C_NULL && geterror()
-    #println("RETTYPE: ", rettype)
-    asJulia(rettype, convert_result(rettype, result))
+    verbose("RETTYPE: ", rettype)
+    asJulia(rettype, result)
 end
 
-_staticcall(::Type{Any}, obj, mId, args) = ccall(jnifunc.CallStaticObjectMethodA, Ptr{Nothing},
+_staticcall(::Type, mId, args) = ccall(jnifunc.CallStaticObjectMethodA, Ptr{Nothing},
   (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
-  penv, obj, mId, args)
-_staticcall(::Type{Bool}, obj, mId, args) = ccall(jnifunc.CallStaticBooleanMethodA, jboolean,
+  penv, C_NULL, mId, args)
+_staticcall(::Type{Bool}, mId, args) = ccall(jnifunc.CallStaticBooleanMethodA, jboolean,
   (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
-  penv, obj, mId, args)
-_staticcall(::Type{jbyte}, obj, mId, args) = ccall(jnifunc.CallStaticByteMethodA, jbyte,
+  penv, C_NULL, mId, args)
+_staticcall(::Type{jbyte}, mId, args) = ccall(jnifunc.CallStaticByteMethodA, jbyte,
   (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
-  penv, obj, mId, args)
-_staticcall(::Type{jchar}, obj, mId, args) = ccall(jnifunc.CallStaticCharMethodA, jchar,
+  penv, C_NULL, mId, args)
+_staticcall(::Type{jchar}, mId, args) = ccall(jnifunc.CallStaticCharMethodA, jchar,
   (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
-  penv, obj, mId, args)
-_staticcall(::Type{jshort}, obj, mId, args) = ccall(jnifunc.CallStaticShortMethodA, jshort,
+  penv, C_NULL, mId, args)
+_staticcall(::Type{jshort}, mId, args) = ccall(jnifunc.CallStaticShortMethodA, jshort,
   (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
-  penv, obj, mId, args)
-_staticcall(::Type{jint}, obj, mId, args) = ccall(jnifunc.CallStaticIntMethodA, jint,
+  penv, C_NULL, mId, args)
+_staticcall(::Type{jint}, mId, args) = ccall(jnifunc.CallStaticIntMethodA, jint,
   (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
-  penv, obj, mId, args)
-_staticcall(::Type{jlong}, obj, mId, args) = ccall(jnifunc.CallStaticLongMethodA, jlong,
+  penv, C_NULL, mId, args)
+_staticcall(::Type{jlong}, mId, args) = ccall(jnifunc.CallStaticLongMethodA, jlong,
   (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
-  penv, obj, mId, args)
-_staticcall(::Type{jfloat}, obj, mId, args) = ccall(jnifunc.CallStaticFloatMethodA, jfloat,
+  penv, C_NULL, mId, args)
+_staticcall(::Type{jfloat}, mId, args) = ccall(jnifunc.CallStaticFloatMethodA, jfloat,
   (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
-  penv, obj, mId, args)
-_staticcall(::Type{jdouble}, obj, mId, args) = ccall(jnifunc.CallStaticDoubleMethodA, jdouble,
+  penv, C_NULL, mId, args)
+_staticcall(::Type{jdouble}, mId, args) = ccall(jnifunc.CallStaticDoubleMethodA, jdouble,
   (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
-  penv, obj, mId, args)
+  penv, C_NULL, mId, args)
+_staticcall(::Type{Nothing}, mId, args) = ccall(jnifunc.CallStaticVoidMethodA, Nothing,
+  (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
+  penv, C_NULL, mId, args)
 
 function Base.show(io::IO, pxy::JProxy)
     if pxystatic(pxy)

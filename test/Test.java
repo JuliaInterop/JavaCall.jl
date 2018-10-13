@@ -3,6 +3,7 @@ import java.util.ArrayList;
 
 public class Test {
 
+  public boolean booleanField = true;
   public int integerField = 100;
   public String stringField = "A STRING";
   public Object objectField = null;

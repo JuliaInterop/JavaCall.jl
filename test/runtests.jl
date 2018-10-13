@@ -237,7 +237,7 @@ end
 @testset "proxy_array_list" begin
     JAL = @jimport java.util.ArrayList
     @test JProxy(JavaCall.jnew(Symbol("java.lang.Integer"), (jint,), 3)).toString() == "3"
-    @test JProxy(convert(@jimport(java.lang.Integer), 3)).toString() == "3"
+    @test JProxy(@jimport(java.lang.Integer)).valueOf(3) == 3
     a = JProxy(JAL(()))
     @test a.size() == 0
     a.add("one")
@@ -263,10 +263,11 @@ end
 end
 
 @testset "proxy_meta" begin
-    @test(JProxy(@jimport(java.lang.Integer); static=true).MAX_VALUE == 2147483647)
-    @test(JProxy(@jimport(java.lang.Long); static=true).MAX_VALUE == 9223372036854775807)
-    #This currently fails
-    #@testprintln(JProxy(@jimport(java.lang.Double), true).MAX_VALUE == 1.7976931348623157e308)
+    @test(JProxy(@jimport(java.lang.Integer)).MAX_VALUE == 2147483647)
+    @test(JProxy(@jimport(java.lang.Long)).MAX_VALUE == 9223372036854775807)
+    @test(JProxy(@jimport(java.lang.Double)).MAX_VALUE == 1.7976931348623157e308)
+    @test("class java.lang.Object" == JProxy(JavaCall.metaclass("java.lang.Class")).forName("java.lang.Object").toString())
+    @test("class java.io.PrintStream" == JProxy(JavaObject{Symbol("java.lang.System")}).out.getClass().toString())
 end
 
 # At the end, unload the JVM before exiting

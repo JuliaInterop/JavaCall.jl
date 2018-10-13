@@ -29,22 +29,29 @@ mutable struct JavaObject{T}
     #This below is ugly. Once we stop supporting 0.5, this can be replaced by
     # function JavaObject{T}(ptr) where T
     function JavaObject{T}(ptr) where T
-        j = new{T}(newglobalref(ptr))
-        finalizer(deleteref, j)
-        return j
+        if ptr == C_NULL
+            new{T}(ptr)
+        else
+            ref = newglobalref(ptr)
+            reftype = ccall(jnifunc.GetObjectRefType, Int32, (Ptr{JNIEnv}, Ptr{Nothing}), penv, ptr)
+            reftype == 0 && geterror(true)
+            reftype == 1 && deletelocalref(ptr)
+            finalizer(deleteref, new{T}(ref))
+        end
     end
 
     #replace with: JavaObject{T}(argtypes::Tuple, args...) where T
     JavaObject{T}(argtypes::Tuple, args...) where {T} = jnew(T, argtypes, args...)
     JavaObject{T}() where {T} = jnew(T, ())
     JavaObject(::Nothing) = new{Symbol("java.lang.Object")}(C_NULL)
+    JavaObject(T, ptr) = JavaObject{T}(ptr)
 end
 
 newglobalref(ptr::Ptr{Nothing}) = ccall(jnifunc.NewGlobalRef, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing}), penv, ptr)
 
 deleteglobalref(ptr::Ptr{Nothing}) = ccall(jnifunc.DeleteGlobalRef, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}), penv, ptr)
 
-JavaObject(T, ptr) = JavaObject{T}(ptr)
+deletelocalref(ptr::Ptr{Nothing}) = ccall(jnifunc.DeleteLocalRef, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}), penv, ptr)
 
 function deleteref(x::JavaObject)
     if x.ptr == C_NULL; return; end
@@ -99,7 +106,7 @@ function JString(str::AbstractString)
     if jstring == C_NULL
         geterror()
     else
-        return JString(jstring)
+        JString(jstring)
     end
 end
 
