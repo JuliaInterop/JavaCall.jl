@@ -29,7 +29,7 @@ mutable struct JavaObject{T}
     #This below is ugly. Once we stop supporting 0.5, this can be replaced by
     # function JavaObject{T}(ptr) where T
     function JavaObject{T}(ptr) where T
-        j = new{T}(ptr)
+        j = new{T}(newglobalref(ptr))
         finalizer(deleteref, j)
         return j
     end
@@ -40,13 +40,18 @@ mutable struct JavaObject{T}
     JavaObject(::Nothing) = new{Symbol("java.lang.Object")}(C_NULL)
 end
 
+newglobalref(ptr::Ptr{Nothing}) = ccall(jnifunc.NewGlobalRef, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing}), penv, ptr)
+
+deleteglobalref(ptr::Ptr{Nothing}) = ccall(jnifunc.DeleteGlobalRef, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}), penv, ptr)
+
 JavaObject(T, ptr) = JavaObject{T}(ptr)
 
 function deleteref(x::JavaObject)
     if x.ptr == C_NULL; return; end
     if (penv==C_NULL); return; end
     #ccall(:jl_,Nothing,(Any,),x)
-    ccall(jnifunc.DeleteLocalRef, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}), penv, x.ptr)
+    #ccall(jnifunc.DeleteLocalRef, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}), penv, x.ptr)
+    deleteglobalref(x.ptr)
     x.ptr=C_NULL #Safety in case this function is called direcly, rather than at finalize
     return
 end

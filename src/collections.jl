@@ -1,3 +1,7 @@
+function Base.iterate(col::JProxy{<:java_lang})
+    cl = getclass(pxyObj(col))
+    info = infoFor(cl)
+end
 function Base.iterate(col::JProxy{<:java_util_AbstractCollection})
     i = col.iterator()
     nextGetter(col, i)()
