@@ -101,6 +101,8 @@ const JClassLoader = JavaObject{Symbol("java.lang.ClassLoader")}
 const JString = JavaObject{Symbol("java.lang.String")}
 const jnull = JavaObject(nothing)
 
+JavaObject(ptr::Ptr{Nothing}) = ptr == C_NULL ? JavaObject(ptr) : JavaObject{Symbol(getclassname(getclass(ptr)))}(ptr)
+
 function JString(str::AbstractString)
     jstring = ccall(jnifunc.NewStringUTF, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{UInt8}), penv, String(str))
     if jstring == C_NULL

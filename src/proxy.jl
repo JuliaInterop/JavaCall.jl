@@ -10,6 +10,7 @@ clearVerbose() = global useVerbose = false
 verbose(args...) = useVerbose && println(args...)
 
 abstract type java_lang end
+abstract type interface <: java_lang end
 
 classnamefor(t::Type{<:java_lang}) = classnamefor(nameof(t))
 classnamefor(s::Symbol) = classnamefor(string(s))
@@ -26,10 +27,12 @@ function _defjtype(a, b)
         abstract type $symA <: $b end
         $symA
     end)
-    eval(quote
-         abstract type $symA <: $b  end
-         types[Symbol($(classnamefor(a)))] = $symA
-    end)
+    get!(types, Symbol(classnamefor(a))) do
+        eval(quote
+             abstract type $symA <: $b  end
+             $symA
+        end)
+    end
 end
 
 macro defjtype(expr)
@@ -78,7 +81,6 @@ const JBoxed = Union{
 
 struct JavaTypeInfo
     setterFunc
-    #class::Type{JavaObject{T}} where T # narrowed JavaObject type
     classname::Symbol # legal classname as a symbol
     signature::AbstractString
     juliaType::Type # the Julia representation of the Java type, like jboolean (which is a UInt8), for call-in
@@ -129,7 +131,8 @@ struct JClassInfo
     class::JClass
     fields::Dict{Symbol, Union{JFieldInfo, JReadonlyField}}
     methods::Dict{Symbol, Set{JMethodInfo}}
-    classType::Type
+    classtype::Type
+    classtypes::Type
 end
 
 struct JMethodProxy{N, T}
@@ -205,7 +208,7 @@ hello
 ```
 """
 # mutable because it can have a finalizer
-mutable struct JProxy{T<:Union{<:java_lang, Array{<:java_lang}, <:AbstractString, <:Number}, C}
+mutable struct JProxy{T, C}
     ptr::Ptr{Nothing}
     info::JClassInfo
     static::Bool
@@ -326,6 +329,7 @@ end
 # like this: `JProxy(JavaObject{Symbol("java.lang.Byte")}).TYPE`
 JProxy(s::AbstractString) = JProxy(JString(s))
 JProxy{T, C}(ptr::Ptr{Nothing}) where {T, C} = JProxy{T, C}(ptr, infoFor(JClass(getclass(ptr))), false)
+JProxy(obj::JavaObject) = JProxy(obj.ptr)
 function JProxy(ptr::Ptr{Nothing})
     if ptr == C_NULL
         cls = objectClass
@@ -340,22 +344,9 @@ function JProxy(ptr::Ptr{Nothing})
     aType, dim = arrayinfo(n)
     if dim != 0
         t = typeFor(Symbol(aType))
-        JProxy{Array{typeFor(Symbol(aType)), dim}, c}(ptr, info, false)
+        JProxy{info.classtypes, c}(ptr, info, false)
     else
-        JProxy{typeFor(c), c}(ptr, info, false)
-    end
-end
-function JProxy(obj::JavaObject)
-    cls = isNull(obj) ? objectClass : getclass(obj)
-    n = legalClassName(getname(cls))
-    c = Symbol(n)
-    info = infoFor(cls)
-    aType, dim = arrayinfo(n)
-    if dim != 0
-        t = typeFor(Symbol(aType))
-        JProxy{Array{typeFor(Symbol(aType)), dim}, c}(JObject(obj.ptr), info, false)
-    else
-        JProxy{typeFor(c), c}(obj.ptr, info, false)
+        JProxy{info.classtypes, c}(ptr, info, false)
     end
 end
 
@@ -391,7 +382,7 @@ hasClass(name::Symbol) = name in genned
 hasClass(gen, name::AbstractString) = hasClass(gen, Symbol(name))
 hasClass(gen, name::Symbol) = name in genned || haskey(gen.methodDicts, string(name))
 
-function makeType(name::AbstractString, supername::Symbol, gen)
+function genTypeDecl(name::AbstractString, supername::Symbol, gen)
     if string(name) != "String" && !haskey(types, Symbol(name)) && !haskey(gen.methodDicts, name)
         typeName = typeNameFor(name)
         push!(gen.typeCode, :(abstract type $typeName <: $supername end))
@@ -446,9 +437,9 @@ function genType(class, gen::GenInfo)
         end
         supertype = typeNameFor(sc)
         cType = componentType(supertype)
-        makeType(name, cType, gen)
+        genTypeDecl(name, cType, gen)
     else
-        makeType(name, :java_lang, gen)
+        genTypeDecl(name, :java_lang, gen)
     end
 end
 
@@ -465,9 +456,9 @@ function genClass(class::JClass, gen::GenInfo, info::JClassInfo)
             supertype = typeNameFor(sc)
             cType = componentType(supertype)
             !hasClass(gen, cType) && genClass(sc, gen)
-            makeType(name, cType, gen)
+            genTypeDecl(name, cType, gen)
         else
-            makeType(name, :java_lang, gen)
+            genTypeDecl(name, :java_lang, gen)
         end
         genMethods(class, gen, info)
     end
@@ -644,10 +635,16 @@ end
 
 isArray(class::JClass) = jcall(class, "isArray", jboolean, ()) != 0
 
+unionize(::Type{T1}, ::Type{T2}) where {T1, T2} = Union{T1, T2}
+
+classtypes(ct, interfaces) = reduce(unionize, [ct, (i->i.classtype).(interfaces)...])
+
 function JClassInfo(class::JClass)
     n = Symbol(legalClassName(class))
+    verbose("INFO FOR $(string(n))")
     sc = superclass(class)
     parentinfo = !isNull(sc) ? infoFor(sc) : nothing
+    interfaces = [infoFor(JClass(ptr)) for ptr in allinterfaces(class.ptr)]
     tname = typeNameFor(string(n))
     #verbose("JCLASS INFO FOR ", n)
     jtype = if tname == String
@@ -656,10 +653,10 @@ function JClassInfo(class::JClass)
         tname
     else
         get!(types, n) do
-            _defjtype(tname, isNull(sc) ? java_lang : typeNameFor(Symbol(legalClassName(sc))))
+            _defjtype(tname, tname == Symbol("java.lang.Object") ? java_lang : isNull(sc) ? interface : typeNameFor(Symbol(legalClassName(sc))))
         end
     end
-    classes[n] = JClassInfo(parentinfo, class, fielddict(class), methoddict(class), jtype)
+    classes[n] = JClassInfo(parentinfo, class, fielddict(class), methoddict(class), jtype, classtypes(jtype, interfaces))
 end
 
 genClasses(classNames) = (:(registerclass($name, $(Symbol(typeNameFor(name))))) for name in reverse(classNames))
@@ -670,12 +667,24 @@ function typeFor(sym::Symbol)
     dims != 0 ? Array{get(types, Symbol(aType), java_lang), length(dims)} : get(types, sym, java_lang)
 end
 
+function makeTypeFor(class::JClass)
+    cln = Symbol(getname(class))
+    t = typeFor(cln)
+    if t == java_lang
+        sc = superclass(class)
+        sct = isNull(sc) ? java_lang : makeTypeFor(sc)
+        _defjtype(typeNameFor(cln), nameof(sct))
+    end
+    t
+end
+
 asJulia(t, obj) = obj
 asJulia(::Type{Bool}, obj) = obj != 0
 asJulia(t, obj::JBoxed) = unbox(obj)
 function asJulia(x, ptr::Ptr{Nothing})
+    verbose("ASJULIA: ", repr(ptr))
     if ptr == C_NULL
-        jnull
+        nothing
     else
         verbose("UNBOXING ", ptr)
         unbox(JavaObject{Symbol(legalClassName(getclassname(getclass(ptr))))}, ptr)
@@ -719,6 +728,21 @@ end
 
 getConstructors(class::Type) = jcall(classfortype(class), "getConstructors", Array{JConstructor}, ())
 
+function argtypefor(class::JClass)
+    cln = getclassname(class.ptr)
+    tinfo = gettypeinfo(cln)
+    if tinfo.primitive
+        tinfo.convertType
+    elseif cln == "java.lang.String"
+        String
+    else
+        sn = Symbol(cln)
+        makeTypeFor(class)
+        cltype = typeFor(sn)
+        JProxy{cltype, sn}
+    end
+end
+
 methodInfo(class::AbstractString, name::AbstractString, argTypeNames::Array) = methodCache[(class, name, argTypeNames)]
 function methodInfo(m::Union{JMethod, JConstructor})
     name, returnType, argTypes = getname(m), getreturntype(m), getparametertypes(m)
@@ -729,7 +753,7 @@ function methodInfo(m::Union{JMethod, JConstructor})
         typeName = legalClassName(returnType)
         info = get(typeInfo, typeName, genericFieldInfo)
         owner = metaclass(legalClassName(cls))
-        methodsById[length(methodsById)] = JMethodInfo(name, info, Symbol(typeName), returnType, Tuple(juliaTypeFor.(argTypes)), argTypes, methodId, isStatic(m), owner, get(jnicalls, typeName, Tuple(filterDynArgType.(juliaTypeFor.(argTypes)))))
+        methodsById[length(methodsById)] = JMethodInfo(name, info, Symbol(typeName), returnType, Tuple(argtypefor.(argTypes)), argTypes, methodId, isStatic(m), owner, get(jnicalls, typeName, Tuple(filterDynArgType.(juliaTypeFor.(argTypes)))))
     end
 end
 
@@ -802,9 +826,11 @@ function initProxy()
         "java.lang.String" => @vtypeInf("java.lang.String", String, "Ljava/lang/String;", String, Object, true, Object),
     )
     global sigTypes = Dict([inf.signature => inf for (key, inf) in typeInfo if inf.primitive])
-    global genericFieldInfo = @vtypeInf("java.lang.Object", Any, "Ljava/lang/Object", JObject, Object, true, Object)
+    global genericFieldInfo = @vtypeInf("java.lang.Object", Any, "Ljava/lang/Object;", JObject, Object, true, Object)
     global methodId_object_getClass = getmethodid("java.lang.Object", "getClass", "java.lang.Class")
     global methodId_class_getName = getmethodid("java.lang.Class", "getName", "java.lang.String")
+    global methodId_class_getInterfaces = getmethodid("java.lang.Class", "getInterfaces", "[Ljava.lang.Class;")
+    global methodId_class_isInterface = getmethodid("java.lang.Class", "isInterface", "boolean")
     global methodId_system_gc = getmethodid(true, "java.lang.System", "gc", "void", String[])
     for info in (t->typeInfo[string(t)]).(:(int, long, byte, boolean, char, short, float, double).args)
         infoName = string(info.classname)
@@ -848,9 +874,31 @@ end
 
 metaclass(class::AbstractString) = metaclass(Symbol(class))
 
-getclass(obj::Ptr{Nothing}) = @message(obj, Object, methodId_object_getClass)
+getclass(obj::Ptr{Nothing}) = @message(obj, Ptr{Nothing}, methodId_object_getClass)
 
-getclassname(class::Ptr{Nothing}) = unsafe_string(@message(class, Object, methodId_class_getName))
+getclassname(class::Ptr{Nothing}) = unsafe_string(@message(class, Ptr{Nothing}, methodId_class_getName))
+
+isinterface(class::Ptr{Nothing}) = @message(class, jboolean, methodId_class_isInterface) != 0
+
+getinterfaces(class::Ptr{Nothing}) = jarray(@message(class, Ptr{Nothing}, methodId_class_getInterfaces))
+
+jarray(array::Ptr{Nothing}) = [arrayat(array, i) for i in 1:arraylength(array)]
+
+function allinterfaces(class::Ptr{Nothing})
+    result = []
+    queue = [class]
+    seen = Set()
+    while !isempty(queue)
+        for interface in getinterfaces(pop!(queue))
+            if !(interface in seen)
+                push!(seen, interface)
+                push!(result, interface)
+                push!(queue, interface)
+            end
+        end
+    end
+    reverse(result)
+end
 
 function getmethodid(cls::AbstractString, name, rettype::AbstractString, argtypes::AbstractString...)
     getmethodid(false, cls, name, rettype, collect(argtypes))
@@ -952,12 +1000,21 @@ function fielddict(class::JClass)
     end
 end
 
-arraylength(obj) = jni(jnifunc.GetArrayLength, jint, (Ptr{Nothing}), obj)
+arraylength(obj::JavaObject) = arraylength(obj.ptr)
+arraylength(obj) = @jnicall(jnifunc.GetArrayLength, jint, (Ptr{Nothing},), obj)
 
-function Base.getindex(pxy::JProxy{Array{T, 1}}, i::Int) where T
-    asJulia(JObject, JObject(@jnicall(jnifunc.GetObjectArrayElement, Ptr{Nothing},
-                                     (Ptr{Nothing}, jint),
-                                     pxyptr(pxy), jint(i))))
+arrayat(obj::JavaObject, i) = arrayat(obj.ptr, i)
+arrayat(obj, i) = @jnicall(jnifunc.GetObjectArrayElement, Ptr{Nothing},
+                           (Ptr{Nothing}, jint),
+                           obj, jint(i) - 1)
+
+Base.length(obj::JavaObject) = Base.length(JProxy(obj))
+Base.length(pxy::JProxy{>:Array}) = arraylength(pxyptr(pxy))
+
+function Base.getindex(pxy::JProxy{>:Array}, i::Integer)
+    asJulia(T, @jnicall(jnifunc.GetObjectArrayElement, Ptr{Nothing},
+                          (Ptr{Nothing}, jint),
+                          pxyptr(pxy), jint(i) - 1))
 end
 
 function methoddict(class)
@@ -989,7 +1046,9 @@ end
 function Base.getproperty(p::JProxy{T}, name::Symbol) where T
     info = pxyinfo(p)
     if haskey(info.methods, name)
-        JMethodProxy(name, T, p, info.methods[name])
+        m = pxystatic(p) ? filter(m->m.static, info.methods[name]) : info.methods[name]
+        isempty(m) && throw(KeyError("key: $name not found"))
+        JMethodProxy(name, T, p, m)
     else
         getproxyfield(p, info.fields[name])
     end
