@@ -112,4 +112,20 @@ public class Test {
   public String toString() {
       return "Test(" + integerField + ", " + stringField + ")";
   }
+
+  public String testArrayArgs(int i) {
+    return "int";
+  }
+
+  public String testArrayArgs(int[] i) {
+    return "int[]";
+  }
+
+  public String testArrayArgs(int[][] i) {
+    return "int[][]";
+  }
+
+  public String testArrayArgs(Object[] i) {
+    return "java.lang.Object[]";
+  }
 }
