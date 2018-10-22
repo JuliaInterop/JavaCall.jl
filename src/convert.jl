@@ -70,7 +70,7 @@ end
 
 function convert_arg(argtype::Type{JString}, arg)
     x = convert(JString, arg)
-    return x, x.ptr
+    return x, allocatelocal(x.ptr)
 end
 
 function convert_arg(argtype::Type, arg)
@@ -79,7 +79,7 @@ function convert_arg(argtype::Type, arg)
 end
 function convert_arg(argtype::Type{T}, arg) where T<:JavaObject
     x = convert(T, arg)::T
-    return x, x.ptr
+    return x, allocatelocal(x.ptr)
 end
 
 for (x, y, z) in [ (:jboolean, :(jnifunc.NewBooleanArray), :(jnifunc.SetBooleanArrayRegion)),

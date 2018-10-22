@@ -1,3 +1,4 @@
+const allocatedrefs = []
 
 # jni_md.h
 const jint = Cint
@@ -51,7 +52,21 @@ newglobalref(ptr::Ptr{Nothing}) = ccall(jnifunc.NewGlobalRef, Ptr{Nothing}, (Ptr
 
 deleteglobalref(ptr::Ptr{Nothing}) = ccall(jnifunc.DeleteGlobalRef, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}), penv, ptr)
 
+newlocalref(ptr::Ptr{Nothing}) = ccall(jnifunc.NewLocalRef, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing}), penv, ptr)
+
 deletelocalref(ptr::Ptr{Nothing}) = ccall(jnifunc.DeleteLocalRef, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}), penv, ptr)
+
+function allocatelocal(ptr::Ptr{Nothing})
+    ref = newlocalref(ptr)
+    push!(allocatedrefs, ref)
+    ref
+end
+
+function deletelocals()
+    while !isempty(allocatedrefs)
+        deletelocalref(pop!(allocatedrefs))
+    end
+end
 
 function deleteref(x::JavaObject)
     if x.ptr == C_NULL; return; end
