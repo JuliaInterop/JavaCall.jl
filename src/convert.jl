@@ -21,17 +21,14 @@ convert(::Type{JavaObject{T}}, ::Nothing) where T = jnull
 
 #Cast java object from S to T . Needed for polymorphic calls
 function convert(::Type{JavaObject{T}}, obj::JavaObject{S}) where {T,S}
-    if isConvertible(T, S)   #Safe static cast
-        ptr = ccall(jnifunc.NewLocalRef, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing}), penv, obj.ptr)
-        ptr === C_NULL && geterror()
-        return JavaObject{T}(ptr)
+    if isnull(obj)
+        return JavaObject{T}(obj.ptr)
+    elseif isConvertible(T, S)   #Safe static cast
+        return JavaObject{T}(obj.ptr)
     end
-    isnull(obj) && throw(ArgumentError("Cannot convert NULL"))
     realClass = ccall(jnifunc.GetObjectClass, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing} ), penv, obj.ptr)
     if isConvertible(T, realClass)  #dynamic cast
-        ptr = ccall(jnifunc.NewLocalRef, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing}), penv, obj.ptr)
-        ptr === C_NULL && geterror()
-        return JavaObject{T}(ptr)
+        return JavaObject{T}(obj.ptr)
     end
     throw(JavaCallError("Cannot cast java object from $S to $T"))
 end
@@ -70,7 +67,7 @@ end
 
 function convert_arg(argtype::Type{JString}, arg)
     x = convert(JString, arg)
-    return x, allocatelocal(x.ptr)
+    return x, x.ptr
 end
 
 function convert_arg(argtype::Type, arg)
@@ -79,7 +76,7 @@ function convert_arg(argtype::Type, arg)
 end
 function convert_arg(argtype::Type{T}, arg) where T<:JavaObject
     x = convert(T, arg)::T
-    return x, allocatelocal(x.ptr)
+    return x, x.ptr
 end
 
 for (x, y, z) in [ (:jboolean, :(jnifunc.NewBooleanArray), :(jnifunc.SetBooleanArrayRegion)),

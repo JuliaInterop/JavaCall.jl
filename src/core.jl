@@ -1,4 +1,4 @@
-const allocatedrefs = []
+const allocatedrefs = Set()
 
 # jni_md.h
 const jint = Cint
@@ -17,8 +17,13 @@ const jdouble = Cdouble
 const jsize = jint
 jprimitive = Union{jboolean, jchar, jshort, jfloat, jdouble, jint, jlong}
 
-struct JavaMetaClass{T}
+mutable struct JavaMetaClass{T}
     ptr::Ptr{Nothing}
+
+    function JavaMetaClass{T}(ptr::Ptr{Nothing}) where T
+        allocatelocal(ptr)
+        finalizer(deleteref, new{T}(newglobalref(ptr)))
+    end
 end
 
 #The metaclass, sort of equivalent to a the
@@ -33,11 +38,8 @@ mutable struct JavaObject{T}
         if ptr == C_NULL
             new{T}(ptr)
         else
-            ref = newglobalref(ptr)
-            reftype = ccall(jnifunc.GetObjectRefType, Int32, (Ptr{JNIEnv}, Ptr{Nothing}), penv, ptr)
-            reftype == 0 && geterror(true)
-            reftype == 1 && deletelocalref(ptr)
-            finalizer(deleteref, new{T}(ref))
+            allocatelocal(ptr)
+            finalizer(deleteref, new{T}(newglobalref(ptr)))
         end
     end
 
@@ -48,6 +50,13 @@ mutable struct JavaObject{T}
     JavaObject(T, ptr) = JavaObject{T}(ptr)
 end
 
+function registerlocal(ptr::Ptr{Nothing})
+    ptr != C_NULL && getreftype(ptr) == 1 && push!(allocatedrefs, ptr)
+    ptr
+end
+
+getreftype(ptr::Ptr{Nothing}) = ccall(jnifunc.GetObjectRefType, Int32, (Ptr{JNIEnv}, Ptr{Nothing}), penv, ptr)
+
 newglobalref(ptr::Ptr{Nothing}) = ccall(jnifunc.NewGlobalRef, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing}), penv, ptr)
 
 deleteglobalref(ptr::Ptr{Nothing}) = ccall(jnifunc.DeleteGlobalRef, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}), penv, ptr)
@@ -57,9 +66,12 @@ newlocalref(ptr::Ptr{Nothing}) = ccall(jnifunc.NewLocalRef, Ptr{Nothing}, (Ptr{J
 deletelocalref(ptr::Ptr{Nothing}) = ccall(jnifunc.DeleteLocalRef, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}), penv, ptr)
 
 function allocatelocal(ptr::Ptr{Nothing})
-    ref = newlocalref(ptr)
-    push!(allocatedrefs, ref)
-    ref
+    if ptr != C_NULL
+        reftype = getreftype(ptr)
+        reftype == 0 && geterror(true)
+        reftype == 1 && push!(allocatedrefs, ptr)
+    end
+    ptr
 end
 
 function deletelocals()
@@ -68,14 +80,20 @@ function deletelocals()
     end
 end
 
+function deleteref(x::JavaMetaClass)
+    deleteref(x.ptr)
+    x.ptr=C_NULL #Safety in case this function is called direcly, rather than at finalize
+end
 function deleteref(x::JavaObject)
-    if x.ptr == C_NULL; return; end
-    if (penv==C_NULL); return; end
+    deleteref(x.ptr)
+    x.ptr=C_NULL #Safety in case this function is called direcly, rather than at finalize
+end
+function deleteref(ptr::Ptr{Nothing})
+    if ptr == C_NULL; return; end
+    if penv==C_NULL; return; end
     #ccall(:jl_,Nothing,(Any,),x)
     #ccall(jnifunc.DeleteLocalRef, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}), penv, x.ptr)
-    deleteglobalref(x.ptr)
-    x.ptr=C_NULL #Safety in case this function is called direcly, rather than at finalize
-    return
+    deleteglobalref(ptr)
 end
 
 
@@ -173,7 +191,9 @@ function jcall(typ::Type{JavaObject{T}}, method::AbstractString, rettype::Type, 
                       (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{UInt8}, Ptr{UInt8}), penv, metaclass(T),
                       String(method), sig)
     jmethodId==C_NULL && geterror(true)
-    _jcall(metaclass(T), jmethodId, C_NULL, rettype, argtypes, args...)
+    result = _jcall(metaclass(T), jmethodId, C_NULL, rettype, argtypes, args...)
+    deletelocals()
+    result
 end
 
 # Call instance methods
