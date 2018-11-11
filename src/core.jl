@@ -21,8 +21,10 @@ mutable struct JavaMetaClass{T}
     ptr::Ptr{Nothing}
 
     function JavaMetaClass{T}(ptr::Ptr{Nothing}) where T
-        allocatelocal(ptr)
-        finalizer(deleteref, new{T}(newglobalref(ptr)))
+        #registerlocal(ptr)
+        cl = finalizer(deleteref, new{T}(newglobalref(ptr)))
+        #getreftype(ptr) == 1 && deletelocalref(ptr)
+        cl
     end
 end
 
@@ -38,8 +40,10 @@ mutable struct JavaObject{T}
         if ptr == C_NULL
             new{T}(ptr)
         else
-            allocatelocal(ptr)
-            finalizer(deleteref, new{T}(newglobalref(ptr)))
+            #registerlocal(ptr)
+            obj = finalizer(deleteref, new{T}(newglobalref(ptr)))
+            #getreftype(ptr) == 1 && deletelocalref(ptr)
+            obj
         end
     end
 
@@ -50,14 +54,11 @@ mutable struct JavaObject{T}
     JavaObject(T, ptr) = JavaObject{T}(ptr)
 end
 
-function registerlocal(ptr::Ptr{Nothing})
-    ptr != C_NULL && getreftype(ptr) == 1 && push!(allocatedrefs, ptr)
-    ptr
-end
-
 getreftype(ptr::Ptr{Nothing}) = ccall(jnifunc.GetObjectRefType, Int32, (Ptr{JNIEnv}, Ptr{Nothing}), penv, ptr)
 
-newglobalref(ptr::Ptr{Nothing}) = ccall(jnifunc.NewGlobalRef, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing}), penv, ptr)
+function newglobalref(ptr::Ptr{Nothing})
+    ccall(jnifunc.NewGlobalRef, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing}), penv, ptr)
+end
 
 deleteglobalref(ptr::Ptr{Nothing}) = ccall(jnifunc.DeleteGlobalRef, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}), penv, ptr)
 
@@ -65,10 +66,10 @@ newlocalref(ptr::Ptr{Nothing}) = ccall(jnifunc.NewLocalRef, Ptr{Nothing}, (Ptr{J
 
 deletelocalref(ptr::Ptr{Nothing}) = ccall(jnifunc.DeleteLocalRef, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}), penv, ptr)
 
-function allocatelocal(ptr::Ptr{Nothing})
+function registerlocal(ptr::Ptr{Nothing})
     if ptr != C_NULL
         reftype = getreftype(ptr)
-        reftype == 0 && geterror(true)
+        #reftype == 0 && geterror()
         reftype == 1 && push!(allocatedrefs, ptr)
     end
     ptr
@@ -89,11 +90,11 @@ function deleteref(x::JavaObject)
     x.ptr=C_NULL #Safety in case this function is called direcly, rather than at finalize
 end
 function deleteref(ptr::Ptr{Nothing})
-    if ptr == C_NULL; return; end
-    if penv==C_NULL; return; end
-    #ccall(:jl_,Nothing,(Any,),x)
-    #ccall(jnifunc.DeleteLocalRef, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}), penv, x.ptr)
-    deleteglobalref(ptr)
+    if ptr != C_NULL && penv != C_NULL
+        #ccall(:jl_,Nothing,(Any,),x)
+        #ccall(jnifunc.DeleteLocalRef, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}), penv, x.ptr)
+        deleteglobalref(ptr)
+    end
 end
 
 
@@ -141,7 +142,9 @@ function JString(str::AbstractString)
     if jstring == C_NULL
         geterror()
     else
-        JString(jstring)
+        str = JString(jstring)
+        deletelocalref(jstring)
+        str
     end
 end
 
@@ -180,7 +183,9 @@ function jnew(T::Symbol, argtypes::Tuple, args...)
     if jmethodId == C_NULL
         throw(JavaCallError("No constructor for $T with signature $sig"))
     end
-    return  _jcall(metaclass(T), jmethodId, jnifunc.NewObjectA, JavaObject{T}, argtypes, args...)
+    result = _jcall(metaclass(T), jmethodId, jnifunc.NewObjectA, JavaObject{T}, argtypes, args...)
+    deletelocals()
+    result
 end
 
 # Call static methods
@@ -203,7 +208,9 @@ function jcall(obj::JavaObject, method::AbstractString, rettype::Type, argtypes:
                       (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{UInt8}, Ptr{UInt8}), penv, metaclass(obj),
                       String(method), sig)
     jmethodId==C_NULL && geterror(true)
-    _jcall(obj, jmethodId, C_NULL, rettype,  argtypes, args...)
+    result = _jcall(obj, jmethodId, C_NULL, rettype,  argtypes, args...)
+    deletelocals()
+    result
 end
 
 function jfield(typ::Type{JavaObject{T}}, field::AbstractString, fieldType::Type) where T
@@ -248,7 +255,11 @@ function _jfield(obj, jfieldID::Ptr{Nothing}, fieldType::Type)
     result = ccall(callmethod, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}), penv, obj.ptr,
                    jfieldID)
     result==C_NULL && geterror()
-    return convert_result(fieldType, result)
+    #result != C_NULL && registerlocal(result)
+    finalresult = convert_result(fieldType, result)
+    #deletelocals()
+    deletelocalref(result)
+    finalresult
 end
 
 #Generate these methods to satisfy ccall's compile time constant requirement
@@ -298,7 +309,11 @@ function _jcall(obj, jmethodId::Ptr{Nothing}, callmethod::Ptr{Nothing}, rettype:
     result = ccall(callmethod, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
                    penv, obj.ptr, jmethodId, convertedArgs)
     result==C_NULL && geterror()
-    return convert_result(rettype, result)
+    registerlocal(result)
+    finalresult = convert_result(rettype, result)
+    #deletelocals()
+    #deletelocalref(result)
+    finalresult
 end
 
 
@@ -308,7 +323,11 @@ function _metaclass(class::Symbol)
     jclass=javaclassname(class)
     jclassptr = ccall(jnifunc.FindClass, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{UInt8}), penv, jclass)
     jclassptr == C_NULL && throw(JavaCallError("Class Not Found $jclass"))
-    return JavaMetaClass(class, jclassptr)
+    #registerlocal(jclassptr)
+    finalresult = JavaMetaClass(class, jclassptr)
+    #deletelocals()
+    deletelocalref(jclassptr)
+    finalresult
 end
 
 function metaclass(class::Symbol)

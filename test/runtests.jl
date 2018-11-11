@@ -5,6 +5,8 @@ import Dates
 using Base.GC: gc
 
 
+const pxyptr = JavaCall.pxyptr
+
 JavaCall.init(["-Djava.class.path=$(@__DIR__)"])
 # JavaCall.init(["-verbose:gc","-Djava.class.path=$(@__DIR__)"])
 # JavaCall.init()
@@ -143,8 +145,8 @@ end
 gc()
 for i in 1:100000
 	a=JString("A"^10000); #deleteref(a);
+    JavaCall.deletelocals()
 	if (i%10000 == 0)
-        JavaCall.deletelocals()
         gc()
     end
 end
@@ -260,6 +262,7 @@ end
     @test(t.stringField == "hello")
     @test(t.toString() == "Test(3, hello)")
     t.objectField = t
+    @test(t.objectField == t)
     @test(t.objectField.stringField == "hello")
     @test(t.objectField.getInt() == 3)
     @test(t.objectField.getString() == "hello")
