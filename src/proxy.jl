@@ -8,7 +8,7 @@ global initialized = false
 setVerbose() = global useVerbose = true
 clearVerbose() = global useVerbose = false
 
-location(source) = replace(string(source.file), r"^.*/([^/]*)$" => s"\1") * string(source.line) * ": "
+location(source) = replace(string(source.file), r"^.*/([^/]*)$" => s"\1") * ":" * string(source.line) * ": "
 
 macro verbose(args...)
     :(useVerbose && println($(location(__source__)), $(esc.(args)...)))
@@ -312,9 +312,7 @@ macro staticmessage(rettype, methodid, args...)
 end
 
 registerreturn(x) = x
-function registerreturn(x::Ptr{Nothing})
-    registerlocal(x)
-end
+registerreturn(x::Ptr{Nothing}) = registerlocal(x)
 
 function arrayinfo(str)
     if (m = match(r"^(\[+)(.)$", str)) != nothing
@@ -532,7 +530,7 @@ function asJulia(x, ptr::Ptr{Nothing})
         nothing
     else
         ref = newglobalref(ptr)
-        @verbose("UNBOXING ", ref)
+        @verbose("PROXY FOR ", ref)
         @verbose("    CLASS: ", getclassname(getclass(ref)))
         result = unbox(JavaObject{Symbol(legalClassName(getclassname(getclass(ref))))}, ref)
         deleteglobalref(ref)
@@ -541,7 +539,7 @@ function asJulia(x, ptr::Ptr{Nothing})
 end
 
 box(str::AbstractString) = str
-box(pxy::JProxy) = ptrObj(pxy)
+box(pxy::JProxy) = pxyptr(pxy)
 
 unbox(obj) = obj
 function unbox(::Type, obj)
@@ -647,11 +645,11 @@ function _typeInf(jclass, ctyp, sig, jtyp, Typ, object, accessor, boxType)
     end
 end
 
-macro defbox(primclass, boxtype, juliatype, javatype = juliatype)
-    :(eval(_defbox($(sym(primclass)), $(sym(boxtype)), $(sym(juliatype)), $(sym(javatype)))))
+macro defbox(primclass, boxtype, juliatype, javatype, boxclassname)
+    :(eval(_defbox($(sym(primclass)), $(sym(boxtype)), $(sym(juliatype)), $(sym(javatype)), $(sym(boxclassname)))))
 end
 
-function _defbox(primclass, boxtype, juliatype, javatype)
+function _defbox(primclass, boxtype, juliatype, javatype, boxclassname)
     boxclass = JavaObject{Symbol(classnamefor(boxtype))}
     primname = string(primclass)
     boxVar = Symbol(primname * "Box")
@@ -693,7 +691,13 @@ function _defbox(primclass, boxtype, juliatype, javatype)
         const $boxVar = boxers[$primname] = Boxing(typeInfo[$primname])
         boxer(::Type{$juliatype}) = $boxVar
         function box(data::$juliatype)
-            JProxy(call($boxVar.boxClass.ptr, $boxVar.boxer, $boxVar.boxType, ($juliatype,), data))
+            #call($boxVar.boxClass.ptr, $boxVar.boxer, $boxVar.boxType, ($juliatype,), data)
+            #@message($boxVar.boxClass.ptr, $boxVar.boxer, $boxVar.boxType, ($juliatype,), data)
+            result = ccall(jnifunc.$(Symbol("Call" * string(boxclassname) * "Method")), Ptr{Nothing},
+                           (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, $juliatype),
+                           penv, $boxVar.boxClass.ptr, $boxVar.boxer, data)
+            result == C_NULL && geterror()
+            registerreturn(result)
         end
         $varpart
     end
@@ -738,14 +742,14 @@ function initProxy()
     global methodId_class_isInterface = getmethodid("java.lang.Class", "isInterface", "boolean")
     global methodId_system_gc = getmethodid(true, "java.lang.System", "gc", "void", String[])
     global initialized = true
-    @defbox(boolean, java_lang_Boolean, Bool, jboolean)
-    @defbox(char, java_lang_Character, Char, jchar)
-    @defbox(byte, java_lang_Byte, jbyte)
-    @defbox(short, java_lang_Short, jshort)
-    @defbox(int, java_lang_Integer, jint)
-    @defbox(long, java_lang_Long, jlong)
-    @defbox(float, java_lang_Float, jfloat)
-    @defbox(double, java_lang_Double, jdouble)
+    @defbox(boolean, java_lang_Boolean, Bool, jboolean, Boolean)
+    @defbox(char, java_lang_Character, Char, jchar, Character)
+    @defbox(byte, java_lang_Byte, jbyte, jbyte, Byte)
+    @defbox(short, java_lang_Short, jshort, jshort, Short)
+    @defbox(int, java_lang_Integer, jint, jint, Integer)
+    @defbox(long, java_lang_Long, jlong, jlong, Long)
+    @defbox(float, java_lang_Float, jfloat, jfloat, Float)
+    @defbox(double, java_lang_Double, jdouble, jdouble, Double)
 end
 
 metaclass(class::AbstractString) = metaclass(Symbol(class))
@@ -1141,6 +1145,17 @@ function call(ptr::Ptr{Nothing}, mId::Ptr{Nothing}, rettype::Type{T}, argtypes::
     savedargs, convertedargs = convert_args(argtypes, args...)
     result = _call(T, ptr, mId, convertedargs)
     result == C_NULL && geterror()
+    result = asJulia(rettype, result)
+    deletelocals()
+    result
+end
+
+function call(ptr::Ptr{Nothing}, mId::Ptr{Nothing}, rettype::Type{Ptr{Nothing}}, argtypes::Tuple, args...)
+    ptr == C_NULL && error("Attempt to call method on Java NULL")
+    savedargs, convertedargs = convert_args(argtypes, args...)
+    result = _call(Ptr{Nothing}, ptr, mId, convertedargs)
+    result == C_NULL && geterror()
+    getreftype(result) == 1 && registerlocal(result)
     result = asJulia(rettype, result)
     deletelocals()
     result
