@@ -145,10 +145,6 @@ end
 gc()
 for i in 1:100000
 	a=JString("A"^10000); #deleteref(a);
-    JavaCall.deletelocals()
-	if (i%10000 == 0)
-        gc()
-    end
 end
 
 @testset "sinx_1" begin
