@@ -247,6 +247,9 @@ end
     a.add(1)
     @test a.get(0) == 1
     @test a.toString() == "[1]"
+    b = JProxy(JAL(()))
+    b.addAll(a)
+    @test a.toString() == b.toString()
 end
 
 @testset "proxy_test_class" begin
