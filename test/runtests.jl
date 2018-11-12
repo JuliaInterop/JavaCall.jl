@@ -251,9 +251,9 @@ end
     removed = a.remove(0)
     @test typeof(removed) == String
     @test removed == "one"
-    println("@@@ BOXING NOT WORKING PROPERLY @@@")
     a.add(1)
     @test a.get(0) == 1
+    @test a.toString() == "[1]"
 end
 
 @testset "proxy_test_class" begin

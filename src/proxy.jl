@@ -691,9 +691,7 @@ function _defbox(primclass, boxtype, juliatype, javatype, boxclassname)
         const $boxVar = boxers[$primname] = Boxing(typeInfo[$primname])
         boxer(::Type{$juliatype}) = $boxVar
         function box(data::$juliatype)
-            #call($boxVar.boxClass.ptr, $boxVar.boxer, $boxVar.boxType, ($juliatype,), data)
-            #@message($boxVar.boxClass.ptr, $boxVar.boxer, $boxVar.boxType, ($juliatype,), data)
-            result = ccall(jnifunc.$(Symbol("Call" * string(boxclassname) * "Method")), Ptr{Nothing},
+            result = ccall(jnifunc.$(Symbol("NewObject")), Ptr{Nothing},
                            (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, $juliatype),
                            penv, $boxVar.boxClass.ptr, $boxVar.boxer, data)
             result == C_NULL && geterror()
@@ -1093,10 +1091,8 @@ interfacehas(x, y) = false
 
 # ARG MUST BE CONVERTABLE IN ORDER TO USE CONVERT_ARG
 function convert_arg(t::Type{<:Union{JObject, java_lang_Object}}, x::JPrimitive)
-    #result = JavaObject(box(x))
-    #convert_arg(typeof(result), result)
     result = box(x)
-    result, pxyptr(result)
+    result, result
 end
 convert_arg(t::Type{JavaObject}, x::JProxy) = convert_arg(t, JavaObject(x))
 convert_arg(::Type{T1}, x::JProxy) where {T1 <: java_lang} = x, pxyptr(x)
