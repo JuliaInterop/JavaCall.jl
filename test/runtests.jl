@@ -140,9 +140,6 @@ end
 end
 
 # Test Memory allocation and de-allocatios
-# the following loop fails with an OutOfMemoryException in the absence of de-allocation
-# However, since Java and Julia memory are not linked, and manual gc() is required.
-gc()
 for i in 1:100000
 	a=JString("A"^10000); #deleteref(a);
 end
