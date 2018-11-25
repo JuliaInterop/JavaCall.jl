@@ -483,7 +483,11 @@ function typeNameFor(className::AbstractString)
                 t.juliaType
             else
                 sn = Symbol(className)
-                get(types, sn, sn)
+                get(types, sn) do
+                    className = replace(className, "_" => "___")
+                    className = replace(className, "\$" => "__s")
+                    Symbol(replace(className, "." => "_"))
+                end
             end
         end
     end
@@ -1329,6 +1333,13 @@ function convert_arg(::Type{JProxy{Array{java_lang_Object, 1}}}, array::Array{<:
 end
 function convert_arg(::Type{<:JProxy{<:Union{java_lang_Object, java_lang_String}}}, str::AbstractString)
     str, @jnicall(jnifunc.NewStringUTF, Ptr{Nothing}, (Ptr{UInt8},), string(str))
+end
+function convert_arg(int::Type{<:JProxy{I}}, pxy::JProxy{T}) where {I <: interface, T}
+    if interfacehas(I, T)
+        pxy, pxyptr(pxy)
+    else
+        convert(int, pxy)
+    end
 end
 
 # Julia support
