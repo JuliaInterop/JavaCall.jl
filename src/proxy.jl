@@ -1,5 +1,15 @@
 # See documentation for JProxy for infomation
 
+# TODO argtypefor(J.classforlegalname("[I")) returns Array{JavaCall.java_lang,1}
+#      use sigtypes[class] to get primitive type
+#
+# TODO -- types' keys should probably be strings, not symbols
+# 
+#
+# TODO switch from method.dynArgTypes to method.argTypes to allow full Julia type matching (array, etc.)
+# TODO add specificity for Array types and add conversion rules for Array types
+# TODO add iteration and access for lists, collecitons, maps
+
 import Base.==
 
 global useVerbose = false
@@ -60,6 +70,9 @@ const types = Dict()
 @defjtype java_lang_Byte <: java_lang_Number
 @defjtype java_lang_Character <: java_lang_Object
 @defjtype java_lang_Boolean <: java_lang_Object
+@defjtype java_lang_Iterable <: interface
+@defjtype java_util_List <: interface
+@defjtype java_util_Collection <: interface
 
 # types
 const modifiers = JavaObject{Symbol("java.lang.reflect.Modifier")}
@@ -88,7 +101,6 @@ const JBoxed = Union{
 }
 
 struct JavaTypeInfo
-    setterFunc
     classname::Symbol # legal classname as a symbol
     signature::AbstractString
     juliaType::Type # the Julia representation of the Java type, like jboolean (which is a UInt8), for call-in
@@ -102,6 +114,8 @@ struct JavaTypeInfo
     staticGetter::Ptr{Nothing}
     setter::Ptr{Nothing}
     staticSetter::Ptr{Nothing}
+    newarray::Ptr{Nothing}
+    arrayregionsetter::Ptr{Nothing}
 end
 
 struct JReadonlyField
@@ -173,9 +187,7 @@ mutable struct PtrBox
 
     PtrBox(obj::JavaObject) = PtrBox(obj.ptr)
     function PtrBox(ptr::Ptr{Nothing})
-        #registerlocal(ptr)
-        newglobalref(ptr)
-        finalizer(finalizebox, new(ptr))
+        finalizer(finalizebox, new(newglobalref(ptr)))
     end
 end
 
@@ -259,7 +271,8 @@ const dynamicTypeCache = Dict()
 
 global genericFieldInfo
 global objectClass
-global sigTypes
+global stringClass
+global sigtypes
 
 macro jnicall(func, rettype, types, args...)
     _jnicall(func, rettype, types, args)
@@ -316,7 +329,7 @@ registerreturn(x::Ptr{Nothing}) = registerlocal(x)
 
 function arrayinfo(str)
     if (m = match(r"^(\[+)(.)$", str)) != nothing
-        signatureClassFor(m.captures[2]), length(m.captures[1])
+        string(signatureClassFor(m.captures[2])), length(m.captures[1])
     elseif (m = match(r"^(\[+)L(.*);", str)) != nothing
         m.captures[2], length(m.captures[1])
     else
@@ -339,19 +352,33 @@ end
 
 arraycomponent(::Type{Array{T}}) where T = T
 
-signatureClassFor(name) = length(name) == 1 ? sigTypes[name].classname : name
+signatureClassFor(name) = length(name) == 1 ? sigtypes[name].classname : name
 
 isVoid(meth::JMethodInfo) = meth.typeInfo.convertType == Nothing
 
 classtypename(ptr::Ptr{Nothing}) = typeNameFor(getclassname(getclass(ptr)))
 classtypename(obj::JavaObject{T}) where T = string(T)
 
+instance(obj::Union{JProxy, Nothing}) = obj
+instance(obj) = JProxy(box(obj))
 # To access static members, use types or metaclasses
-# like this: `JProxy(JavaObject{Symbol("java.lang.Byte")}).TYPE`
-# or JProxy(JString).valueOf(1)
-JProxy(::JavaMetaClass{C}) where C = JProxy(JavaObject{C})
-function JProxy(::Type{JavaObject{C}}) where C
-    c = Symbol(legalClassName(string(C)))
+# like this: `@class(java.lang.Byte).TYPE`
+macro class(name::Expr)
+    :(JProxy(Symbol($(replace(sprint(Base.show_unquoted, name), r"[ ()]"=>"")))))
+end
+macro class(name::Symbol)
+    :(JProxy(Symbol($(string(name)))))
+end
+macro class(name::String)
+    :(JProxy(Symbol($name)))
+end
+class(str::String) = JProxy(Symbol(str))
+class(sym::Symbol) = JProxy(sym)
+JProxy(::JavaMetaClass{C}) where C = staticproxy(string(C))
+JProxy(::Type{JavaObject{C}}) where C = staticproxy(string(C))
+JProxy(s::Symbol) = staticproxy(string(s))
+function staticproxy(classname)
+    c = Symbol(legalClassName(classname))
     obj = classforname(string(c))
     info = infoFor(obj)
     JProxy{typeFor(c), c}(obj, info, true)
@@ -360,9 +387,7 @@ end
 # To access static members, use types or metaclasses
 # like this: `JProxy(JavaObject{Symbol("java.lang.Byte")}).TYPE`
 JProxy(s::AbstractString) = JProxy(JString(s))
-function JProxy{T, C}(ptr::PtrBox) where {T, C}
-    JProxy{T, C}(ptr, infoFor(JClass(getclass(ptr))), false)
-end
+JProxy{T, C}(ptr::PtrBox) where {T, C} = JProxy{T, C}(ptr, infoFor(JClass(getclass(ptr))), false)
 JProxy(obj::JavaObject) = JProxy(PtrBox(obj))
 JProxy(ptr::Ptr{Nothing}) = JProxy(PtrBox(ptr))
 function JProxy(obj::PtrBox)
@@ -383,11 +408,11 @@ function JProxy(obj::PtrBox)
     JProxy{info.classtype, c}(obj, info, false)
 end
 
-function JavaTypeInfo(setterFunc, class, signature, juliaType, convertType, accessorName, boxType, getter, staticGetter, setter, staticSetter)
+function JavaTypeInfo(class, signature, juliaType, convertType, accessorName, boxType, getter, staticGetter, setter, staticSetter, newarray, arrayregionsetter)
     boxClass = classfortype(boxType)
     primitive = length(signature) == 1
     primClass = primitive ? jfield(boxType, "TYPE", JClass) : objectClass
-    info = JavaTypeInfo(setterFunc, class, signature, juliaType, convertType, primitive, accessorName, boxType, boxClass, primClass, getter, staticGetter, setter, staticSetter)
+    info = JavaTypeInfo(class, signature, juliaType, convertType, primitive, accessorName, boxType, boxClass, primClass, getter, staticGetter, setter, staticSetter, newarray, arrayregionsetter)
     info
 end
 
@@ -419,6 +444,8 @@ function legalClassName(name::AbstractString)
         info = get(typeInfo, m.captures[1], nothing)
         base = if info != nothing && info.primitive
             info.signature
+        elseif length(m.captures[1]) == 1
+            m.captures[1]
         else
             "L$(m.captures[1]);"
         end
@@ -445,20 +472,17 @@ function typeNameFor(className::AbstractString)
     if className == "java.lang.String"
         String
     elseif length(className) == 1
-        sigTypes[className].convertType
+        sigtypes[className].convertType
     else
-        n = replace(className, "_" => "___")
-        n = replace(className, "\$" => "_s_")
-        n = replace(n, "." => "_")
-        aType, dims = arrayinfo(n)
+        aType, dims = arrayinfo(className)
         if dims != 0
             Array{typeNameFor(aType), dims}
         else
-            t = get(typeInfo, n, genericFieldInfo)
+            t = get(typeInfo, className, genericFieldInfo)
             if t.primitive
                 t.juliaType
             else
-                sn = Symbol(n)
+                sn = Symbol(className)
                 get(types, sn, sn)
             end
         end
@@ -466,7 +490,7 @@ function typeNameFor(className::AbstractString)
 end
 
 macro jp(s)
-    :(JProxy{$(s), Symbol($(classnamefor(s)))})
+    :(JProxy{$s, Symbol($(classnamefor(s)))})
 end
 
 isArray(class::JClass) = jcall(class, "isArray", jboolean, ()) != 0
@@ -505,9 +529,16 @@ function JClassInfo(class::JClass)
 end
 
 typeFor(::Type{JavaObject{T}}) where T = typeFor(T)
+typeFor(str::String) = typeFor(Symbol(str))
 function typeFor(sym::Symbol)
     aType, dims = arrayinfo(string(sym))
-    dims != 0 ? Array{get(types, Symbol(aType), java_lang), length(dims)} : get(types, sym, java_lang)
+    if dims == 1 && haskey(typeInfo, aType)
+        JProxy{Array{get(typeInfo, aType, java_lang_Object).convertType, 1}}
+    elseif dims != 0
+        JProxy{Array{get(types, Symbol(aType), java_lang_Object), dims}}
+    else
+        get(types, sym, java_lang_Object)
+    end
 end
 
 function makeTypeFor(class::JClass)
@@ -538,7 +569,7 @@ function asJulia(x, ptr::Ptr{Nothing})
     end
 end
 
-box(str::AbstractString) = str
+box(str::AbstractString) = JString(str)
 box(pxy::JProxy) = pxyptr(pxy)
 
 unbox(obj) = obj
@@ -620,29 +651,71 @@ end
 conv(func::Function, typ::Symbol) = juliaConverters[typ] = func
 
 macro typeInf(jclass, sig, jtyp, jBoxType)
-    _typeInf(jclass, Symbol("j" * string(jclass)), sig, jtyp, uppercasefirst(string(jclass)), false, string(jclass) * "Value", "java.lang." * string(jBoxType))
+    :(eval(_typeInf($(sym(jclass)), $(sym("j", jclass)), $sig, $(sym(jtyp)), $(uppercasefirst(string(jclass))), false, $(string(jclass)) * "Value", "java.lang." * $(string(jBoxType)))))
 end
 
 macro vtypeInf(jclass, ctyp, sig, jtyp, Typ, object, jBoxType)
     if typeof(jclass) == String
         jclass = Symbol(jclass)
     end
-    _typeInf(jclass, ctyp, sig, jtyp, Typ, object, "", "java.lang." * string(jBoxType))
+    :(eval(_typeInf($(sym(jclass)), $(sym(ctyp)), $sig, $(sym(jtyp)), $(sym(Typ)), $(sym(object)), "", "java.lang." * $(string(jBoxType)))))
 end
 
-sym(s) = :(Symbol($(string(s))))
+sym(s...) = :(Symbol($(join(string.(s)))))
 
 function _typeInf(jclass, ctyp, sig, jtyp, Typ, object, accessor, boxType)
-    s = (p, t)-> :(jnifunc.$(Symbol(p * string(t) * "Field")))
-    quote
-        begin
-            JavaTypeInfo($(sym(jclass)), $sig, $ctyp, $jtyp, $accessor, JavaObject{Symbol($boxType)}, $(s("Get", Typ)), $(s("GetStatic", Typ)), $(s("Set", Typ)), $(s("SetStatic", Typ))) do field, obj, value::$(object ? :JavaObject : ctyp)
-                @jnicallregistered(field.static ? field.typeInfo.staticSetter : field.typeInfo.setter, Ptr{Nothing},
-                                   (Ptr{Nothing}, Ptr{Nothing}, $(object ? :(Ptr{Nothing}) : ctyp)),
-                                   (field.static ? field.owner.ptr : pxyptr(obj)), field.id, $(object ? :(pxyptr(value)) : :value))
+    j = (strs...)-> :(jnifunc.$(Symbol(reduce(*, string.(strs)))))
+    s = (p, t)-> j(p, t, "Field")
+    newarray = (length(sig) == 1 && sig != "V" ? j("New", Typ, "Array") : C_NULL)
+    arrayregionsetter = (length(sig) == 1 && sig != "V" ? j("Set", Typ, "ArrayRegion") : C_NULL)
+    arrayset = (length(sig) == 1 && sig != "V" ? j("New", Typ, "Array") : C_NULL)
+    arrayget = if length(sig) == 1 && sig != "V"
+        type_ctyp = getfield(JavaCall, ctyp)
+        type_jtyp = getfield(Core, jtyp)
+        quote
+            function arrayget(pxy::JProxy{<:Array{$ctyp}}, index)
+                result = $type_jtyp[$(type_jtyp(0))]
+                @jnicall($(j("Get" * Typ * "ArrayRegion")), Nothing,
+                         (Ptr{Nothing}, Csize_t, Csize_t, Ptr{$(jtyp)}),
+                         pxyptr(pxy), index, 1, result)
+                result == C_NULL && geterror()
+                $(type_jtyp == Bool ? :(result[1] != 0) : :(result[1]))
+            end
+            function arrayset!(pxy::JProxy{<:Array{$ctyp}}, index, value::$ctyp)
+                valuebuf = $type_jtyp[$type_jtyp(value)]
+                @jnicall($(j("Set" * Typ * "ArrayRegion")), Nothing,
+                         (Ptr{Nothing}, Csize_t, Csize_t, Ptr{$(jtyp)}),
+                         pxyptr(pxy), index, 1, valuebuf)
+                geterror()
             end
         end
+    else
+        :(())
     end
+    quote
+        $(arrayget.args...)
+        push!(typeInfo, $(string(jclass)) => JavaTypeInfo($(sym(jclass)), $sig, $ctyp, $jtyp, $accessor, JavaObject{Symbol($boxType)}, $(s("Get", Typ)), $(s("GetStatic", Typ)), $(s("Set", Typ)), $(s("SetStatic", Typ)), $(newarray), $(arrayregionsetter)))
+    end
+end
+
+function arrayget(pxy::JProxy{<:Array}, index)
+    result = @jnicall(jnifunc.GetObjectArrayElement, Ptr{Nothing},
+                      (Ptr{Nothing}, Csize_t),
+                      pxyptr(pxy), index)
+    if result == C_NULL
+        geterror()
+    else
+        getreftype(result) == 1 && registerlocal(result)
+        result = asJulia(Ptr{Nothing}, result)
+        deletelocals()
+    end
+    result
+end
+function arrayset!(pxy::JProxy{<:Array}, index, value::JProxy)
+    @jnicall(jnifunc.SetObjectArrayElement, Nothing,
+             (Ptr{Nothing}, Csize_t, Ptr{Nothing}),
+             pxyptr(pxy), index, pxyptr(value))
+    geterror()
 end
 
 macro defbox(primclass, boxtype, juliatype, javatype, boxclassname)
@@ -691,7 +764,7 @@ function _defbox(primclass, boxtype, juliatype, javatype, boxclassname)
         const $boxVar = boxers[$primname] = Boxing(typeInfo[$primname])
         boxer(::Type{$juliatype}) = $boxVar
         function box(data::$juliatype)
-            result = ccall(jnifunc.$(Symbol("NewObject")), Ptr{Nothing},
+            result = ccall(jnifunc.NewObject, Ptr{Nothing},
                            (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, $juliatype),
                            penv, $boxVar.boxClass.ptr, $boxVar.boxer, data)
             result == C_NULL && geterror()
@@ -715,25 +788,26 @@ function initProxy()
     )
     global objectClass = classforname("java.lang.Object")
     global classClass = classforname("java.lang.Class")
+    global stringClass = classforname("java.lang.String")
     global voidClass = jfield(JavaObject{Symbol("java.lang.Void")}, "TYPE", JClass)
     global methodid_getmethod = getmethodid("java.lang.Class", "getMethod", "java.lang.reflect.Method", "java.lang.String", "[Ljava.lang.Class;")
     conv(Symbol("java.lang.String")) do x; unsafe_string(x); end
     conv(Symbol("java.lang.Integer")) do x; @jp(java_lang_Integer)(x).intValue(); end
     conv(Symbol("java.lang.Long")) do x; @jp(java_lang_Long)(x).longValue(); end
-    push!(typeInfo,
-        "void" => @vtypeInf(void, jint, "V", Nothing, Object, false, Void),
-        "boolean" => @typeInf(boolean, "Z", Bool, Boolean),
-        "byte" => @typeInf(byte, "B", Int8, Byte),
-        "char" => @typeInf(char, "C", Char, Character),
-        "short" => @typeInf(short, "S", Int16, Short),
-        "int" => @typeInf(int, "I", Int32, Integer),
-        "float" => @typeInf(float, "F", Float32, Float),
-        "long" => @typeInf(long, "J", Int64, Long),
-        "double" => @typeInf(double, "D", Float64, Double),
-        "java.lang.String" => @vtypeInf("java.lang.String", String, "Ljava/lang/String;", String, Object, true, Object),
-    )
-    global sigTypes = Dict([inf.signature => inf for (key, inf) in typeInfo if inf.primitive])
-    global genericFieldInfo = @vtypeInf("java.lang.Object", Any, "Ljava/lang/Object;", JObject, Object, true, Object)
+    @vtypeInf(void, jint, "V", Nothing, Object, false, Void)
+    @typeInf(boolean, "Z", Bool, Boolean)
+    @typeInf(byte, "B", Int8, Byte)
+    @typeInf(char, "C", Char, Character)
+    @typeInf(short, "S", Int16, Short)
+    @typeInf(int, "I", Int32, Integer)
+    @typeInf(float, "F", Float32, Float)
+    @typeInf(long, "J", Int64, Long)
+    @typeInf(double, "D", Float64, Double)
+    @vtypeInf("java.lang.String", String, "Ljava/lang/String;", String, Object, true, Object)
+    @vtypeInf("java.lang.Object", Any, "Ljava/lang/Object;", JObject, Object, true, Object)
+    global sigtypes = Dict([inf.signature => inf for (key, inf) in typeInfo if inf.primitive])
+    global juliatojava = Dict([inf.convertType => inf for (key, inf) in typeInfo])
+    global genericFieldInfo = typeInfo["java.lang.Object"]
     global methodId_object_getClass = getmethodid("java.lang.Object", "getClass", "java.lang.Class")
     global methodId_class_getName = getmethodid("java.lang.Class", "getName", "java.lang.String")
     global methodId_class_getInterfaces = getmethodid("java.lang.Class", "getInterfaces", "[Ljava.lang.Class;")
@@ -798,9 +872,14 @@ function getmethodid(static::Bool, clsname::AbstractString, name::AbstractString
     #@verbose(@macroexpand @jnicall(static ? jnifunc.GetStaticMethodID : jnifunc.GetMethodID, Ptr{Nothing},
     #        (Ptr{Nothing}, Ptr{UInt8}, Ptr{UInt8}),
     #        jclass, name, sig))
-    @jnicall(static ? jnifunc.GetStaticMethodID : jnifunc.GetMethodID, Ptr{Nothing},
-             (Ptr{Nothing}, Ptr{UInt8}, Ptr{UInt8}),
-             jclass, name, sig)
+    try
+        @jnicall(static ? jnifunc.GetStaticMethodID : jnifunc.GetMethodID, Ptr{Nothing},
+                 (Ptr{Nothing}, Ptr{UInt8}, Ptr{UInt8}),
+                 jclass, name, sig)
+    catch err
+        println("ERROR GETTING METHOD $clsname.$name($(join(argtypes, ",")))")
+        throw(err)
+    end
 end
 
 function fieldId(name, typ::Type{JavaObject{C}}, static, field, cls::JClass) where {C}
@@ -885,28 +964,19 @@ listfields(cls::JClass) = jcall(cls, "getFields", Vector{JField}, ())
 
 function fielddict(class::JClass)
     if isArray(class)
-        Dict([:length => JReadonlyField((obj)->arraylength(obj.ptr))])
+        Dict([:length => JReadonlyField((ptr)->arraylength(ptr))])
     else
         Dict([Symbol(getname(item)) => JFieldInfo(item) for item in listfields(class)])
     end
 end
 
 arraylength(obj::JavaObject) = arraylength(obj.ptr)
-arraylength(obj) = @jnicall(jnifunc.GetArrayLength, jint, (Ptr{Nothing},), obj)
+arraylength(obj::Ptr{Nothing}) = @jnicall(jnifunc.GetArrayLength, jint, (Ptr{Nothing},), obj)
 
 arrayat(obj::JavaObject, i) = arrayat(obj.ptr, i)
 arrayat(obj, i) = @jnicallregistered(jnifunc.GetObjectArrayElement, Ptr{Nothing},
                                      (Ptr{Nothing}, jint),
                                      obj, jint(i) - 1)
-
-Base.length(obj::JavaObject) = Base.length(JProxy(obj))
-Base.length(pxy::JProxy{>:Array}) = arraylength(pxyptr(pxy))
-
-function Base.getindex(pxy::JProxy{>:Array}, i::Integer)
-    asJulia(T, @jnicallregistered(jnifunc.GetObjectArrayElement, Ptr{Nothing},
-                                  (Ptr{Nothing}, jint),
-                                  pxyptr(pxy), jint(i) - 1))
-end
 
 function methoddict(class)
     d = Dict()
@@ -1089,15 +1159,6 @@ canConvertType(x, y) = interfacehas(x, y)
 
 interfacehas(x, y) = false
 
-# ARG MUST BE CONVERTABLE IN ORDER TO USE CONVERT_ARG
-function convert_arg(t::Type{<:Union{JObject, java_lang_Object}}, x::JPrimitive)
-    result = box(x)
-    result, result
-end
-convert_arg(t::Type{JavaObject}, x::JProxy) = convert_arg(t, JavaObject(x))
-convert_arg(::Type{T1}, x::JProxy) where {T1 <: java_lang} = x, pxyptr(x)
-convert_arg(::Type{T}, x) where {T <: java_lang} = convert_arg(JavaObject{Symbol(classnamefor(T))}, x)
-
 # score specificity of a method
 function specificity(argTypes, mi::JMethodInfo) where T
     g = 0
@@ -1212,3 +1273,107 @@ _staticcall(::Type, mId, args) = ccall(jnifunc.CallStaticObjectMethodA, Ptr{Noth
 Base.show(io::IO, pxy::JProxy) = print(io, pxystatic(pxy) ? "static class $(legalClassName(pxy))" : pxy.toString())
 
 JavaObject(pxy::JProxy{T, C}) where {T, C} = JavaObject{C}(pxyptr(pxy))
+
+# ARG MUST BE CONVERTABLE IN ORDER TO USE CONVERT_ARG
+function convert_arg(t::Type{<:Union{JObject, java_lang_Object}}, x::JPrimitive)
+    result = box(x)
+    result, result
+end
+convert_arg(t::Type{JavaObject}, x::JProxy) = convert_arg(t, JavaObject(x))
+convert_arg(::Type{T1}, x::JProxy) where {T1 <: java_lang} = x, pxyptr(x)
+convert_arg(::Type{T}, x) where {T <: java_lang} = convert_arg(JavaObject{Symbol(classnamefor(T))}, x)
+convert_arg(::Type{JProxy{Array{A,N}}}, array::JProxy{Array{<:A, N}}) where {A, N} = pxyptr(array)
+function convert_arg(::Type{JProxy{Array{A, 1}}}, array::Array{A, 1}) where {A <: JPrimitive}
+    typ = juliatojava[A]
+    newarray = PtrBox(@jnicall(typ.newarray, Ptr{Nothing},
+                               (jint, Ptr{Nothing}),
+                               length(array), C_NULL))
+    @jnicall(typ.arrayregionsetter, Nothing,
+             (Ptr{Nothing}, Int32, Int32, Ptr{Nothing}),
+             newarray.ptr, 0, length(array), array)
+    newarray, newarray.ptr
+end
+function convert_arg(::Type{JProxy{Array{String, 1}}}, array::Array{String, 1})
+    newarray = PtrBox(@jnicall(jnifunc.NewObjectArray, Ptr{Nothing},
+                               (jint, Ptr{Nothing}, Ptr{Nothing}),
+                               length(array), stringClass, C_NULL))
+    for i in 1:length(array)
+        @jnicall(jnifunc.SetObjectArrayElement, Nothing,
+                 (Ptr{Nothing}, Int32, Ptr{Nothing}),
+                 newarray.ptr, i - 1, @jnicall(jnifunc.NewStringUTF, Ptr{Nothing}, (Ptr{UInt8},), array[i]))
+    end
+    newarray, newarray.ptr
+end
+function convert_arg(::Type{JProxy{Array{java_lang_Object, 1}}}, array::Array{String, 1})
+    newarray = PtrBox(@jnicall(jnifunc.NewObjectArray, Ptr{Nothing},
+                               (jint, Ptr{Nothing}, Ptr{Nothing}),
+                               length(array), objectClass, C_NULL))
+    for i in 1:length(array)
+        @jnicall(jnifunc.SetObjectArrayElement, Nothing,
+                 (Ptr{Nothing}, Int32, Ptr{Nothing}),
+                 newarray.ptr, i - 1, @jnicall(jnifunc.NewStringUTF, Ptr{Nothing}, (Ptr{UInt8},), array[i]))
+    end
+    newarray, newarray.ptr
+end
+function convert_arg(::Type{JProxy{Array{java_lang_Object, 1}}}, array::Array{<:Union{JPrimitive, JProxy}, 1})
+    newarray = PtrBox(@jnicall(jnifunc.NewObjectArray, Ptr{Nothing},
+                               (jint, Ptr{Nothing}, Ptr{Nothing}),
+                               length(array), objectClass, C_NULL))
+    for i in 1:length(array)
+        @jnicall(jnifunc.SetObjectArrayElement, Nothing,
+                 (Ptr{Nothing}, Int32, Ptr{Nothing}),
+                 newarray.ptr, i - 1, box(array[i]))
+    end
+    newarray, newarray.ptr
+end
+
+# Julia support
+Base.unsafe_convert(::Type{Ptr{Nothing}}, pxy::JProxy) = pxyptr(pxy)
+
+# iteration and indexing support
+Base.length(obj::JavaObject) = Base.length(JProxy(obj))
+Base.length(pxy::JProxy{<:Array}) = arraylength(pxyptr(pxy))
+Base.length(col::JProxy{T}) where T = interfacehas(java_util_Collection, T) ? col.size() : 0
+
+Base.getindex(pxy::JProxy{<:Array}, i) = arrayget(pxy, i - 1)
+function Base.getindex(pxy::JProxy{Array}, i::Integer)
+   JProxy(@jnicallregistered(jnifunc.GetObjectArrayElement, Ptr{Nothing},
+                             (Ptr{Nothing}, jint),
+                             pxyptr(pxy), jint(i) - 1))
+end
+
+Base.setindex!(pxy::JProxy{<:Array{T}}, v::T, i) where {T <: JPrimitive} = arrayset!(pxy, i - 1, v)
+Base.setindex!(pxy::JProxy{<:Array{<:Union{interface, java_lang}}}, v::JPrimitive, i) = Base.setindex!(pxy, JProxy(box(v)), i)
+Base.setindex!(pxy::JProxy{<:Array{T}}, v::JProxy{U}, i) where {T <: java_lang_Object, U <: T} = arrayset!(pxy, i - 1, v)
+function Base.setindex!(pxy::JProxy{<:Array{T}}, v::JProxy{U}, i) where {T <: interface, U <: java_lang}
+    if interfacehas(T, U)
+        arrayset!(pxy, i - 1, v)
+    end
+end
+
+Base.IteratorSize(::JProxy{<:Array}) = Base.HasLength()
+Base.iterate(array::JProxy{<:Array}) = Base.iterate(array, (1, length(array)))
+Base.iterate(array::JProxy{<:Array}, (next, len)) = next > len ? nothing : (array[next], (next + 1, len))
+
+Base.IteratorSize(::JProxy{T}) where T = interfacehas(java_util_Collection, T) ? Base.HasLength() : Base.SizeUnknown()
+function Base.iterate(col::JProxy{T}) where T
+    if interfacehas(java_lang_Iterable, T)
+        i = col.iterator()
+        nextGetter(col, i)()
+    else
+        nothing
+    end
+end
+Base.iterate(col::JProxy, state) = state()
+function nextGetter(col::JProxy, iter)
+    let pending = true, value # memoize value
+        function ()
+            if pending
+                pending = false
+                value = iter.hasNext() ? (iter.next(), nextGetter(col, iter)) : nothing
+            else
+                value
+            end
+        end
+    end
+end

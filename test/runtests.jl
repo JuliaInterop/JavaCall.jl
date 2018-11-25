@@ -250,6 +250,8 @@ end
     b = JProxy(JAL(()))
     b.addAll(a)
     @test a.toString() == b.toString()
+    a.add("two")
+    @test collect(a) == [1, "two"]
 end
 
 @testset "proxy_test_class" begin
@@ -273,6 +275,18 @@ end
     @test(JProxy(@jimport(java.lang.Double)).MAX_VALUE == 1.7976931348623157e308)
     @test("class java.lang.Object" == JProxy(JavaCall.metaclass("java.lang.Class")).forName("java.lang.Object").toString())
     @test("class java.io.PrintStream" == JProxy(JavaObject{Symbol("java.lang.System")}).out.getClass().toString())
+    @test("static class java.util.Arrays" == string(JProxy(@jimport(java.util.Arrays))))
+end
+
+@testset "proxy_array" begin
+    s,ptr=JavaCall.convert_arg(JProxy{Array{Int,1}}, [1,2]) # convert Julia array to an unwrapped java array
+    p=JProxy(ptr) # wrap it
+    @test(length(p) == 2)
+    @test(p[1] == 1)
+    @test(p[2] == 2)
+    @test(collect(p) == [1, 2])
+    p[1] = 3
+    @test(p[1] == 3)
 end
 
 # At the end, unload the JVM before exiting
