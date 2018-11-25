@@ -75,6 +75,7 @@ const types = Dict()
 @defjtype java_lang_Iterable <: interface
 @defjtype java_util_List <: interface
 @defjtype java_util_Collection <: interface
+@defjtype java_util_Map <: interface
 
 const modifiers = JavaObject{Symbol("java.lang.reflect.Modifier")}
 const JField = JavaObject{Symbol("java.lang.reflect.Field")}
@@ -360,8 +361,6 @@ isVoid(meth::JMethodInfo) = meth.typeInfo.convertType == Nothing
 classtypename(ptr::Ptr{Nothing}) = typeNameFor(getclassname(getclass(ptr)))
 classtypename(obj::JavaObject{T}) where T = string(T)
 
-instance(obj::Union{JProxy, Nothing}) = obj
-instance(obj) = JProxy(box(obj))
 # To access static members, use types or metaclasses
 # like this: `@class(java.lang.Byte).TYPE`
 macro class(name::Expr)
@@ -1148,6 +1147,7 @@ canConvert(::Type{T1}, ::JProxy{T2}) where {T1, T2} = canConvertType(T1, T2)
 canConvert(::Type{JProxy{T1}}, ::JProxy{T2}) where {T1, T2} = canConvertType(T1, T2)
 canConvert(::Type{JProxy{T1}}, ::T2) where {T1, T2} = canConvertType(T1, T2)
 
+canConvertType(::Type{java_lang_Object}, ::Type{<:Array}) = true
 canConvertType(::Type{T}, ::Type{T}) where T = true
 canConvertType(::Type{T1}, t::Type{T2}) where {T1 <: java_lang_Object, T2 <: java_lang_Object} = T2 <: T1
 canConvertType(::Type{<:Union{JavaObject{Symbol("java.lang.Object")}, java_lang_Object}}, ::Type{<:Union{AbstractString, JPrimitive}}) = true
@@ -1287,15 +1287,15 @@ Base.show(io::IO, pxy::JProxy) = print(io, pxystatic(pxy) ? "static class $(lega
 JavaObject(pxy::JProxy{T, C}) where {T, C} = JavaObject{C}(pxyptr(pxy))
 
 # ARG MUST BE CONVERTABLE IN ORDER TO USE CONVERT_ARG
-function convert_arg(t::Type{<:Union{JObject, java_lang_Object}}, x::JPrimitive)
+function convert_arg(t::Union{Type{<:JavaObject}, Type{<:JProxy{<:java_lang_Object}}}, x::JPrimitive)
     result = box(x)
     result, result
 end
 convert_arg(t::Type{JavaObject}, x::JProxy) = convert_arg(t, JavaObject(x))
 convert_arg(::Type{T1}, x::JProxy) where {T1 <: java_lang} = x, pxyptr(x)
 convert_arg(::Type{T}, x) where {T <: java_lang} = convert_arg(JavaObject{Symbol(classnamefor(T))}, x)
-convert_arg(::Type{JProxy{Array{A,N}}}, array::JProxy{Array{<:A, N}}) where {A, N} = pxyptr(array)
-function convert_arg(::Type{JProxy{Array{A, 1}}}, array::Array{A, 1}) where {A <: JPrimitive}
+convert_arg(::Type{<:JProxy{<:Union{Array{A,N}, java_lang_Object}}}, array::JProxy{Array{<:A, N}}) where {A, N} = pxyptr(array)
+function convert_arg(::Type{<:JProxy{<:Union{Array{A, 1}, java_lang_Object}}}, array::Array{A, 1}) where {A <: JPrimitive}
     typ = juliatojava[A]
     newarray = PtrBox(@jnicall(typ.newarray, Ptr{Nothing},
                                (jint, Ptr{Nothing}),
@@ -1305,21 +1305,10 @@ function convert_arg(::Type{JProxy{Array{A, 1}}}, array::Array{A, 1}) where {A <
              newarray.ptr, 0, length(array), array)
     newarray, newarray.ptr
 end
-function convert_arg(::Type{JProxy{Array{String, 1}}}, array::Array{String, 1})
+function convert_arg(::Type{JProxy{<:Union{Array{String, 1}, java_lang_Object}}}, array::Array{String, 1})
     newarray = PtrBox(@jnicall(jnifunc.NewObjectArray, Ptr{Nothing},
                                (jint, Ptr{Nothing}, Ptr{Nothing}),
                                length(array), stringClass, C_NULL))
-    for i in 1:length(array)
-        @jnicall(jnifunc.SetObjectArrayElement, Nothing,
-                 (Ptr{Nothing}, Int32, Ptr{Nothing}),
-                 newarray.ptr, i - 1, @jnicall(jnifunc.NewStringUTF, Ptr{Nothing}, (Ptr{UInt8},), array[i]))
-    end
-    newarray, newarray.ptr
-end
-function convert_arg(::Type{JProxy{Array{java_lang_Object, 1}}}, array::Array{String, 1})
-    newarray = PtrBox(@jnicall(jnifunc.NewObjectArray, Ptr{Nothing},
-                               (jint, Ptr{Nothing}, Ptr{Nothing}),
-                               length(array), objectClass, C_NULL))
     for i in 1:length(array)
         @jnicall(jnifunc.SetObjectArrayElement, Nothing,
                  (Ptr{Nothing}, Int32, Ptr{Nothing}),
@@ -1356,6 +1345,13 @@ function Base.getindex(pxy::JProxy{Array}, i::Integer)
                              (Ptr{Nothing}, jint),
                              pxyptr(pxy), jint(i) - 1))
 end
+function Base.getindex(pxy::JProxy{T}, i) where T
+    if interfacehas(java_util_List, T) || interfacehas(java_util_Map, T)
+        pxy.get(i - 1)
+    else
+        throw(MethodError(getindex, (pxy, i)))
+    end
+end
 
 Base.setindex!(pxy::JProxy{<:Array{T}}, v::T, i) where {T <: JPrimitive} = arrayset!(pxy, i - 1, v)
 Base.setindex!(pxy::JProxy{<:Array{<:Union{interface, java_lang}}}, v::JPrimitive, i) = Base.setindex!(pxy, JProxy(box(v)), i)
@@ -1363,6 +1359,15 @@ Base.setindex!(pxy::JProxy{<:Array{T}}, v::JProxy{U}, i) where {T <: java_lang_O
 function Base.setindex!(pxy::JProxy{<:Array{T}}, v::JProxy{U}, i) where {T <: interface, U <: java_lang}
     if interfacehas(T, U)
         arrayset!(pxy, i - 1, v)
+    end
+end
+function Base.setindex!(pxy::JProxy{T}, value, i) where T
+    if interfacehas(java_util_List, T)
+        pxy.set(i - 1, value)
+    elseif interfacehas(java_util_Map, T)
+        pxy.put(i, value)
+    else
+        throw(MethodError(setindex!, (pxy, value, i)))
     end
 end
 
