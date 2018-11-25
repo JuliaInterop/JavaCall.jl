@@ -53,6 +53,7 @@ function _defjtype(a, b)
     end
 end
 
+# types
 macro defjtype(expr)
     :(_defjtype($(string(expr.args[1])), $(expr.args[2])))
 end
@@ -60,6 +61,7 @@ end
 const types = Dict()
 
 @defjtype java_lang_Object <: java_lang
+@defjtype java_lang_String <: java_lang_Object
 @defjtype java_util_AbstractCollection <: java_lang_Object
 @defjtype java_lang_Number <: java_lang_Object
 @defjtype java_lang_Double <: java_lang_Number
@@ -74,7 +76,6 @@ const types = Dict()
 @defjtype java_util_List <: interface
 @defjtype java_util_Collection <: interface
 
-# types
 const modifiers = JavaObject{Symbol("java.lang.reflect.Modifier")}
 const JField = JavaObject{Symbol("java.lang.reflect.Field")}
 const JPrimitive = Union{Bool, Char, UInt8, Int8, UInt16, Int16, Int32, Int64, Float32, Float64}
@@ -528,6 +529,22 @@ function JClassInfo(class::JClass)
     classes[n] = JClassInfo(parentinfo, class, fielddict(class), methoddict(class), jtype)
 end
 
+function ensureclasstypes(class::JClass)
+    n = Symbol(legalClassName(class))
+    tn = typeNameFor(string(n))
+    if isa(tn, DataType)
+        tn <: Array && isa(tn.parameters[1], Symbol) && ensureclasstypes(classforname(string(tn.parameters[1])))
+        tn
+    else
+        sc = superclass(class)
+        !isNull(sc) && ensureclasstypes(sc)
+        for int in allinterfaces(class)
+            ensureclasstypes(int)
+        end
+        _defjtype(tn, isNull(sc) ? interface : typeNameFor(sc))
+    end
+end
+
 typeFor(::Type{JavaObject{T}}) where T = typeFor(T)
 typeFor(str::String) = typeFor(Symbol(str))
 function typeFor(sym::Symbol)
@@ -539,17 +556,6 @@ function typeFor(sym::Symbol)
     else
         get(types, sym, java_lang_Object)
     end
-end
-
-function makeTypeFor(class::JClass)
-    cln = Symbol(getname(class))
-    t = typeFor(cln)
-    if t == java_lang
-        sc = superclass(class)
-        sct = isNull(sc) ? java_lang : makeTypeFor(sc)
-        _defjtype(typeNameFor(cln), nameof(sct))
-    end
-    t
 end
 
 asJulia(t, obj) = obj
@@ -615,11 +621,10 @@ function argtypefor(class::JClass)
     if tinfo.primitive
         tinfo.convertType
     elseif cln == "java.lang.String"
-        String
+        JProxy{java_lang_String, Symbol("java.lang.String")}
     else
-        sn = Symbol(cln)
-        makeTypeFor(class)
-        typeFor(sn)
+        t = ensureclasstypes(class)
+        t <: Union{Array, java_lang} ? JProxy{t} : t
     end
 end
 
@@ -736,13 +741,11 @@ function _defbox(primclass, boxtype, juliatype, javatype, boxclassname)
                 call(ptr, $boxVar.unboxer, jboolean, ()) != 0
             end
             function unbox(obj::JavaObject{Symbol($(classnamefor(boxtype)))})
-                #_jcall(obj, $boxVar.unboxer, C_NULL, jboolean, ()) != 0
                 @message(obj, jboolean, $boxVar.unboxer) != 0
             end
         end
     else
         quote
-            #convert(::Type{JavaObject{T}}, obj::$juliatype) where T = JavaObject(box(obj))
             $(if juliatype == :jchar
                   :(convert(::Type{JavaObject{T}}, obj::Char) where T = JavaObject(box(obj)))
               else
@@ -755,7 +758,6 @@ function _defbox(primclass, boxtype, juliatype, javatype, boxclassname)
                 call(ptr, $boxVar.unboxer, $javatype, ())
             end
             function unbox(obj::JavaObject{Symbol($(classnamefor(boxtype)))})
-                #_jcall(obj, $boxVar.unboxer, C_NULL, $juliatype, ())
                 call(obj.ptr, $boxVar.unboxer, $juliatype, ())
             end
         end
@@ -836,6 +838,11 @@ end
 
 isinterface(class::Ptr{Nothing}) = @message(class, jboolean, methodId_class_isInterface) != 0
 
+"""
+    getinterfaces
+
+return JClass objects for the declared and inherited interfaces of a class
+"""
 function getinterfaces(class::JClass)
     array = @message(class.ptr, Ptr{Nothing}, methodId_class_getInterfaces)
     [JClass(arrayat(array, i)) for i in 1:arraylength(array)]
@@ -1110,7 +1117,7 @@ function (pxy::JMethodProxy{N})(args...) where N
         meth = reduce(((x, y)-> specificity(argTypes, x) > specificity(argTypes, y) ? x : y), targets)
         @Verbose("SEND MESSAGE ", N, " RETURNING ", meth.typeInfo.juliaType, " ARG TYPES ", meth.argTypes)
         if meth.static
-            staticcall(meth.id, meth.typeInfo.convertType, meth.dynArgTypes, args...)
+            staticcall(meth.owner, meth.id, meth.typeInfo.convertType, meth.argTypes, args...)
         else
             call(pxy.obj, meth.id, meth.typeInfo.convertType, meth.argTypes, args...)
         end
@@ -1132,13 +1139,14 @@ function filterStatic(pxy::JMethodProxy, targets)
     Set(target for target in targets if target.static == static)
 end
 
-#fits(method::JMethodInfo, args::Tuple) = length(method.dynArgTypes) == length(args) && all(canConvert.(method.dynArgTypes, args))
 fits(method::JMethodInfo, args::Tuple) = length(method.dynArgTypes) == length(args) && all(canConvert.(method.argTypes, args))
 
 canConvert(::Type{T}, ::T) where T = true
 canConvert(t::Type, ::T) where T = canConvertType(t, T)
 canConvert(::Type{Array{T1,D}}, ::Array{T2,D}) where {T1, T2, D} = canConvertType(T1, T2)
 canConvert(::Type{T1}, ::JProxy{T2}) where {T1, T2} = canConvertType(T1, T2)
+canConvert(::Type{JProxy{T1}}, ::JProxy{T2}) where {T1, T2} = canConvertType(T1, T2)
+canConvert(::Type{JProxy{T1}}, ::T2) where {T1, T2} = canConvertType(T1, T2)
 
 canConvertType(::Type{T}, ::Type{T}) where T = true
 canConvertType(::Type{T1}, t::Type{T2}) where {T1 <: java_lang_Object, T2 <: java_lang_Object} = T2 <: T1
@@ -1151,6 +1159,7 @@ canConvertType(::Type{<:Union{JavaObject{Symbol("java.lang.Short")}, java_lang_S
 canConvertType(::Type{<:Union{JavaObject{Symbol("java.lang.Byte")}, java_lang_Byte}}, ::Type{Int8}) = true
 canConvertType(::Type{<:Union{JavaObject{Symbol("java.lang.Character")}, java_lang_Character}}, ::Type{<:Union{Int8, Char}}) = true
 canConvertType(::Type{<:AbstractString}, ::Type{<:AbstractString}) = true
+canConvertType(::Type{<:JProxy{<:Union{java_lang_String, java_lang_Object}}}, ::Type{<:AbstractString}) = true
 canConvertType(::Type{JString}, ::Type{<:AbstractString}) = true
 canConvertType(::Type{<: Real}, ::Type{<:Real}) = true
 canConvertType(::Type{jboolean}, ::Type{Bool}) = true
@@ -1177,10 +1186,13 @@ const specificityinherit = 10000
 
 # score relative generality of corresponding arguments in two methods
 # higher means c1 is more general than c2 (i.e. c2 is the more specific one)
-specificity(::Type{JProxy{T}}, t1) where T = specificity(T, t1)
-specificity(argType::Type{<:Union{JBoxTypes,JPrimitive}}, t1::Type{<:JPrimitive}) = specificitybest
-specificity(argType::Type{<:JBoxTypes}, t1::Type{<:JBoxTypes}) = specificitybest
-specificity(argType::Type{<:JPrimitive}, t1::Type{<:JBoxTypes}) = specificitybox
+specificity(::Type{JProxy{T1}}, ::Type{JProxy{T2}}) where {T1, T2} = specificity(T1, T2)
+specificity(::Type{JProxy{T1}}, T2) where {T1} = specificity(T1, T2)
+specificity(::Type{<:Union{JBoxTypes,JPrimitive}}, t1::Type{<:JPrimitive}) = specificitybest
+specificity(::Type{<:JBoxTypes}, ::Type{<:JBoxTypes}) = specificitybest
+specificity(::Type{<:JPrimitive}, ::Type{<:JBoxTypes}) = specificitybox
+specificity(::Type{java_lang_Object}, ::Type{<:AbstractString}) = specificityinherit
+specificity(::Type{java_lang_String}, ::Type{<:AbstractString}) = specificitybest
 function specificity(argType::Type, t1::Type)
     if argType == t1 || interfacehas(t1, argType)
         specificitybest
@@ -1237,9 +1249,9 @@ _call(::Type, obj, mId, args) = ccall(jnifunc.CallObjectMethodA, Ptr{Nothing},
 @defcall(jdouble, Double, jdouble)
 @defcall(Nothing, Void, Nothing)
 
-function staticcall(mId, rettype::Type{T}, argtypes::Tuple, args...) where T
+function staticcall(class, mId, rettype::Type{T}, argtypes::Tuple, args...) where T
     savedargs, convertedargs = convert_args(argtypes, args...)
-    result = _staticcall(T, mId, convertedargs)
+    result = _staticcall(T, class.ptr, mId, convertedargs)
     result == C_NULL && geterror()
     if rettype <: JavaObject && result != C_NULL
         registerreturn(result)
@@ -1252,14 +1264,14 @@ function staticcall(mId, rettype::Type{T}, argtypes::Tuple, args...) where T
 end
 
 macro defstaticcall(t, f, ft)
-    :(_staticcall(::Type{$t}, mId, args) = ccall(jnifunc.$(Symbol("CallStatic" * string(f) * "MethodA")), $ft,
-                                                 (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}),
-                                                 penv, mId, args))
+    :(_staticcall(::Type{$t}, class, mId, args) = ccall(jnifunc.$(Symbol("CallStatic" * string(f) * "MethodA")), $ft,
+                                                 (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
+                                                 penv, class, mId, args))
 end
 
-_staticcall(::Type, mId, args) = ccall(jnifunc.CallStaticObjectMethodA, Ptr{Nothing},
+_staticcall(::Type, class, mId, args) = ccall(jnifunc.CallStaticObjectMethodA, Ptr{Nothing},
   (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
-  penv, C_NULL, mId, args)
+  penv, class, mId, args)
 @defstaticcall(Bool, Boolean, jboolean)
 @defstaticcall(jbyte, Byte, jbyte)
 @defstaticcall(jchar, Char, jchar)
@@ -1325,6 +1337,9 @@ function convert_arg(::Type{JProxy{Array{java_lang_Object, 1}}}, array::Array{<:
                  newarray.ptr, i - 1, box(array[i]))
     end
     newarray, newarray.ptr
+end
+function convert_arg(::Type{<:JProxy{<:Union{java_lang_Object, java_lang_String}}}, str::AbstractString)
+    str, @jnicall(jnifunc.NewStringUTF, Ptr{Nothing}, (Ptr{UInt8},), string(str))
 end
 
 # Julia support
