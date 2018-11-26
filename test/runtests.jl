@@ -279,7 +279,7 @@ end
 end
 
 @testset "proxy_array" begin
-    s,ptr=JavaCall.convert_arg(JProxy{Array{Int,1}}, [1,2]) # convert Julia array to an unwrapped java array
+    s,ptr=JavaCall.convert_arg(JProxy{Array{Int,1}, false}, [1,2]) # convert Julia array to an unwrapped java array
     p=JProxy(ptr) # wrap it
     @test(length(p) == 2)
     @test(p[1] == 1)
