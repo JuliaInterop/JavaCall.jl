@@ -876,8 +876,6 @@ isinterface(class::Ptr{Nothing}) = @message(class, jboolean, methodId_class_isIn
 return JClass objects for the declared and inherited interfaces of a class
 """
 function getinterfaces(class::JClass)
-    #array = @message(class.ptr, Ptr{Nothing}, methodId_class_getInterfaces)
-    #[JClass(arrayat(array, i)) for i in 1:arraylength(array)]
     classesFor(@message(class.ptr, Ptr{Nothing}, methodId_class_getInterfaces))
 end
 
