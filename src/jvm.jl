@@ -91,6 +91,7 @@ function findjvm()
                     Libdl.dlopen(joinpath(bindir,m[1]))
                 end
                 global libjvm = Libdl.dlopen(libpath)
+                println("LOADED $libpath")
                 @debug("Loaded $libpath")
                 return
             end

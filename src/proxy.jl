@@ -846,6 +846,7 @@ function initProxy()
     global methodId_class_getInterfaces = getmethodid("java.lang.Class", "getInterfaces", "[Ljava.lang.Class;")
     global methodId_class_isInterface = getmethodid("java.lang.Class", "isInterface", "boolean")
     global methodId_system_gc = getmethodid(true, "java.lang.System", "gc", "void", String[])
+    global methodId_method_getParameterTypes = getmethodid("java.lang.reflect.Method", "getParameterTypes", "[Ljava.lang.Class;")
     global initialized = true
     @defbox(boolean, java_lang_Boolean, Bool, jboolean, Boolean)
     @defbox(char, java_lang_Character, Char, jchar, Character)
@@ -875,8 +876,15 @@ isinterface(class::Ptr{Nothing}) = @message(class, jboolean, methodId_class_isIn
 return JClass objects for the declared and inherited interfaces of a class
 """
 function getinterfaces(class::JClass)
-    array = @message(class.ptr, Ptr{Nothing}, methodId_class_getInterfaces)
-    [JClass(arrayat(array, i)) for i in 1:arraylength(array)]
+    #array = @message(class.ptr, Ptr{Nothing}, methodId_class_getInterfaces)
+    #[JClass(arrayat(array, i)) for i in 1:arraylength(array)]
+    classesFor(@message(class.ptr, Ptr{Nothing}, methodId_class_getInterfaces))
+end
+
+function classesFor(array)
+    # ptrbox array first so they don't get collected
+    ap = PtrBox(array)
+    [JClass(arrayat(ap.ptr, i)) for i in 1:arraylength(ap.ptr)]
 end
 
 jarray(array::Ptr{Nothing}) = [arrayat(array, i) for i in 1:arraylength(array)]
