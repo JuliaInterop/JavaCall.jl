@@ -61,6 +61,7 @@ end
 const types = Dict()
 
 @defjtype java_lang_Object <: java_lang
+@defjtype java_lang_Class <: java_lang_Object
 @defjtype java_lang_String <: java_lang_Object
 @defjtype java_util_AbstractCollection <: java_lang_Object
 @defjtype java_lang_Number <: java_lang_Object
@@ -407,6 +408,8 @@ function staticproxy(classname::AbstractString)
     staticproxy(c, classforname(string(c)))
 end
 staticproxy(obj::JClass) = staticproxy(Symbol(legalClassName(getname(obj))), obj)
+staticproxy(obj::JProxy{java_lang_Class, true}) = obj
+staticproxy(obj::JProxy{java_lang_Class, false}) = staticproxy(JavaObject(obj))
 function staticproxy(c::Symbol, obj)
     info = infoFor(obj)
     JProxy{typeFor(c), true}(obj, info)
