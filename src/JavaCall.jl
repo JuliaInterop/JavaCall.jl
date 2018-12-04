@@ -4,7 +4,7 @@ export JavaObject, JavaMetaClass,
        JObject, JClass, JMethod, JString,
        @jimport, jcall, jfield, isnull,
        getname, getclass, listmethods, getreturntype, getparametertypes, classforname,
-       narrow, JProxy, @class, interfacehas
+       narrow, JProxy, @class, interfacehas, staticproxy
 
 # using Compat, Compat.Dates
 
