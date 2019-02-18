@@ -8,3 +8,6 @@
 Call Java programs from Julia.
 
 Documentation is available at http://juliainterop.github.io/JavaCall.jl
+
+
+**JavaCall and it's derivatives do not work on Julia 1.1 right now. Please continue to use a Julia version in the 1.0.x series if you are doing any interop with Java. **
