@@ -150,6 +150,16 @@ end
 addOpts(s::String) = isloaded() ? @warn("JVM already initialised. This call has no effect") : push!(opts, s)
 
 function init()
+    if haskey(ENV, "JAVACALL_IGNORE_WORKERS")
+        v = ENV["JAVACALL_IGNORE_WORKERS"]
+        if myid() in map(x->parse(Int, x), split(v, ","))
+            warn("Not initializing JavaCall")
+            return
+        end
+    end
+    if haskey(ENV, "JAVACALL_MEMORY_LIMIT")
+        addOpts("-Xmx$(ENV["JAVACALL_MEMORY_LIMIT"])")
+    end
     if isempty(cp)
         init(opts)
     else
