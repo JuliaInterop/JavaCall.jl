@@ -2,13 +2,18 @@ language: julia
 os:
   - linux
 julia:
-  - 0.7
   - 1.0
+  - 1.2
   - nightly
+jdk:
+  - oraclejdk8
+  - openjdk10
+  - openjdk11
 
 matrix:
   allow_failures:
     - julia_version: nightly
+    - julia_version: 1.2
 
 notifications:
   email: false
