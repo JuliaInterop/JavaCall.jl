@@ -163,19 +163,12 @@ end
     # the same for class
     @test length(listmethods(getclass(JString("test")))) >= 72
     @test length(listmethods(getclass(JString("test")), "indexOf")) >= 3
-    m = listmethods(JString("test"), "indexOf")[1]
-    @test getname(getreturntype(m)) == "int"
+    m = listmethods(JString("test"), "indexOf")
+    @test getname(getreturntype(m[1])) == "int"
 
-    v=jcall(@jimport("java.lang.System"), "getProperty", JString, (JString,), "java.version")
-    v=replace(v, "_"=>"-")
-    java_ver = macroexpand(Main, :(@v_str($v)))
-
-    #Order of methods is different in JDK 9
-    if java_ver < v"9.0.0-"
-        @test [getname(typ) for typ in getparametertypes(m)] == ["java.lang.String", "int"]
-    else
-        @test [getname(typ) for typ in getparametertypes(m)] == ["int"]
-    end
+    z = [getname.(t) for t in getparametertypes.(m)]
+    @test findfirst(n->n==["int"], z) != nothing
+    @test findfirst(n->n==["java.lang.String", "int"], z) != nothing
 end
 
 #Test for double free bug, #20

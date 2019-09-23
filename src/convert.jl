@@ -67,7 +67,7 @@ for (x, y, z) in [ (:jboolean, :(jnifunc.NewBooleanArray), :(jnifunc.SetBooleanA
                   (:jchar, :(jnifunc.NewCharArray), :(jnifunc.SetCharArrayRegion)),
                   (:jbyte, :(jnifunc.NewByteArray), :(jnifunc.SetByteArrayRegion)),
                   (:jshort, :(jnifunc.NewShortArray), :(jnifunc.SetShortArrayRegion)),
-                  (:jint, :(jnifunc.NewIntArray), :(jnifunc.SetShortArrayRegion)),
+                  (:jint, :(jnifunc.NewIntArray), :(jnifunc.SetIntArrayRegion)),
                   (:jlong, :(jnifunc.NewLongArray), :(jnifunc.SetLongArrayRegion)),
                   (:jfloat, :(jnifunc.NewFloatArray), :(jnifunc.SetFloatArrayRegion)),
                   (:jdouble, :(jnifunc.NewDoubleArray), :(jnifunc.SetDoubleArrayRegion)) ]
