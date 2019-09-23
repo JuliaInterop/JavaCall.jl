@@ -32,7 +32,7 @@ function javahome_winreg()
             keypath *= "\\"*value
             return querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "JavaHome")
         catch
-            error("Cannot find an installation of Java in the Windows Registry.  Please install Java from https://java.com/en/download/manual.jsp and subsequently reload JavaCall.")
+            error("Cannot find an installation of Java in the Windows Registry. Please install a JRE/JDK, or set the JAVA_HOME environment variable if one is already installed.")
         end
     end
 end
@@ -88,7 +88,9 @@ function findjvm()
                 if Sys.iswindows()
                     bindir = dirname(dirname(libpath))
                     m = filter(x -> occursin(r"msvcr(?:.*).dll",x), readdir(bindir))
-                    Libdl.dlopen(joinpath(bindir,m[1]))
+                    if !isempty(m)
+                        Libdl.dlopen(joinpath(bindir,m[1]))
+                    end
                 end
                 global libjvm = Libdl.dlopen(libpath)
                 @debug("Loaded $libpath")
