@@ -1,6 +1,8 @@
 language: julia
 os:
   - linux
+  - osx
+  - windows
 julia:
   - 1.0
   - 1.1
@@ -15,7 +17,8 @@ jdk:
 matrix:
   allow_failures:
     - julia_version: nightly
-    - julia_version: 1.2
+    - os: windows
+    - os: osx
 
 notifications:
   email: false
