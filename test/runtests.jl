@@ -9,6 +9,9 @@ JavaCall.init(["-Djava.class.path=$(@__DIR__)"])
 # JavaCall.init(["-verbose:gc","-Djava.class.path=$(@__DIR__)"])
 # JavaCall.init()
 
+System = @jimport java.lang.System
+@info "Java Version: ", jcall(System, "getProperty", JString, (JString,), "java.version")
+
 @testset "unsafe_strings_1" begin
     a=JString("how are you")
     @test a.ptr != C_NULL
