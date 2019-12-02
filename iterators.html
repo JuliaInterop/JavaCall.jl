@@ -55,30 +55,35 @@
       </div>
       </header>
       <section>
-	<p>JavaCall supports iterating over Java collections (or anything exposing <code>java.util.Iterator</code> interface). E.g. the following code in Java:</p>
-<div class="highlight"><pre><code class="language-java" data-lang="java"><span></span><span class="kn">import</span> <span class="nn">java.util.ArrayList</span><span class="o">;</span>
+	<p>JavaCall supports iterating over Java collections (or anything exposing <code class="highlighter-rouge">java.util.Iterator</code> interface). E.g. the following code in Java:</p>
 
-<span class="n">ArrayList</span><span class="o">&lt;</span><span class="n">String</span><span class="o">&gt;</span> <span class="n">words</span> <span class="o">=</span> <span class="k">new</span> <span class="n">ArrayList</span><span class="o">&lt;&gt;();</span>
-<span class="n">words</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="s">&quot;hello&quot;</span><span class="o">);</span>
-<span class="n">words</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="s">&quot;world&quot;</span><span class="o">);</span>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">java.util.ArrayList</span><span class="o">;</span>
 
-<span class="k">for</span> <span class="o">(</span><span class="n">String</span> <span class="n">word</span> <span class="o">:</span> <span class="n">words</span><span class="o">)</span> <span class="o">{</span>
-    <span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="n">word</span><span class="o">);</span>
+<span class="nc">ArrayList</span><span class="o">&lt;</span><span class="nc">String</span><span class="o">&gt;</span> <span class="n">words</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ArrayList</span><span class="o">&lt;&gt;();</span>
+<span class="n">words</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="s">"hello"</span><span class="o">);</span>
+<span class="n">words</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="s">"world"</span><span class="o">);</span>
+
+<span class="k">for</span> <span class="o">(</span><span class="nc">String</span> <span class="n">word</span> <span class="o">:</span> <span class="n">words</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="n">word</span><span class="o">);</span>
 <span class="o">}</span>
-</code></pre></div>
+
+</code></pre></div></div>
+
 <p>may be equivalently written in Julia as:</p>
-<div class="highlight"><pre><code class="language-julia" data-lang="julia"><span></span><span class="k">import</span> <span class="n">JavaCall</span><span class="o">:</span> <span class="n">iterator</span>
+
+<div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">import</span> <span class="n">JavaCall</span><span class="o">:</span> <span class="n">iterator</span>
 
 <span class="n">JArrayList</span> <span class="o">=</span> <span class="nd">@jimport</span> <span class="n">java</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">ArrayList</span>
 
-<span class="n">words</span> <span class="o">=</span> <span class="n">JArrayList</span><span class="p">(())</span>
-<span class="n">jcall</span><span class="p">(</span><span class="n">words</span><span class="p">,</span> <span class="s">&quot;add&quot;</span><span class="p">,</span> <span class="n">jboolean</span><span class="p">,</span> <span class="p">(</span><span class="n">JObject</span><span class="p">,),</span> <span class="s">&quot;hello&quot;</span><span class="p">)</span>
-<span class="n">jcall</span><span class="p">(</span><span class="n">words</span><span class="p">,</span> <span class="s">&quot;add&quot;</span><span class="p">,</span> <span class="n">jboolean</span><span class="p">,</span> <span class="p">(</span><span class="n">JObject</span><span class="p">,),</span> <span class="s">&quot;world&quot;</span><span class="p">)</span>
+<span class="n">words</span> <span class="o">=</span> <span class="n">JArrayList</span><span class="x">(())</span>
+<span class="n">jcall</span><span class="x">(</span><span class="n">words</span><span class="x">,</span> <span class="s">"add"</span><span class="x">,</span> <span class="n">jboolean</span><span class="x">,</span> <span class="x">(</span><span class="n">JObject</span><span class="x">,),</span> <span class="s">"hello"</span><span class="x">)</span>
+<span class="n">jcall</span><span class="x">(</span><span class="n">words</span><span class="x">,</span> <span class="s">"add"</span><span class="x">,</span> <span class="n">jboolean</span><span class="x">,</span> <span class="x">(</span><span class="n">JObject</span><span class="x">,),</span> <span class="s">"world"</span><span class="x">)</span>
 
-<span class="k">for</span> <span class="n">word</span> <span class="kp">in</span> <span class="n">iterator</span><span class="p">(</span><span class="n">words</span><span class="p">)</span>
-    <span class="n">println</span><span class="p">(</span><span class="n">word</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">word</span> <span class="k">in</span> <span class="n">iterator</span><span class="x">(</span><span class="n">words</span><span class="x">)</span>
+    <span class="n">println</span><span class="x">(</span><span class="n">word</span><span class="x">)</span>
 <span class="k">end</span>
-</code></pre></div>
+</code></pre></div></div>
+
       </section>
       <footer>
         <p></p>

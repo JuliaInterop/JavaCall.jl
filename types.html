@@ -55,91 +55,120 @@
       </div>
       </header>
       <section>
-	<h1 id="types">Types</h1>
+	<p>#Types</p>
 
 <p>Java types are mapped to native Julia types.</p>
 
-<h2 id="primitive-types">Primitive Types</h2>
+<p>##Primitive Types</p>
 
 <p>The Java primitive types are aliased to their corresponding types in Julia. When writing Julia code, it is usually convenient to use these aliases since they provide a direct correspondence when transcribing Java method signatures.</p>
 
-<table><thead>
-<tr>
-<th>Java Type</th>
-<th>Julia Alias</th>
-<th>Julia Type</th>
-</tr>
-</thead><tbody>
-<tr>
-<td>boolean</td>
-<td>jboolean</td>
-<td>Uint8</td>
-</tr>
-<tr>
-<td>char</td>
-<td>jchar</td>
-<td>Uint16</td>
-</tr>
-<tr>
-<td>int</td>
-<td>jint</td>
-<td>Int32</td>
-</tr>
-<tr>
-<td>long</td>
-<td>jlong</td>
-<td>Int64</td>
-</tr>
-<tr>
-<td>float</td>
-<td>jfloat</td>
-<td>Float32</td>
-</tr>
-<tr>
-<td>double</td>
-<td>jdouble</td>
-<td>Float64</td>
-</tr>
-</tbody></table>
+<table>
+  <thead>
+    <tr>
+      <th>Java Type</th>
+      <th>Julia Alias</th>
+      <th>Julia Type</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>boolean</td>
+      <td>jboolean</td>
+      <td>Uint8</td>
+    </tr>
+    <tr>
+      <td>char</td>
+      <td>jchar</td>
+      <td>Uint16</td>
+    </tr>
+    <tr>
+      <td>int</td>
+      <td>jint</td>
+      <td>Int32</td>
+    </tr>
+    <tr>
+      <td>long</td>
+      <td>jlong</td>
+      <td>Int64</td>
+    </tr>
+    <tr>
+      <td>float</td>
+      <td>jfloat</td>
+      <td>Float32</td>
+    </tr>
+    <tr>
+      <td>double</td>
+      <td>jdouble</td>
+      <td>Float64</td>
+    </tr>
+  </tbody>
+</table>
 
-<h2 id="java-objects">Java Objects</h2>
+<p>##Java Objects</p>
 
-<p>Any java object (as opposed to a primitive) is referenced in JNI via a pointer. In Julia this is a <code>Ptr{Void}</code>. The pointer to an object is wrapped into an instance of the <code>JavaObject{T}</code> composite type. The type parameter <code>T</code> is a symbol, and is the name of the Java class that the object belongs to. Thus, a java object of class <code>java.net.URL</code> will be stored in Julia as an instance of the composite type <code>JavaObject(:java.net.URL)</code> </p>
+<p>Any java object (as opposed to a primitive) is referenced in JNI via a pointer. In Julia this is a <code class="highlighter-rouge">Ptr{Void}</code>. The pointer to an object is wrapped into an instance of the <code class="highlighter-rouge">JavaObject{T}</code> composite type. The type parameter <code class="highlighter-rouge">T</code> is a symbol, and is the name of the Java class that the object belongs to. Thus, a java object of class <code class="highlighter-rouge">java.net.URL</code> will be stored in Julia as an instance of the composite type <code class="highlighter-rouge">JavaObject(:java.net.URL)</code></p>
 
-<p>Java class identifiers (such as the <code>java.net.URL</code> above) cannot be expressed in Julia as a literal symbol, since the <code>.</code> is the composite field access operator. To express the required type, you will therefore have to write <code>JavaObject{symbol(&quot;java.net.URL&quot;)}</code>. This can get tedious very quickly. Therefore a <code>@jimport</code> macro is provided, which can covert a bare java type literal into the property parameterised <code>JavaObject</code> type. This type can then be aliased to a user defined name.</p>
-<div class="highlight"><pre><code class="language-julia" data-lang="julia"><span></span><span class="n">j_l_math</span> <span class="o">=</span> <span class="nd">@jimport</span> <span class="n">java</span><span class="o">.</span><span class="n">lang</span><span class="o">.</span><span class="n">Math</span>
-</code></pre></div>
+<p>Java class identifiers (such as the <code class="highlighter-rouge">java.net.URL</code> above) cannot be expressed in Julia as a literal symbol, since the <code class="highlighter-rouge">.</code> is the composite field access operator. To express the required type, you will therefore have to write <code class="highlighter-rouge">JavaObject{symbol("java.net.URL")}</code>. This can get tedious very quickly. Therefore a <code class="highlighter-rouge">@jimport</code> macro is provided, which can covert a bare java type literal into the property parameterised <code class="highlighter-rouge">JavaObject</code> type. This type can then be aliased to a user defined name.</p>
+
+<div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">j_l_math</span> <span class="o">=</span> <span class="nd">@jimport</span> <span class="n">java</span><span class="o">.</span><span class="n">lang</span><span class="o">.</span><span class="n">Math</span>
+</code></pre></div></div>
+
 <p>Some commonly used Java types have pre defined Julia aliases to make them easier to type</p>
 
-<table><thead>
-<tr>
-<th>Java Type</th>
-<th>Julia Type</th>
-<th>Julia Alias</th>
-</tr>
-</thead><tbody>
-<tr>
-<td><code>java.lang.String</code></td>
-<td><code>JavaObject{:java.lang.String}</code></td>
-<td><code>JString</code></td>
-</tr>
-<tr>
-<td><code>java.lang.Object</code></td>
-<td><code>JavaObject{:java.lang.Object}</code></td>
-<td><code>JObject</code></td>
-</tr>
-</tbody></table>
+<table>
+  <thead>
+    <tr>
+      <th>Java Type</th>
+      <th>Julia Type</th>
+      <th>Julia Alias</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="highlighter-rouge">java.lang.String</code></td>
+      <td><code class="highlighter-rouge">JavaObject{:java.lang.String}</code></td>
+      <td><code class="highlighter-rouge">JString</code></td>
+    </tr>
+    <tr>
+      <td><code class="highlighter-rouge">java.lang.Object</code></td>
+      <td><code class="highlighter-rouge">JavaObject{:java.lang.Object}</code></td>
+      <td><code class="highlighter-rouge">JObject</code></td>
+    </tr>
+  </tbody>
+</table>
 
-<h2 id="strings">Strings</h2>
+<p>##Strings</p>
 
-<p>A Java string object is represented in Julia as the <code>JString</code> type. A <code>JString</code> can be created from a plain Julia string using its constructor <code>JString(str::String)</code>. A <code>JString</code> object, returned, for example, from a Java method call, can be converted to a plain Julia string using the <code>bytestring(jstr::JString)</code> method. </p>
+<p>A Java string object is represented in Julia as the <code class="highlighter-rouge">JString</code> type. A <code class="highlighter-rouge">JString</code> can be created from a plain Julia string using its constructor <code class="highlighter-rouge">JString(str::String)</code>. A <code class="highlighter-rouge">JString</code> object, returned, for example, from a Java method call, can be converted to a plain Julia string using the <code class="highlighter-rouge">bytestring(jstr::JString)</code> method.</p>
 
-<h2 id="conversions">Conversions</h2>
+<p>##Multidimensional Arrays</p>
 
-<p>The Julia representation of Java objects can be converted from one type to the other using the standard Julia <code>convert</code> method. </p>
-<div class="highlight"><pre><code class="language-julia" data-lang="julia"><span></span><span class="n">convert</span><span class="p">(</span><span class="n">JObject</span><span class="p">,</span> <span class="n">JString</span><span class="p">(</span><span class="s">&quot;hello&quot;</span><span class="p">))</span>
-</code></pre></div>
-<p>The conversion is checked, and will throw an error (equivalent to a java <code>ClassCastException</code>) if the object cannot be converted to the required type. Note that <code>jcall</code> will automatically attempt to convert the parameters to the specified types, and fail if the conversion fails. </p>
+<p>Unlike Julia, Java doesn’t support multidimensional arrays, but may emulate them using array of arrays, e.g.:</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">double</span><span class="o">[][]</span> <span class="nf">create2DArray</span><span class="o">()</span> <span class="o">{</span> <span class="o">...</span> <span class="o">}</span>
+</code></pre></div></div>
+
+<p>The result of such a function may be interpreted in Julia as both - <code class="highlighter-rouge">Vector{Vector{jdouble}}</code> or <code class="highlighter-rouge">Matrix{jdouble}</code>. JavaCall supports both cases (in the later case JavaCall also checks that all nested arrays have the same length):</p>
+
+<div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">jcall</span><span class="x">(</span><span class="n">obj</span><span class="x">,</span> <span class="s">"create2DArray"</span><span class="x">,</span> <span class="kt">Vector</span><span class="x">{</span><span class="kt">Vector</span><span class="x">{</span><span class="n">jdouble</span><span class="x">}},</span> <span class="x">())</span>
+<span class="n">jcall</span><span class="x">(</span><span class="n">obj</span><span class="x">,</span> <span class="s">"create2DArray"</span><span class="x">,</span> <span class="kt">Matrix</span><span class="x">{</span><span class="n">jdouble</span><span class="x">},</span> <span class="x">())</span>
+</code></pre></div></div>
+
+<p>Arrays with more than 2 dimensions are not supported, but one may still extract all the data using nested <code class="highlighter-rouge">Vector{...}</code> type, e.g.:</p>
+
+<div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">jcall</span><span class="x">(</span><span class="n">obj</span><span class="x">,</span> <span class="s">"create3DArray"</span><span class="x">,</span> <span class="kt">Vector</span><span class="x">{</span><span class="kt">Vector</span><span class="x">{</span><span class="kt">Vector</span><span class="x">{</span><span class="n">jdouble</span><span class="x">}}},</span> <span class="x">())</span>
+</code></pre></div></div>
+
+<p>##Conversions</p>
+
+<p>The Julia representation of Java objects can be converted from one type to the other using the standard Julia <code class="highlighter-rouge">convert</code> method.</p>
+
+<div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">convert</span><span class="x">(</span><span class="n">JObject</span><span class="x">,</span> <span class="n">JString</span><span class="x">(</span><span class="s">"hello"</span><span class="x">))</span>
+</code></pre></div></div>
+
+<p>The conversion is checked, and will throw an error (equivalent to a java <code class="highlighter-rouge">ClassCastException</code>) if the object cannot be converted to the required type. Note that <code class="highlighter-rouge">jcall</code> will automatically attempt to convert the parameters to the specified types, and fail if the conversion fails.</p>
+
 
       </section>
       <footer>

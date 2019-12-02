@@ -55,41 +55,44 @@
       </div>
       </header>
       <section>
-	<h1 id="troubleshooting-and-frequently-asked-questions">Troubleshooting and Frequently Asked Questions</h1>
+	<p>#Troubleshooting and Frequently Asked Questions</p>
 
-<h3 id="error-jnifunc-not-defined">&quot;ERROR: jnifunc not defined&quot;</h3>
+<h3 id="error-jnifunc-not-defined">“ERROR: jnifunc not defined”</h3>
 
-<p>You are attempting to call Java methods without initialising the JVM. Call <code>JavaCall.init(...)</code> first.</p>
+<p>You are attempting to call Java methods without initialising the JVM. Call <code class="highlighter-rouge">JavaCall.init(...)</code> first.</p>
 
-<h3 id="cannot-find-libjvm">&quot;Cannot find libjvm&quot;</h3>
+<h3 id="cannot-find-libjvm">“Cannot find libjvm”</h3>
 
-<p>The JVM dynamic library cannot be found. It is called <code>libjvm.so</code>, <code>libjvm.dylib</code> or <code>jvm.dll</code> depending on your system. Check that you have <code>JAVA_HOME</code> environment variable defined. If you do, verify the search logic in the code, and please file a pull request with an amemded version that can find your library. As a workaround, you can set the <code>JAVA_LIB</code> environment variable to point to the location of the library file.</p>
+<p>The JVM dynamic library cannot be found. It is called <code class="highlighter-rouge">libjvm.so</code>, <code class="highlighter-rouge">libjvm.dylib</code> or <code class="highlighter-rouge">jvm.dll</code> depending on your system. Check that you have <code class="highlighter-rouge">JAVA_HOME</code> environment variable defined. If you do, verify the search logic in the code, and please file a pull request with an amemded version that can find your library. As a workaround, you can set the <code class="highlighter-rouge">JAVA_LIB</code> environment variable to point to the location of the library file.</p>
 
 <h3 id="segault-on-osx">Segault on OSX</h3>
 
-<p>Upon initialising JavaCall on OSX, you get an immediate segfault message, while execution carries on normally.<br><br>
-<code><br>
-signal (11): Segmentation fault: 11<br>
-unknown function (ip: 0x31960c2b4)<br>
-</code><br>
-This message is usually benign. It is due to the way the JVM uses signals for its regular operations. Julia on OSX installs a signal handler, which generates the above message. However, since the signal is eventually caught and handled by the JVM, execution carries on normally. If the message troubles you for any reason, please start julia with the <code>--handle-signals=no</code> option. In this case, Julia&#39;s signal handler will be disabled, and you will no longer see the above message. However, this may cause issues with handling <code>^C</code> in Julia programs.</p>
+<p>Upon initialising JavaCall on OSX, you get an immediate segfault message, while execution carries on normally.</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>signal (11): Segmentation fault: 11
+unknown function (ip: 0x31960c2b4)
+</code></pre></div></div>
+<p>This message is usually benign. It is due to the way the JVM uses signals for its regular operations. Julia on OSX installs a signal handler, which generates the above message. However, since the signal is eventually caught and handled by the JVM, execution carries on normally. If the message troubles you for any reason, please start julia with the <code class="highlighter-rouge">--handle-signals=no</code> option. In this case, Julia’s signal handler will be disabled, and you will no longer see the above message. However, this may cause issues with handling <code class="highlighter-rouge">^C</code> in Julia programs.</p>
 
 <p><em>References:</em></p>
 
 <ul>
-<li><a href="http://stackoverflow.com/questions/27241575/why-does-java-app-crash-in-gdb-but-runs-normally-in-real-life">http://stackoverflow.com/questions/27241575/why-does-java-app-crash-in-gdb-but-runs-normally-in-real-life</a></li>
-<li><a href="http://www.oracle.com/technetwork/java/javase/signals-139944.html#gbzbl">http://www.oracle.com/technetwork/java/javase/signals-139944.html#gbzbl</a></li>
+  <li>http://stackoverflow.com/questions/27241575/why-does-java-app-crash-in-gdb-but-runs-normally-in-real-life</li>
+  <li>http://www.oracle.com/technetwork/java/javase/signals-139944.html#gbzbl</li>
 </ul>
 
-<h3 id="no-java-runtime-present-requesting-install-message-on-osx">&quot;No Java runtime present, requesting install.&quot; message on OSX</h3>
+<h3 id="no-java-runtime-present-requesting-install-message-on-osx">“No Java runtime present, requesting install.” message on OSX</h3>
 
 <p>Unfortunately, Java on the Mac has a <a href="https://bugs.openjdk.java.net/browse/JDK-7131356">known bug</a>, wherein attempting to load a JVM via JNI fails unless the old OSX system Java 6 libraries are installed on the machine. This is strictly not necessary to run any Java programs, but is required due to a bug. This is scheduled to be fixed only in Java 9. In the meantime, the only option is to download and install the Apple Java 6 libraries from this url: <a href="https://support.apple.com/kb/dl1572?locale=en_US">https://support.apple.com/kb/dl1572?locale=en_US</a></p>
 
-<h3 id="java-lang-nosuchmethoderror">&quot;java.lang.NoSuchMethodError&quot;</h3>
+<h3 id="javalangnosuchmethoderror">“java.lang.NoSuchMethodError”</h3>
 
 <ol>
-<li><p>Make sure the signature of the method is what you expect it to be. See <code>listmethods()</code> function from <a href="reflection.html">Reflection API</a>. </p></li>
-<li><p>Make sure <code>JavaObject{T}</code> has an expected type parameter <code>T</code>. To call a Java method, <code>jcall</code> uses <code>T</code> as the name of a class to call the method on, even if actual object class is different. See <strong>Inspecting classes</strong> section from <a href="reflection.html">Reflection API</a>.</p></li>
+  <li>
+    <p>Make sure the signature of the method is what you expect it to be. See <code class="highlighter-rouge">listmethods()</code> function from <a href="reflection.html">Reflection API</a>.</p>
+  </li>
+  <li>
+    <p>Make sure <code class="highlighter-rouge">JavaObject{T}</code> has an expected type parameter <code class="highlighter-rouge">T</code>. To call a Java method, <code class="highlighter-rouge">jcall</code> uses <code class="highlighter-rouge">T</code> as the name of a class to call the method on, even if actual object class is different. See <strong>Inspecting classes</strong> section from <a href="reflection.html">Reflection API</a>.</p>
+  </li>
 </ol>
 
       </section>

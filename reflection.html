@@ -55,123 +55,145 @@
       </div>
       </header>
       <section>
-	<h1 id="reflection-api">Reflection API</h1>
+	<p>#Reflection API</p>
 
-<p>Sometimes it&#39;s impossible to infer exact object types and method signatures just from Javadocs. In such cases Java reflection API may be used to discover actual state of affairs. JavaCall provides convenient wrappers for the most import methods.</p>
+<p>Sometimes it’s impossible to infer exact object types and method signatures just from Javadocs. In such cases Java reflection API may be used to discover actual state of affairs. JavaCall provides convenient wrappers for the most import methods.</p>
 
 <h2 id="inspecting-methods">Inspecting methods</h2>
 
 <p>Consider the case of generic collections:</p>
-<div class="highlight"><pre><code class="language-julia" data-lang="julia"><span></span><span class="n">JHashMap</span> <span class="o">=</span> <span class="nd">@jimport</span> <span class="n">java</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">HashMap</span>
-<span class="n">jmap</span> <span class="o">=</span> <span class="n">JHashMap</span><span class="p">(())</span>
-</code></pre></div>
-<p>Because of <a href="https://stackoverflow.com/questions/339699/java-generics-type-erasure-when-and-what-happens">type erasure</a>, JVM knows nothing about constraints of generic types and we can put any objects into <code>HashMap</code>. If we want to put a pair where both key and value are strings, we may naively write:</p>
-<div class="highlight"><pre><code class="language-julia" data-lang="julia"><span></span><span class="n">jcall</span><span class="p">(</span><span class="n">jmap</span><span class="p">,</span> <span class="s">&quot;put&quot;</span><span class="p">,</span> <span class="n">JString</span><span class="p">,</span> <span class="p">(</span><span class="n">JString</span><span class="p">,</span> <span class="n">JString</span><span class="p">),</span> <span class="s">&quot;foo&quot;</span><span class="p">,</span> <span class="s">&quot;text value&quot;</span><span class="p">)</span>
-</code></pre></div>
+
+<div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">JHashMap</span> <span class="o">=</span> <span class="nd">@jimport</span> <span class="n">java</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">HashMap</span>
+<span class="n">jmap</span> <span class="o">=</span> <span class="n">JHashMap</span><span class="x">(())</span>
+</code></pre></div></div>
+<p>Because of <a href="https://stackoverflow.com/questions/339699/java-generics-type-erasure-when-and-what-happens">type erasure</a>, JVM knows nothing about constraints of generic types and we can put any objects into <code class="highlighter-rouge">HashMap</code>. If we want to put a pair where both key and value are strings, we may naively write:</p>
+
+<div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">jcall</span><span class="x">(</span><span class="n">jmap</span><span class="x">,</span> <span class="s">"put"</span><span class="x">,</span> <span class="n">JString</span><span class="x">,</span> <span class="x">(</span><span class="n">JString</span><span class="x">,</span> <span class="n">JString</span><span class="x">),</span> <span class="s">"foo"</span><span class="x">,</span> <span class="s">"text value"</span><span class="x">)</span>
+</code></pre></div></div>
+
 <p>Which will immediately lead to the error:</p>
 
 <blockquote>
-<p>ERROR: Error calling Java: java.lang.NoSuchMethodError: put</p>
+  <p>ERROR: Error calling Java: java.lang.NoSuchMethodError: put</p>
 </blockquote>
 
-<p>This happens because although <code>HashMap</code> has a method called &quot;put&quot;, in JVM this method has rather different signature. We can find it using function <code>listmethods</code>:</p>
-<div class="highlight"><pre><code class="language-text" data-lang="text"><span></span>listmethods(jmap, &quot;put&quot;)
-# 1-element Array{JavaCall.JavaObject{Symbol(&quot;java.lang.reflect.Method&quot;)},1}:
-# java.lang.Object put(java.lang.Object, java.lang.Object)
-</code></pre></div>
-<p><code>listmethods()</code> returns an array of all object methods (represented as <code>JMethod</code> type), optionally filtering them by name. Julia than prints them so that you can inspect their signatures.</p>
+<p>This happens because although <code class="highlighter-rouge">HashMap</code> has a method called “put”, in JVM this method has rather different signature. We can find it using function <code class="highlighter-rouge">listmethods</code>:</p>
 
-<p>From the output of the previous command we see that <code>put()</code> expects 2 arguments of type <code>JObject</code> (alias to <code>java.lang.Object</code>) and returns an object of the same type. Now we can modify our call:</p>
-<div class="highlight"><pre><code class="language-julia" data-lang="julia"><span></span><span class="n">jcall</span><span class="p">(</span><span class="n">jmap</span><span class="p">,</span> <span class="s">&quot;put&quot;</span><span class="p">,</span> <span class="n">JObject</span><span class="p">,</span> <span class="p">(</span><span class="n">JObject</span><span class="p">,</span> <span class="n">JObject</span><span class="p">),</span> <span class="s">&quot;foo&quot;</span><span class="p">,</span> <span class="s">&quot;text value&quot;</span><span class="p">)</span>
-</code></pre></div>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>listmethods(jmap, "put")
+# 1-element Array{JavaCall.JavaObject{Symbol("java.lang.reflect.Method")},1}:
+# java.lang.Object put(java.lang.Object, java.lang.Object)
+</code></pre></div></div>
+
+<p><code class="highlighter-rouge">listmethods()</code> returns an array of all object methods (represented as <code class="highlighter-rouge">JMethod</code> type), optionally filtering them by name. Julia than prints them so that you can inspect their signatures.</p>
+
+<p>From the output of the previous command we see that <code class="highlighter-rouge">put()</code> expects 2 arguments of type <code class="highlighter-rouge">JObject</code> (alias to <code class="highlighter-rouge">java.lang.Object</code>) and returns an object of the same type. Now we can modify our call:</p>
+
+<div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">jcall</span><span class="x">(</span><span class="n">jmap</span><span class="x">,</span> <span class="s">"put"</span><span class="x">,</span> <span class="n">JObject</span><span class="x">,</span> <span class="x">(</span><span class="n">JObject</span><span class="x">,</span> <span class="n">JObject</span><span class="x">),</span> <span class="s">"foo"</span><span class="x">,</span> <span class="s">"text value"</span><span class="x">)</span>
+</code></pre></div></div>
+
 <p>Which works well. You can also inspect individual properties of Java methods using the following functions with self-explaining names:</p>
 
 <ul>
-<li><code>getname(::JMethod)</code></li>
-<li><code>getreturntype(::JMethod)</code></li>
-<li><code>getparametertypes(::JMethod)</code></li>
+  <li><code class="highlighter-rouge">getname(::JMethod)</code></li>
+  <li><code class="highlighter-rouge">getreturntype(::JMethod)</code></li>
+  <li><code class="highlighter-rouge">getparametertypes(::JMethod)</code></li>
 </ul>
 
 <h2 id="inspecting-classes">Inspecting classes</h2>
 
-<p>Now imagine that somewhere later in the code we want to retrieve the value with the key &quot;foo&quot; from the map. The signature for this method is:</p>
-<div class="highlight"><pre><code class="language-julia" data-lang="julia"><span></span><span class="n">listmethods</span><span class="p">(</span><span class="n">jmap</span><span class="p">,</span> <span class="s">&quot;get&quot;</span><span class="p">)</span>
-<span class="c"># 1-element Array{JavaCall.JavaObject{Symbol(&quot;java.lang.reflect.Method&quot;)},1}:</span>
-<span class="c">#  java.lang.Object get(java.lang.Object)</span>
-</code></pre></div>
-<p>So we can call this methods like this:</p>
-<div class="highlight"><pre><code class="language-julia" data-lang="julia"><span></span><span class="n">obj</span> <span class="o">=</span> <span class="n">jcall</span><span class="p">(</span><span class="n">jmap</span><span class="p">,</span> <span class="s">&quot;get&quot;</span><span class="p">,</span> <span class="n">JObject</span><span class="p">,</span> <span class="p">(</span><span class="n">JObject</span><span class="p">,),</span> <span class="s">&quot;foo&quot;</span><span class="p">)</span>
-<span class="c"># JavaCall.JavaObject{Symbol(&quot;java.lang.Object&quot;)}(Ptr{Void} @0x0000000000000000)</span>
-</code></pre></div>
-<p>Note that this method returns an instance of <code>java.lang.Object</code>, although the underlying object may have a more narrow type. To call methods of underlying object in both - Java and Julia - we need to convert it to the expected type. E.g. in Java:</p>
-<div class="highlight"><pre><code class="language-java" data-lang="java"><span></span><span class="n">HashMap</span> <span class="n">map</span> <span class="o">=</span> <span class="k">new</span> <span class="n">HashMap</span><span class="o">();</span> <span class="c1">// note: no type parameters specified,</span>
-                             <span class="c1">// so `map` is essentially a `HashMap&lt;Object, Object&gt;`</span>
-<span class="n">map</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="s">&quot;foo&quot;</span><span class="o">,</span> <span class="s">&quot;text value&quot;</span><span class="o">);</span>
-<span class="o">...</span>
-<span class="n">Object</span> <span class="n">obj</span> <span class="o">=</span> <span class="n">map</span><span class="o">.</span><span class="na">get</span><span class="o">();</span>
-<span class="n">obj</span><span class="o">.</span><span class="na">trim</span><span class="o">();</span>                  <span class="c1">// compile-time error: Object doesn&#39;t have a method `trim()`</span>
+<p>Now imagine that somewhere later in the code we want to retrieve the value with the key “foo” from the map. The signature for this method is:</p>
 
-<span class="n">String</span> <span class="n">str</span> <span class="o">=</span> <span class="o">(</span><span class="n">String</span><span class="o">)</span><span class="n">obj</span><span class="o">;</span>
-<span class="n">str</span><span class="o">.</span><span class="na">trim</span><span class="o">();</span>                  <span class="c1">// works fine</span>
-</code></pre></div>
-<p>And in Julia:</p>
-<div class="highlight"><pre><code class="language-julia" data-lang="julia"><span></span><span class="n">jmap</span> <span class="o">=</span> <span class="n">JHashMap</span><span class="p">(())</span>
-<span class="n">jcall</span><span class="p">(</span><span class="n">jmap</span><span class="p">,</span> <span class="s">&quot;put&quot;</span><span class="p">,</span> <span class="n">JObject</span><span class="p">,</span> <span class="p">(</span><span class="n">JObject</span><span class="p">,</span> <span class="n">JObject</span><span class="p">),</span> <span class="s">&quot;foo&quot;</span><span class="p">,</span> <span class="s">&quot;text value&quot;</span><span class="p">)</span>
+<div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">listmethods</span><span class="x">(</span><span class="n">jmap</span><span class="x">,</span> <span class="s">"get"</span><span class="x">)</span>
+<span class="c"># 1-element Array{JavaCall.JavaObject{Symbol("java.lang.reflect.Method")},1}:</span>
+<span class="c">#  java.lang.Object get(java.lang.Object)</span>
+</code></pre></div></div>
+<p>So we can call this methods like this:</p>
+
+<div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">obj</span> <span class="o">=</span> <span class="n">jcall</span><span class="x">(</span><span class="n">jmap</span><span class="x">,</span> <span class="s">"get"</span><span class="x">,</span> <span class="n">JObject</span><span class="x">,</span> <span class="x">(</span><span class="n">JObject</span><span class="x">,),</span> <span class="s">"foo"</span><span class="x">)</span>
+<span class="c"># JavaCall.JavaObject{Symbol("java.lang.Object")}(Ptr{Void} @0x0000000000000000)</span>
+</code></pre></div></div>
+<p>Note that this method returns an instance of <code class="highlighter-rouge">java.lang.Object</code>, although the underlying object may have a more narrow type. To call methods of underlying object in both - Java and Julia - we need to convert it to the expected type. E.g. in Java:</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nc">HashMap</span> <span class="n">map</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">HashMap</span><span class="o">();</span> <span class="c1">// note: no type parameters specified,</span>
+                             <span class="c1">// so `map` is essentially a `HashMap&lt;Object, Object&gt;`</span>
+<span class="n">map</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="s">"foo"</span><span class="o">,</span> <span class="s">"text value"</span><span class="o">);</span>
 <span class="o">...</span>
-<span class="n">obj</span> <span class="o">=</span> <span class="n">jcall</span><span class="p">(</span><span class="n">jmap</span><span class="p">,</span> <span class="s">&quot;get&quot;</span><span class="p">,</span> <span class="n">JObject</span><span class="p">,</span> <span class="p">(</span><span class="n">JObject</span><span class="p">,),</span> <span class="s">&quot;foo&quot;</span><span class="p">)</span>  <span class="c"># JavaObject{Symbol(&quot;java.lang.Object&quot;)}</span>
-<span class="n">jcall</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="s">&quot;trim&quot;</span><span class="p">,</span> <span class="n">JString</span><span class="p">,</span> <span class="p">())</span>  <span class="c"># run-time error: jcall can&#39;t find method `trim()` in `java.lang.Object`,</span>
+<span class="nc">Object</span> <span class="n">obj</span> <span class="o">=</span> <span class="n">map</span><span class="o">.</span><span class="na">get</span><span class="o">();</span>
+<span class="n">obj</span><span class="o">.</span><span class="na">trim</span><span class="o">();</span>                  <span class="c1">// compile-time error: Object doesn't have a method `trim()`</span>
+
+<span class="nc">String</span> <span class="n">str</span> <span class="o">=</span> <span class="o">(</span><span class="nc">String</span><span class="o">)</span><span class="n">obj</span><span class="o">;</span>
+<span class="n">str</span><span class="o">.</span><span class="na">trim</span><span class="o">();</span>                  <span class="c1">// works fine</span>
+</code></pre></div></div>
+<p>And in Julia:</p>
+
+<div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">jmap</span> <span class="o">=</span> <span class="n">JHashMap</span><span class="x">(())</span>
+<span class="n">jcall</span><span class="x">(</span><span class="n">jmap</span><span class="x">,</span> <span class="s">"put"</span><span class="x">,</span> <span class="n">JObject</span><span class="x">,</span> <span class="x">(</span><span class="n">JObject</span><span class="x">,</span> <span class="n">JObject</span><span class="x">),</span> <span class="s">"foo"</span><span class="x">,</span> <span class="s">"text value"</span><span class="x">)</span>
+<span class="o">...</span>
+<span class="n">obj</span> <span class="o">=</span> <span class="n">jcall</span><span class="x">(</span><span class="n">jmap</span><span class="x">,</span> <span class="s">"get"</span><span class="x">,</span> <span class="n">JObject</span><span class="x">,</span> <span class="x">(</span><span class="n">JObject</span><span class="x">,),</span> <span class="s">"foo"</span><span class="x">)</span>  <span class="c"># JavaObject{Symbol("java.lang.Object")}</span>
+<span class="n">jcall</span><span class="x">(</span><span class="n">obj</span><span class="x">,</span> <span class="s">"trim"</span><span class="x">,</span> <span class="n">JString</span><span class="x">,</span> <span class="x">())</span>  <span class="c"># run-time error: jcall can't find method `trim()` in `java.lang.Object`,</span>
                                  <span class="c"># producing another `NoSuchMethodError`</span>
 
-<span class="n">str</span> <span class="o">=</span> <span class="n">convert</span><span class="p">(</span><span class="n">JString</span><span class="p">,</span> <span class="n">obj</span><span class="p">)</span>      <span class="c"># JavaObject{Symbol(&quot;java.lang.String&quot;)}</span>
-<span class="n">jcall</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="s">&quot;trim&quot;</span><span class="p">,</span> <span class="n">JString</span><span class="p">,</span> <span class="p">())</span>  <span class="c"># works fine</span>
-</code></pre></div>
-<p>If we don&#39;t know exact type of the underlying object or want to save a couple of keystrokes, we can simply call <code>narrow</code>:</p>
-<div class="highlight"><pre><code class="language-text" data-lang="text"><span></span>obj = jcall(jmap, &quot;get&quot;, JObject, (JObject,), &quot;foo&quot;)     # JavaObject{Symbol(&quot;java.lang.Object&quot;)}
-narrow(obj)                                              # JavaObject{Symbol(&quot;java.lang.String&quot;)}
-</code></pre></div>
-<p>Other functions for inspecting object&#39;s class:</p>
+<span class="n">str</span> <span class="o">=</span> <span class="n">convert</span><span class="x">(</span><span class="n">JString</span><span class="x">,</span> <span class="n">obj</span><span class="x">)</span>      <span class="c"># JavaObject{Symbol("java.lang.String")}</span>
+<span class="n">jcall</span><span class="x">(</span><span class="n">obj</span><span class="x">,</span> <span class="s">"trim"</span><span class="x">,</span> <span class="n">JString</span><span class="x">,</span> <span class="x">())</span>  <span class="c"># works fine</span>
+</code></pre></div></div>
+
+<p>If we don’t know exact type of the underlying object or want to save a couple of keystrokes, we can simply call <code class="highlighter-rouge">narrow</code>:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>obj = jcall(jmap, "get", JObject, (JObject,), "foo")     # JavaObject{Symbol("java.lang.Object")}
+narrow(obj)                                              # JavaObject{Symbol("java.lang.String")}
+</code></pre></div></div>
+
+<p>Other functions for inspecting object’s class:</p>
 
 <ul>
-<li><code>getclass(obj::JavaObject)</code> - return an instance of <code>java.lang.Class</code> (aliases as <code>JClass</code>) representing <code>obj</code>&#39;s class</li>
-<li><code>getname(cls::JClass)</code> - return the name of class <code>cls</code></li>
+  <li><code class="highlighter-rouge">getclass(obj::JavaObject)</code> - return an instance of <code class="highlighter-rouge">java.lang.Class</code> (aliases as <code class="highlighter-rouge">JClass</code>) representing <code class="highlighter-rouge">obj</code>’s class</li>
+  <li><code class="highlighter-rouge">getname(cls::JClass)</code> - return the name of class <code class="highlighter-rouge">cls</code></li>
 </ul>
 
 <h2 id="types-are-objects">Types are objects</h2>
 
-<p>Java relfection API isn&#39;t quite simple, working with it from Julia may be even harder. The reason is that you have to work with 4 different kinds of objects - Java types, Java objects, Julia types and Julia objects. Let&#39;s start with the Java side. </p>
+<p>Java relfection API isn’t quite simple, working with it from Julia may be even harder. The reason is that you have to work with 4 different kinds of objects - Java types, Java objects, Julia types and Julia objects. Let’s start with the Java side.</p>
 
 <p>In Java you normally work with objects, i.e. instances of classes, e.g. in:</p>
-<div class="highlight"><pre><code class="language-java" data-lang="java"><span></span><span class="n">Foo</span> <span class="n">foo</span> <span class="o">=</span> <span class="k">new</span> <span class="n">Foo</span><span class="o">();</span>
-</code></pre></div>
-<p><code>Foo</code> is the name of the class and <code>foo</code> is an instance of that class. Just like <code>int</code> is the name of a type and <code>42</code> is an object of that type. </p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nc">Foo</span> <span class="n">foo</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Foo</span><span class="o">();</span>
+</code></pre></div></div>
+<p><code class="highlighter-rouge">Foo</code> is the name of the class and <code class="highlighter-rouge">foo</code> is an instance of that class. Just like <code class="highlighter-rouge">int</code> is the name of a type and <code class="highlighter-rouge">42</code> is an object of that type.</p>
 
 <p>In Julia syntax is different, but in general idea is the same:</p>
-<div class="highlight"><pre><code class="language-julia" data-lang="julia"><span></span><span class="n">bar</span> <span class="o">=</span> <span class="n">Bar</span><span class="p">()</span>
-</code></pre></div>
-<p><code>Bar</code> - name of a type, <code>bar</code> - an object of that type. </p>
 
-<p>JavaCall let&#39;s you treat Java classes (types of Java objects) just like you would normally do with other types:</p>
-<div class="highlight"><pre><code class="language-text" data-lang="text"><span></span>JFoo = @jimport Foo    # import Java class Foo
+<div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">bar</span> <span class="o">=</span> <span class="n">Bar</span><span class="x">()</span>
+</code></pre></div></div>
+<p><code class="highlighter-rouge">Bar</code> - name of a type, <code class="highlighter-rouge">bar</code> - an object of that type.</p>
+
+<p>JavaCall let’s you treat Java classes (types of Java objects) just like you would normally do with other types:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>JFoo = @jimport Foo    # import Java class Foo
 jfoo = JFoo(())        # create an object of Java class Foo
-</code></pre></div>
+</code></pre></div></div>
 <p>This is how you normally use JavaCall and it should be pretty straightforward.</p>
 
-<p>But both - in Julia and Java - <strong>types/classes are themselves objects</strong>! In Java, each class is an instance of <code>java.lang.Class</code> (e.g. <code>java.lang.Class&lt;Foo&gt;</code>) and in Julia each type is an object of type <code>DataType</code>. So when you have a name of a class/type at hand, you can treat them either as <strong>types</strong> or <strong>objects</strong>. For example in Java: </p>
-<div class="highlight"><pre><code class="language-java" data-lang="java"><span></span><span class="kt">void</span> <span class="nf">myFunction</span><span class="o">(</span><span class="n">Foo</span> <span class="n">foo</span><span class="o">)</span> <span class="o">{</span> <span class="o">...</span> <span class="o">}</span>   <span class="c1">// &lt;-- Foo acts as a type, i.e. qualifier of</span>
+<p>But both - in Julia and Java - <strong>types/classes are themselves objects</strong>! In Java, each class is an instance of <code class="highlighter-rouge">java.lang.Class</code> (e.g. <code class="highlighter-rouge">java.lang.Class&lt;Foo&gt;</code>) and in Julia each type is an object of type <code class="highlighter-rouge">DataType</code>. So when you have a name of a class/type at hand, you can treat them either as <strong>types</strong> or <strong>objects</strong>. For example in Java:</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">myFunction</span><span class="o">(</span><span class="nc">Foo</span> <span class="n">foo</span><span class="o">)</span> <span class="o">{</span> <span class="o">...</span> <span class="o">}</span>   <span class="c1">// &lt;-- Foo acts as a type, i.e. qualifier of</span>
                                    <span class="c1">//     objects that can be passed to the function</span>
 
-<span class="n">Class</span><span class="o">&lt;</span><span class="n">Foo</span><span class="o">&gt;</span> <span class="n">fooClass</span> <span class="o">=</span> <span class="n">Foo</span><span class="o">.</span><span class="na">class</span>             <span class="c1">// &lt;-- Foo acts as an object. You can create an instance of that class</span>
-<span class="n">Class</span><span class="o">&lt;</span><span class="n">Foo</span><span class="o">&gt;</span> <span class="n">fooClass</span> <span class="o">=</span> <span class="n">Class</span><span class="o">.</span><span class="na">forName</span><span class="o">(</span><span class="s">&quot;Foo&quot;</span><span class="o">)</span>  <span class="c1">//     or call class methods (as opposed to instance methods) </span>
-</code></pre></div>
+<span class="nc">Class</span><span class="o">&lt;</span><span class="nc">Foo</span><span class="o">&gt;</span> <span class="n">fooClass</span> <span class="o">=</span> <span class="nc">Foo</span><span class="o">.</span><span class="na">class</span>             <span class="c1">// &lt;-- Foo acts as an object. You can create an instance of that class</span>
+<span class="nc">Class</span><span class="o">&lt;</span><span class="nc">Foo</span><span class="o">&gt;</span> <span class="n">fooClass</span> <span class="o">=</span> <span class="nc">Class</span><span class="o">.</span><span class="na">forName</span><span class="o">(</span><span class="s">"Foo"</span><span class="o">)</span>  <span class="c1">//     or call class methods (as opposed to instance methods) </span>
+</code></pre></div></div>
+
 <p>To access Java classes <em>as object</em>, Julia provides a special function:</p>
-<div class="highlight"><pre><code class="language-julia" data-lang="julia"><span></span><span class="n">foo_class</span> <span class="o">=</span> <span class="n">classforname</span><span class="p">(</span><span class="s">&quot;Foo&quot;</span><span class="p">)</span>   <span class="c"># roughly equivalent to `Class.forName(&quot;Foo&quot;)` in Java</span>
-</code></pre></div>
-<p>To summarize: </p>
+
+<div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">foo_class</span> <span class="o">=</span> <span class="n">classforname</span><span class="x">(</span><span class="s">"Foo"</span><span class="x">)</span>   <span class="c"># roughly equivalent to `Class.forName("Foo")` in Java</span>
+</code></pre></div></div>
+
+<p>To summarize:</p>
 
 <ul>
-<li><code>@jimport</code> makes Java class available as a type; this is how you normally work with Java classes</li>
-<li><code>classforname(...)</code> creates an object of <code>java.lang.Class</code> and returns a pointer to it</li>
+  <li><code class="highlighter-rouge">@jimport</code> makes Java class available as a type; this is how you normally work with Java classes</li>
+  <li><code class="highlighter-rouge">classforname(...)</code> creates an object of <code class="highlighter-rouge">java.lang.Class</code> and returns a pointer to it</li>
 </ul>
+
 
       </section>
       <footer>

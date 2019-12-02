@@ -1,12 +1,12 @@
 #Adapted from https://github.com/github/developer.github.com/blob/master/Rakefile#L21-L48
 
-cd(Pkg.dir()*"/JavaCall/doc")
+cd(@__DIR__)
 
 last_commit=readchomp(`git --no-pager log -1 --pretty=format:"%h:%s"`)
 
-ENV["GIT_DIR"]=abspath(chomp(readstring(`git rev-parse --git-dir`)))
+ENV["GIT_DIR"]=abspath(chomp(read(`git rev-parse --git-dir`, String)))
 
-old_sha = chomp(readstring(`git rev-parse refs/remotes/origin/gh-pages`))
+old_sha = chomp(read(`git rev-parse refs/remotes/origin/gh-pages`, String))
 
 run(`jekyll build`)
 
@@ -16,13 +16,13 @@ cd("_site") do
 	ENV["GIT_INDEX_FILE"]=gif
 	ENV["GIT_WORK_TREE"]=pwd()
 	run(`git add -A`)
-	tsha=chomp(readstring(`git write-tree`))
-	mesg="Deploy docs for master@$last_commit" 
+	tsha=chomp(read(`git write-tree`, String))
+	mesg="Deploy docs for master@$last_commit"
 
 	if length(old_sha) == 40
-	  	csha = chomp(readstring(`git commit-tree $tsha -p $old_sha -m $(mesg)`))
+	  	csha = chomp(read(`git commit-tree $tsha -p $old_sha -m $(mesg)`, String))
 	else 
-		csha = chomp(readstring(`git commit-tree $tsha -m $(mesg)`))
+		csha = chomp(read(`git commit-tree $tsha -m $(mesg)`, String))
 	end
 
 	 print("Created commit $csha")
