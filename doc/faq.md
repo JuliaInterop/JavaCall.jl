@@ -2,14 +2,14 @@
 layout: default
 ---
 
-#Troubleshooting and Frequently Asked Questions
+# Troubleshooting and Frequently Asked Questions
 
 ### "ERROR: jnifunc not defined"
 
 You are attempting to call Java methods without initialising the JVM. Call `JavaCall.init(...)` first.
 
 
-###  "Cannot find libjvm" 
+### "Cannot find libjvm" 
 
 The JVM dynamic library cannot be found. It is called `libjvm.so`, `libjvm.dylib` or `jvm.dll` depending on your system. Check that you have `JAVA_HOME` environment variable defined. If you do, verify the search logic in the code, and please file a pull request with an amemded version that can find your library. As a workaround, you can set the `JAVA_LIB` environment variable to point to the location of the library file.
 
@@ -35,6 +35,6 @@ Unfortunately, Java on the Mac has a [known bug](https://bugs.openjdk.java.net/b
 
 ### "java.lang.NoSuchMethodError"
 
-1. Make sure the signature of the method is what you expect it to be. See `listmethods()` function from [Reflection API](reflection.html). 
+1. Make sure the signature of the method is what you expect it to be. See `listmethods()` function from [Reflection API](reflection.html).
 
 2. Make sure `JavaObject{T}` has an expected type parameter `T`. To call a Java method, `jcall` uses `T` as the name of a class to call the method on, even if actual object class is different. See **Inspecting classes** section from [Reflection API](reflection.html).

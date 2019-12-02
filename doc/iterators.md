@@ -2,6 +2,8 @@
 layout: default
 ---
 
+# Iterators
+
 JavaCall supports iterating over Java collections (or anything exposing `java.util.Iterator` interface). E.g. the following code in Java:
 
 ```java

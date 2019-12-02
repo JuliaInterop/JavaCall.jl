@@ -2,7 +2,7 @@
 layout: default
 ---
 
-#Reflection API
+# Reflection API
 
 Sometimes it's impossible to infer exact object types and method signatures just from Javadocs. In such cases Java reflection API may be used to discover actual state of affairs. JavaCall provides convenient wrappers for the most import methods.
 
@@ -105,21 +105,21 @@ Other functions for inspecting object's class:
 
 ## Types are objects
 
-Java relfection API isn't quite simple, working with it from Julia may be even harder. The reason is that you have to work with 4 different kinds of objects - Java types, Java objects, Julia types and Julia objects. Let's start with the Java side. 
+Java relfection API isn't quite simple, working with it from Julia may be even harder. The reason is that you have to work with 4 different kinds of objects - Java types, Java objects, Julia types and Julia objects. Let's start with the Java side.
 
 In Java you normally work with objects, i.e. instances of classes, e.g. in:
 
 ```java
 Foo foo = new Foo();
 ```
-`Foo` is the name of the class and `foo` is an instance of that class. Just like `int` is the name of a type and `42` is an object of that type. 
+`Foo` is the name of the class and `foo` is an instance of that class. Just like `int` is the name of a type and `42` is an object of that type.
 
 In Julia syntax is different, but in general idea is the same:
 
 ```julia
 bar = Bar()
 ```
-`Bar` - name of a type, `bar` - an object of that type. 
+`Bar` - name of a type, `bar` - an object of that type.
 
 JavaCall let's you treat Java classes (types of Java objects) just like you would normally do with other types:
 
@@ -129,14 +129,14 @@ jfoo = JFoo(())        # create an object of Java class Foo
 ```
 This is how you normally use JavaCall and it should be pretty straightforward.
 
-But both - in Julia and Java - **types/classes are themselves objects**! In Java, each class is an instance of `java.lang.Class` (e.g. `java.lang.Class<Foo>`) and in Julia each type is an object of type `DataType`. So when you have a name of a class/type at hand, you can treat them either as **types** or **objects**. For example in Java: 
+But both - in Julia and Java - **types/classes are themselves objects**! In Java, each class is an instance of `java.lang.Class` (e.g. `java.lang.Class<Foo>`) and in Julia each type is an object of type `DataType`. So when you have a name of a class/type at hand, you can treat them either as **types** or **objects**. For example in Java:
 
 ```java
 void myFunction(Foo foo) { ... }   // <-- Foo acts as a type, i.e. qualifier of
                                    //     objects that can be passed to the function
 
 Class<Foo> fooClass = Foo.class             // <-- Foo acts as an object. You can create an instance of that class
-Class<Foo> fooClass = Class.forName("Foo")  //     or call class methods (as opposed to instance methods) 
+Class<Foo> fooClass = Class.forName("Foo")  //     or call class methods (as opposed to instance methods)
 ```
 
 To access Java classes _as object_, Julia provides a special function:
@@ -145,15 +145,10 @@ To access Java classes _as object_, Julia provides a special function:
 foo_class = classforname("Foo")   # roughly equivalent to `Class.forName("Foo")` in Java
 ```
 
-To summarize: 
+To summarize:
 
  * `@jimport` makes Java class available as a type; this is how you normally work with Java classes
  * `classforname(...)` creates an object of `java.lang.Class` and returns a pointer to it
-
-
-
-
-
 
 
 [1]: https://stackoverflow.com/questions/339699/java-generics-type-erasure-when-and-what-happens

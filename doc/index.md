@@ -2,25 +2,25 @@
 layout: default
 ---
 
-#Call Java programs from Julia 
+# Call Java programs from Julia
 
-The JavaCall package allows calling Java programs from within Julia code. It uses the Java Native Interface ([JNI][]) to call into an in-process Java Virtual Machine (JVM). The primary entry point to Java is the `jcall` function. This is modeled on the Julia `ccall` function, and takes as input the receiver object (or class, for static methods), the method name, the output type, a tuple of the method parameter types, and the parameters themselves. 
+The JavaCall package allows calling Java programs from within Julia code. It uses the Java Native Interface ([JNI][]) to call into an in-process Java Virtual Machine (JVM). The primary entry point to Java is the `jcall` function. This is modeled on the Julia `ccall` function, and takes as input the receiver object (or class, for static methods), the method name, the output type, a tuple of the method parameter types, and the parameters themselves.
 
-This package has been tested using Oracle JDK 7, 8 and 9 on MacOSX and Ubuntu on 64 bit environments. It has also been shown to work with `OpenJDK` flavour of java. It has also been tested on Windows 64 bit environments. However, it does not work on 32 bit environments. It will not work with the Apple 1.6 JDK since that is a 32 bit JVM, and Julia is typically built as a 64 bit executable on OSX. 
+This package has been tested using Oracle JDK 7, 8 and 9 on MacOSX and Ubuntu on 64 bit environments. It has also been shown to work with `OpenJDK` flavour of java. It has also been tested on Windows 64 bit environments. However, it does not work on 32 bit environments. It will not work with the Apple 1.6 JDK since that is a 32 bit JVM, and Julia is typically built as a 64 bit executable on OSX.
 
 [JNI]: http://docs.oracle.com/javase/1.5.0/docs/guide/jni/spec/jniTOC.html
 
-##Installation
+## Installation
 
 ```julia
 Pkg.add("JavaCall")
 ```
 
-This package has a dependency on the `WinReg` package which, on Windows, is used to derive the location of the JDK automatically. 
+This package has a dependency on the `WinReg` package which, on Windows, is used to derive the location of the JDK automatically.
 
-##Usage
+## Usage
 
-Static and instance methods with primitive or object arguments and return values are callable. Array arguments and return values are also supported. Primitive, string, object or array arguments are converted as required. 
+Static and instance methods with primitive or object arguments and return values are callable. Array arguments and return values are also supported. Primitive, string, object or array arguments are converted as required.
 
 
 ```jlcon
@@ -52,7 +52,7 @@ julia> jcall(j_u_arrays, "binarySearch", jint, (Array{jint,1}, jint), [10,20,30,
 
 ```
 
-##Usage from a running JVM
+## Usage from a running JVM
 
 Use JNI or JNA to initialize a Julia VM, then call `JavaCall.init_current_vm()`. Here's an example using JNA:
 
@@ -90,11 +90,10 @@ public class Julia {
 }
 ```
 
-##Major TODOs and Caveats
+## Major TODOs and Caveats
 
-*   Currently, only a low level interface is available, via `jcall`. As a result, this package is best suited for writing libraries that wrap around existing java packages. Writing user code direcly using this interface might be a bit tedious at present. A high level interface using reflection will eventually be built. 
+* Currently, only a low level interface is available, via `jcall`. As a result, this package is best suited for writing libraries that wrap around existing java packages. Writing user code direcly using this interface might be a bit tedious at present. A high level interface using reflection will eventually be built.
 
-*    While basic memory management has been implemented, there is the possibility of some remaining memory leaks in this system. While this is stable enough for scripting style tasks, please test it yourself before deploying this to long running tasks. 
+* While basic memory management has been implemented, there is the possibility of some remaining memory leaks in this system. While this is stable enough for scripting style tasks, please test thoroughly before deploying this to long running tasks.
 
-
-
+* JavaCall, (and other projects that depend on it, such as JDBC and Spark) do not work on Julia versions 1.1 or 1.2, when using JDK versions less than 11. On Julia 1.3 onwards, set the environment variable `JULIA_COPY_STACKS=yes` to use JavaCall with JDK 10 or lower. Using this environment variable does makes multithreading slightly slower in Julia. JDK 11 works on all Julia versions, and does not need this variable set. Alternatively, Julia 1.0.x works with all versions of Java. 
