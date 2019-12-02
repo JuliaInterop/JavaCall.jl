@@ -55,11 +55,11 @@
       </div>
       </header>
       <section>
-	<p>#Types</p>
+	<h1 id="types">Types</h1>
 
 <p>Java types are mapped to native Julia types.</p>
 
-<p>##Primitive Types</p>
+<h2 id="primitive-types">Primitive Types</h2>
 
 <p>The Java primitive types are aliased to their corresponding types in Julia. When writing Julia code, it is usually convenient to use these aliases since they provide a direct correspondence when transcribing Java method signatures.</p>
 
@@ -105,7 +105,7 @@
   </tbody>
 </table>
 
-<p>##Java Objects</p>
+<h2 id="java-objects">Java Objects</h2>
 
 <p>Any java object (as opposed to a primitive) is referenced in JNI via a pointer. In Julia this is a <code class="highlighter-rouge">Ptr{Void}</code>. The pointer to an object is wrapped into an instance of the <code class="highlighter-rouge">JavaObject{T}</code> composite type. The type parameter <code class="highlighter-rouge">T</code> is a symbol, and is the name of the Java class that the object belongs to. Thus, a java object of class <code class="highlighter-rouge">java.net.URL</code> will be stored in Julia as an instance of the composite type <code class="highlighter-rouge">JavaObject(:java.net.URL)</code></p>
 
@@ -138,11 +138,11 @@
   </tbody>
 </table>
 
-<p>##Strings</p>
+<h2 id="strings">Strings</h2>
 
 <p>A Java string object is represented in Julia as the <code class="highlighter-rouge">JString</code> type. A <code class="highlighter-rouge">JString</code> can be created from a plain Julia string using its constructor <code class="highlighter-rouge">JString(str::String)</code>. A <code class="highlighter-rouge">JString</code> object, returned, for example, from a Java method call, can be converted to a plain Julia string using the <code class="highlighter-rouge">bytestring(jstr::JString)</code> method.</p>
 
-<p>##Multidimensional Arrays</p>
+<h2 id="multidimensional-arrays">Multidimensional Arrays</h2>
 
 <p>Unlike Julia, Java doesn’t support multidimensional arrays, but may emulate them using array of arrays, e.g.:</p>
 
@@ -160,7 +160,7 @@
 <div class="language-julia highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">jcall</span><span class="x">(</span><span class="n">obj</span><span class="x">,</span> <span class="s">"create3DArray"</span><span class="x">,</span> <span class="kt">Vector</span><span class="x">{</span><span class="kt">Vector</span><span class="x">{</span><span class="kt">Vector</span><span class="x">{</span><span class="n">jdouble</span><span class="x">}}},</span> <span class="x">())</span>
 </code></pre></div></div>
 
-<p>##Conversions</p>
+<h2 id="conversions">Conversions</h2>
 
 <p>The Julia representation of Java objects can be converted from one type to the other using the standard Julia <code class="highlighter-rouge">convert</code> method.</p>
 
@@ -168,7 +168,6 @@
 </code></pre></div></div>
 
 <p>The conversion is checked, and will throw an error (equivalent to a java <code class="highlighter-rouge">ClassCastException</code>) if the object cannot be converted to the required type. Note that <code class="highlighter-rouge">jcall</code> will automatically attempt to convert the parameters to the specified types, and fail if the conversion fails.</p>
-
 
       </section>
       <footer>

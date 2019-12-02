@@ -55,7 +55,7 @@
       </div>
       </header>
       <section>
-	<p>#Reflection API</p>
+	<h1 id="reflection-api">Reflection API</h1>
 
 <p>Sometimes it’s impossible to infer exact object types and method signatures just from Javadocs. In such cases Java reflection API may be used to discover actual state of affairs. JavaCall provides convenient wrappers for the most import methods.</p>
 
@@ -179,7 +179,7 @@ jfoo = JFoo(())        # create an object of Java class Foo
                                    <span class="c1">//     objects that can be passed to the function</span>
 
 <span class="nc">Class</span><span class="o">&lt;</span><span class="nc">Foo</span><span class="o">&gt;</span> <span class="n">fooClass</span> <span class="o">=</span> <span class="nc">Foo</span><span class="o">.</span><span class="na">class</span>             <span class="c1">// &lt;-- Foo acts as an object. You can create an instance of that class</span>
-<span class="nc">Class</span><span class="o">&lt;</span><span class="nc">Foo</span><span class="o">&gt;</span> <span class="n">fooClass</span> <span class="o">=</span> <span class="nc">Class</span><span class="o">.</span><span class="na">forName</span><span class="o">(</span><span class="s">"Foo"</span><span class="o">)</span>  <span class="c1">//     or call class methods (as opposed to instance methods) </span>
+<span class="nc">Class</span><span class="o">&lt;</span><span class="nc">Foo</span><span class="o">&gt;</span> <span class="n">fooClass</span> <span class="o">=</span> <span class="nc">Class</span><span class="o">.</span><span class="na">forName</span><span class="o">(</span><span class="s">"Foo"</span><span class="o">)</span>  <span class="c1">//     or call class methods (as opposed to instance methods)</span>
 </code></pre></div></div>
 
 <p>To access Java classes <em>as object</em>, Julia provides a special function:</p>
