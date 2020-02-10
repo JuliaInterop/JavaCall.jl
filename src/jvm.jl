@@ -152,6 +152,10 @@ end
 addOpts(s::String) = isloaded() ? @warn("JVM already initialised. This call has no effect") : push!(opts, s)
 
 function init()
+    if get(ENV, "JULIA_COPY_STACKS", "") ∉ ("1", "yes")
+        @warn("JavaCall needs the environment variable `JULIA_COPY_STACKS` to be `1` or `yes`. "*
+              "Calling the JVM may result in undefined behavior.")
+    end
     if isempty(cp)
         init(opts)
     else
