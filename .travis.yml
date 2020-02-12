@@ -2,11 +2,8 @@ language: julia
 os:
   - linux
   - osx
-  - windows
 julia:
   - 1.0
-  - 1.1
-  - 1.2
   - 1.3
   - nightly
 jdk:
@@ -14,11 +11,17 @@ jdk:
   - openjdk10
   - openjdk11
 
+end:
+  - JULIA_COPY_STACKS=1
+
 matrix:
   allow_failures:
     - julia_version: nightly
-    - os: windows
-    - os: osx
+
+branches:
+  only:
+    - master
+    - /release-.*/
 
 notifications:
   email: false

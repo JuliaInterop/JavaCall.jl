@@ -13,11 +13,16 @@ platform:
 matrix:
   allow_failures:
   - julia_version: nightly
+  - platform: x86
+environment:
+  JULIA_COPY_STACKS: 1
 
 branches:
   only:
     - master
     - /release-.*/
+
+skip_tags: true
 
 notifications:
   - provider: Email
