@@ -153,7 +153,7 @@ addOpts(s::String) = isloaded() ? @warn("JVM already initialised. This call has 
 
 function init()
     if VERSION ≥ 1.1 && VERSION ≤ 1.2
-        @warn("JavaCall does not work well on Julia v$VERSION. \n " *
+        @warn("JavaCall does not work correctly on Julia v$VERSION. \n " *
                 "Either use Julia v1.0.x, or v1.3.0 or higher.\n"*
                 "For 1.3 onwards, please also set the environment variable `JULIA_COPY_STACKS` to be `1` or `yes`")
     end
