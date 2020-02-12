@@ -1,4 +1,5 @@
 environment:
+  JULIA_COPY_STACKS: 1
   matrix:
   - julia_version: 0.7
   - julia_version: 1
@@ -14,8 +15,6 @@ matrix:
   allow_failures:
   - julia_version: nightly
   - platform: x86
-environment:
-  JULIA_COPY_STACKS: 1
 
 branches:
   only:
