@@ -1,5 +1,4 @@
 environment:
-  JULIA_COPY_STACKS: 1
   matrix:
   - julia_version: 0.7
   - julia_version: 1
