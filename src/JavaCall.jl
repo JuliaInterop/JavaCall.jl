@@ -30,7 +30,7 @@ include("convert.jl")
 include("reflect.jl")
 
 function __init__()
-	global JULIA_COPY_STACKS = get(ENV, "JULIA_COPY_STACKS", "") ∈ ("1", "yes")
+    global JULIA_COPY_STACKS = get(ENV, "JULIA_COPY_STACKS", "") ∈ ("1", "yes")
     if VERSION ≥ v"1.1-" && VERSION < v"1.3-"
         @warn("JavaCall does not work correctly on Julia v$VERSION. \n" *
                 "Either use Julia v1.0.x, or v1.3.0 or higher.\n"*
@@ -40,8 +40,8 @@ function __init__()
         @warn("JavaCall needs the environment variable `JULIA_COPY_STACKS` to be `1` or `yes`.\n"*
               "Calling the JVM may result in undefined behavior.")
     end
-	findjvm()
-	global create = Libdl.dlsym(libjvm, :JNI_CreateJavaVM)
+    findjvm()
+    global create = Libdl.dlsym(libjvm, :JNI_CreateJavaVM)
 end
 
 
