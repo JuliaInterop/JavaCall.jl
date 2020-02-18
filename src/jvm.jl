@@ -162,6 +162,14 @@ function init()
     end
 end
 
+const ROOT_TASK_ERROR = JavaCallError(
+	"Either the environmental variable JULIA_COPY_STACKS must be 1 " *
+	"OR JavaCall must be used on the root Task.")
+
+# JavaCall must run on the root Task or JULIA_COPY_STACKS is enabled
+isroottask() = JULIA_COPY_STACKS || Base.roottask === Base.current_task()
+assertroottask() = isroottask() ? nothing : throw(ROOT_TASK_ERROR)
+
 isloaded() = isdefined(JavaCall, :jnifunc) && isdefined(JavaCall, :penv) && penv != C_NULL
 
 assertloaded() = isloaded() ? nothing : throw(JavaCallError("JVM not initialised. Please run init()"))

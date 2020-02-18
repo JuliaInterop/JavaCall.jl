@@ -21,15 +21,16 @@ end
 
 import Base: convert, unsafe_convert, unsafe_string
 
+JULIA_COPY_STACKS = false
 
 include("jnienv.jl")
-include("task.jl")
 include("jvm.jl")
 include("core.jl")
 include("convert.jl")
 include("reflect.jl")
 
 function __init__()
+	global JULIA_COPY_STACKS = get(ENV, "JULIA_COPY_STACKS", "") ∈ ("1", "yes")
     if VERSION ≥ v"1.1-" && VERSION < v"1.3-"
         @warn("JavaCall does not work correctly on Julia v$VERSION. \n" *
                 "Either use Julia v1.0.x, or v1.3.0 or higher.\n"*
