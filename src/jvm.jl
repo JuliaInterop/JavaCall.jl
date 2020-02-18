@@ -68,7 +68,7 @@ function findjvm()
             if Sys.WORD_SIZE==64
                 push!(libpaths, joinpath(n, "jre", "lib", "amd64", "server"))
                 push!(libpaths, joinpath(n, "lib", "amd64", "server"))
-			elseif Sys.WORD_SIZE==32
+            elseif Sys.WORD_SIZE==32
                 push!(libpaths, joinpath(n, "jre", "lib", "i386", "server"))
 
                 push!(libpaths, joinpath(n, "lib", "i386", "server"))
@@ -170,7 +170,7 @@ assertnotloaded() = isloaded() ? throw(JavaCallError("JVM already initialised"))
 # Pointer to pointer to pointer to pointer alert! Hurrah for unsafe load
 function init(opts)
     assertnotloaded()
-	assertroottask()
+    assertroottask()
     opt = [JavaVMOption(pointer(x), C_NULL) for x in opts]
     ppjvm = Array{Ptr{JavaVM}}(undef, 1)
     ppenv = Array{Ptr{JNIEnv}}(undef, 1)
@@ -247,7 +247,7 @@ function destroy()
     if (!isdefined(JavaCall, :penv) || penv == C_NULL)
         throw(JavaCallError("Called destroy without initialising Java VM"))
     end
-	assertroottask()
+    assertroottask()
     res = ccall(jvmfunc.DestroyJavaVM, Cint, (Ptr{Nothing},), pjvm)
     res < 0 && throw(JavaCallError("Unable to destroy Java VM"))
     global penv=C_NULL; global pjvm=C_NULL;
