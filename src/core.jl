@@ -101,7 +101,7 @@ jvalue(v::Float64) = jvalue(reinterpret(Int64, v))
 jvalue(v::Ptr) = jvalue(Int(v))
 
 
-function _jimport(juliaclass) 
+function _jimport(juliaclass)
     for str ∈ [" ", "(", ")"]
         juliaclass = replace(juliaclass, str=>"")
     end
@@ -122,6 +122,7 @@ end
 
 
 function jnew(T::Symbol, argtypes::Tuple, args...)
+    assertroottask()
     sig = method_signature(Nothing, argtypes...)
     jmethodId = ccall(jnifunc.GetMethodID, Ptr{Nothing},
                       (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{UInt8}, Ptr{UInt8}), penv, metaclass(T),
@@ -135,6 +136,7 @@ end
 # Call static methods
 function jcall(typ::Type{JavaObject{T}}, method::AbstractString, rettype::Type, argtypes::Tuple,
                args... ) where T
+    assertroottask()
     sig = method_signature(rettype, argtypes...)
     jmethodId = ccall(jnifunc.GetStaticMethodID, Ptr{Nothing},
                       (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{UInt8}, Ptr{UInt8}), penv, metaclass(T),
@@ -145,6 +147,7 @@ end
 
 # Call instance methods
 function jcall(obj::JavaObject, method::AbstractString, rettype::Type, argtypes::Tuple, args... )
+    assertroottask()
     sig = method_signature(rettype, argtypes...)
     jmethodId = ccall(jnifunc.GetMethodID, Ptr{Nothing},
                       (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{UInt8}, Ptr{UInt8}), penv, metaclass(obj),
@@ -154,6 +157,7 @@ function jcall(obj::JavaObject, method::AbstractString, rettype::Type, argtypes:
 end
 
 function jfield(typ::Type{JavaObject{T}}, field::AbstractString, fieldType::Type) where T
+    assertroottask()
     jfieldID  = ccall(jnifunc.GetStaticFieldID, Ptr{Nothing},
                       (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{UInt8}, Ptr{UInt8}), penv, metaclass(T),
                       String(field), signature(fieldType))
@@ -162,6 +166,7 @@ function jfield(typ::Type{JavaObject{T}}, field::AbstractString, fieldType::Type
 end
 
 function jfield(obj::JavaObject, field::AbstractString, fieldType::Type)
+    assertroottask()
     jfieldID  = ccall(jnifunc.GetFieldID, Ptr{Nothing},
                       (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{UInt8}, Ptr{UInt8}), penv, metaclass(obj),
                       String(field), signature(fieldType))
