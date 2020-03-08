@@ -5,9 +5,25 @@ import Dates
 using Base.GC: gc
 
 
-JavaCall.init(["-Djava.class.path=$(@__DIR__)"])
-# JavaCall.init(["-verbose:gc","-Djava.class.path=$(@__DIR__)"])
-# JavaCall.init()
+macro testasync(x)
+    :( @test (@sync @async eval($x)).result ) |> esc
+end
+macro syncasync(x)
+    :( (@sync @async eval($x)).result ) |> esc
+end
+
+JAVACALL_FORCE_ASYNC_INIT = get(ENV,"JAVACALL_FORCE_ASYNC_INIT","") ∈ ("1","yes")
+JAVACALL_FORCE_ASYNC_TEST = get(ENV,"JAVACALL_FORCE_ASYNC_TEST","") ∈ ("1","yes")
+
+@testset "initialization" begin
+    if JavaCall.JULIA_COPY_STACKS || JAVACALL_FORCE_ASYNC_INIT
+        @testasync JavaCall.init(["-Djava.class.path=$(@__DIR__)"])==nothing
+    else
+        @test JavaCall.init(["-Djava.class.path=$(@__DIR__)"])==nothing
+    end
+    # JavaCall.init(["-verbose:gc","-Djava.class.path=$(@__DIR__)"])
+    # JavaCall.init()
+end
 
 System = @jimport java.lang.System
 @info "Java Version: ", jcall(System, "getProperty", JString, (JString,), "java.version")
@@ -46,6 +62,16 @@ end
     @test 1.0 ≈ jcall(jlm, "min", jdouble, (jdouble,jdouble), 1,2)
     @test 1 == jcall(jlm, "abs", jint, (jint,), -1)
 end
+
+@testset "static_method_call_async_1" begin
+    jlm = @jimport "java.lang.Math"
+    if JAVACALL_FORCE_ASYNC_TEST || JavaCall.JULIA_COPY_STACKS || Sys.iswindows()
+        @testasync 1.0 ≈ jcall(jlm, "sin", jdouble, (jdouble,), pi/2)
+        @testasync 1.0 ≈ jcall(jlm, "min", jdouble, (jdouble,jdouble), 1,2)
+        @testasync 1 == jcall(jlm, "abs", jint, (jint,), -1)
+    end
+end
+
 
 @testset "instance_methods_1" begin
     jnu = @jimport java.net.URL
@@ -145,8 +171,8 @@ end
 # However, since Java and Julia memory are not linked, and manual gc() is required.
 gc()
 for i in 1:100000
-	a=JString("A"^10000); #deleteref(a);
-	if (i%10000 == 0); gc(); end
+    a=JString("A"^10000); #deleteref(a);
+    if (i%10000 == 0); gc(); end
 end
 
 @testset "sinx_1" begin
@@ -230,6 +256,21 @@ end
     @test isa(narrow(o), JString)
 end
 
+@testset "roottask_and_env_1" begin
+    @test JavaCall.isroottask()
+    @testasync ! JavaCall.isroottask()
+    @test JavaCall.isgoodenv()
+    if JAVACALL_FORCE_ASYNC_TEST || JavaCall.JULIA_COPY_STACKS || Sys.iswindows()
+        @testasync JavaCall.isgoodenv()
+    end
+    if ! JavaCall.JULIA_COPY_STACKS && ! Sys.iswindows()
+        @test_throws CompositeException @syncasync JavaCall.assertroottask_or_goodenv()
+        @warn "Ran tests for root Task only." *
+            " REPL and @async are not expected to work with JavaCall without JULIA_COPY_STACKS=1" *
+            " on non-Windows systems."
+            " Set JULIA_COPY_STACKS=1 in the environment to test @async function."
+    end
+end
 
 # At the end, unload the JVM before exiting
 JavaCall.destroy()

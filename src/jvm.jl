@@ -163,12 +163,21 @@ function init()
 end
 
 const ROOT_TASK_ERROR = JavaCallError(
-	"Either the environmental variable JULIA_COPY_STACKS must be 1 " *
-	"OR JavaCall must be used on the root Task.")
+    "Either the environmental variable JULIA_COPY_STACKS must be 1 " *
+    "OR JavaCall must be used on the root Task.")
+
+const JULIA_COPY_STACKS_ON_WINDOWS_ERROR = JavaCallError(
+    "JULIA_COPY_STACKS should not be set on Windows.")
 
 # JavaCall must run on the root Task or JULIA_COPY_STACKS is enabled
-isroottask() = JULIA_COPY_STACKS || Base.roottask === Base.current_task()
-assertroottask() = isroottask() ? nothing : throw(ROOT_TASK_ERROR)
+isroottask() = Base.roottask === Base.current_task()
+@static if Sys.iswindows()
+    isgoodenv() = ! JULIA_COPY_STACKS
+    assertroottask_or_goodenv() = isgoodenv() ? nothing : throw(JULIA_COPY_STACKS_ON_WINDOWS_ERROR)
+else
+    isgoodenv() = JULIA_COPY_STACKS || isroottask()
+    assertroottask_or_goodenv() = isgoodenv() ? nothing : throw(ROOT_TASK_ERROR)
+end
 
 isloaded() = isdefined(JavaCall, :jnifunc) && isdefined(JavaCall, :penv) && penv != C_NULL
 
@@ -178,7 +187,7 @@ assertnotloaded() = isloaded() ? throw(JavaCallError("JVM already initialised"))
 # Pointer to pointer to pointer to pointer alert! Hurrah for unsafe load
 function init(opts)
     assertnotloaded()
-    assertroottask()
+    assertroottask_or_goodenv()
     opt = [JavaVMOption(pointer(x), C_NULL) for x in opts]
     ppjvm = Array{Ptr{JavaVM}}(undef, 1)
     ppenv = Array{Ptr{JNIEnv}}(undef, 1)
@@ -255,7 +264,7 @@ function destroy()
     if (!isdefined(JavaCall, :penv) || penv == C_NULL)
         throw(JavaCallError("Called destroy without initialising Java VM"))
     end
-    assertroottask()
+    assertroottask_or_goodenv()
     res = ccall(jvmfunc.DestroyJavaVM, Cint, (Ptr{Nothing},), pjvm)
     res < 0 && throw(JavaCallError("Unable to destroy Java VM"))
     global penv=C_NULL; global pjvm=C_NULL;
