@@ -96,6 +96,8 @@ public class Julia {
 
 * While basic memory management has been implemented, there is the possibility of some remaining memory leaks in this system. While this is stable enough for scripting style tasks, please test thoroughly before deploying this to long running tasks.
 
+### Non-Windows Operating Systems (Linux, MacOS, FreeBSD)
+
 * JavaCall, (and other projects that depend on it, such as JDBC and Spark) do not work on Julia versions 1.1 or 1.2, when using JDK versions less than 11.
 
 * On Julia 1.3 onwards, set the environment variable `JULIA_COPY_STACKS=yes` before starting Julia in order to use JavaCall. Setting this option is required to use JavaCall in the REPL. Using this environment variable does makes multithreading slightly slower in Julia.
@@ -105,3 +107,11 @@ public class Julia {
 * JavaCall can be used in a limited capacity from the root `Task` of Julia without `JULIA_COPY_STACKS=yes`. For example, using JavaCall in a programfile or via `julia --eval` will work. However, JavaCall will not function with `@async` or the standard REPL backend.
 
 * Alternatively, Julia 1.0.x works with all versions of Java.
+
+### Windows Operating System
+
+* Do not set the environmental variable `JULIA_COPY_STACKS`
+
+* To use `@async` with JavaCall, start JavaCall on the root Task when running Julia:
+```
+$ julia -i -e "using JavaCall; JavaCall.init()"
