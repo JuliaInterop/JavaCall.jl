@@ -10,7 +10,7 @@ Documentation is available at http://juliainterop.github.io/JavaCall.jl
 
 ## Non-Windows Operating Systems
 
-_JavaCall and it's derivatives do not work correctly Julia 1.1 and Julia 1.2. On Julia 1.3, please set the environment variable `JULIA_COPY_STACKS`. On 1.1 and 1.2, and on 1.3 without `JULIA_COPY_STACKS` set, you may see segfaults or incorrect results. This is typically due to stack corruption. The Julia long-term-support version of 1.0.x continues to work correctly as before._
+_JavaCall and its derivatives do not work correctly Julia 1.1 and Julia 1.2. On Julia 1.3, please set the environment variable `JULIA_COPY_STACKS`. On 1.1 and 1.2, and on 1.3 without `JULIA_COPY_STACKS` set, you may see segfaults or incorrect results. This is typically due to stack corruption. The Julia long-term-support version of 1.0.x continues to work correctly as before._
 
 ## Windows Operating System
 
