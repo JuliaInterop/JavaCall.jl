@@ -20,21 +20,19 @@ const JAVA_HOME_CANDIDATES = ["/usr/lib/jvm/default-java/",
                               "/usr/lib/jvm/default/"]
 
 function javahome_winreg()
-    try
-        keypath = "SOFTWARE\\JavaSoft\\Java Runtime Environment"
-        value = querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "CurrentVersion")
-        keypath *= "\\"*value
-        return querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "JavaHome")
-    catch
+    keys = ["SOFTWARE\\JavaSoft\\Java Runtime Environment", "SOFTWARE\\JavaSoft\\Java Development Kit", "SOFTWARE\\JavaSoft\\JDK"]
+
+    for key in keys
         try
-            keypath = "SOFTWARE\\JavaSoft\\Java Development Kit"
-            value = querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "CurrentVersion")
-            keypath *= "\\"*value
-            return querykey(WinReg.HKEY_LOCAL_MACHINE, keypath, "JavaHome")
+            value = querykey(WinReg.HKEY_LOCAL_MACHINE, key, "CurrentVersion")
+            key *= "\\" * value
+            return querykey(WinReg.HKEY_LOCAL_MACHINE, key, "JavaHome")
         catch
-            error("Cannot find an installation of Java in the Windows Registry. Please install a JRE/JDK, or set the JAVA_HOME environment variable if one is already installed.")
+            # Try the next value in the loop.
         end
     end
+
+    error("Cannot find an installation of Java in the Windows Registry. Please install a JRE/JDK, or set the JAVA_HOME environment variable if one is already installed.")
 end
 
 @static Sys.isunix() ? (global const libname = "libjvm") : (global const libname = "jvm")
