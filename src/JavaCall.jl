@@ -4,7 +4,7 @@ export JavaObject, JavaMetaClass,
        JObject, JClass, JMethod, JString,
        @jimport, jcall, jfield, isnull,
        getname, getclass, listmethods, getreturntype, getparametertypes, classforname,
-       narrow
+       narrow, JProxy, @class, interfacehas, staticproxy
 
 # using Compat, Compat.Dates
 
@@ -28,6 +28,7 @@ include("jvm.jl")
 include("core.jl")
 include("convert.jl")
 include("reflect.jl")
+include("proxy.jl")
 
 function __init__()
     global JULIA_COPY_STACKS = get(ENV, "JULIA_COPY_STACKS", "") ∈ ("1", "yes")

@@ -91,6 +91,7 @@ function findjvm()
                     end
                 end
                 global libjvm = Libdl.dlopen(libpath)
+                println("LOADED $libpath")
                 @debug("Loaded $libpath")
                 return
             end
@@ -200,6 +201,7 @@ function init(opts)
     jvm = unsafe_load(pjvm)
     global jvmfunc = unsafe_load(jvm.JNIInvokeInterface_)
     global jnifunc = unsafe_load(jnienv.JNINativeInterface_) #The JNI Function table
+    initProxy()
     return
 end
 

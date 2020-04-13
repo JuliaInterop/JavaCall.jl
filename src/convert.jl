@@ -1,19 +1,34 @@
+convert(::AbstractString, str::Type{JString}) = unsafe_string(str)
 convert(::Type{JString}, str::AbstractString) = JString(str)
 convert(::Type{JObject}, str::AbstractString) = convert(JObject, JString(str))
+convert(::Type{JavaObject{Symbol("java.lang.Double")}}, n::Real) = jnew(Symbol("java.lang.Double"), (jdouble,), Float64(n))
+convert(::Type{JavaObject{Symbol("java.lang.Float")}}, n::Real) = jnew(Symbol("java.lang.Float"), (jfloat,), Float32(n))
+convert(::Type{JavaObject{Symbol("java.lang.Long")}}, n::Real) = jnew(Symbol("java.lang.Long"), (jlong,), Int64(n))
+convert(::Type{JavaObject{Symbol("java.lang.Integer")}}, n::Real) = jnew(Symbol("java.lang.Integer"), (jint,), Int32(n))
+convert(::Type{JavaObject{Symbol("java.lang.Short")}}, n::Real) = jnew(Symbol("java.lang.Short"), (jshort,), Int16(n))
+convert(::Type{JavaObject{Symbol("java.lang.Byte")}}, n::Real) = jnew(Symbol("java.lang.Byte"), (jbyte,), Int8(n))
+convert(::Type{JavaObject{Symbol("java.lang.Character")}}, n::Real) = jnew(Symbol("java.lang.Character"), (jchar,), Char(n))
+convert(::Type{JavaObject{:int}}, n) = convert(jint, n)
+convert(::Type{JavaObject{:long}}, n) = convert(jlong, n)
+convert(::Type{JavaObject{:byte}}, n) = convert(jbyte, n)
+convert(::Type{JavaObject{:boolean}}, n) = convert(jboolean, n)
+convert(::Type{JavaObject{:char}}, n) = convert(jchar, n)
+convert(::Type{JavaObject{:short}}, n) = convert(jshort, n)
+convert(::Type{JavaObject{:float}}, n) = convert(jfloat, n)
+convert(::Type{JavaObject{:double}}, n) = convert(jdouble, n)
+convert(::Type{JavaObject{:void}}, n) = convert(jvoid, n)
+convert(::Type{JavaObject{T}}, ::Nothing) where T = jnull
 
 #Cast java object from S to T . Needed for polymorphic calls
 function convert(::Type{JavaObject{T}}, obj::JavaObject{S}) where {T,S}
-    if isConvertible(T, S)   #Safe static cast
-        ptr = ccall(jnifunc.NewLocalRef, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing}), penv, obj.ptr)
-        ptr === C_NULL && geterror()
-        return JavaObject{T}(ptr)
+    if isnull(obj)
+        return JavaObject{T}(obj.ptr)
+    elseif isConvertible(T, S)   #Safe static cast
+        return JavaObject{T}(obj.ptr)
     end
-    isnull(obj) && throw(ArgumentError("Cannot convert NULL"))
     realClass = ccall(jnifunc.GetObjectClass, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing} ), penv, obj.ptr)
     if isConvertible(T, realClass)  #dynamic cast
-        ptr = ccall(jnifunc.NewLocalRef, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing}), penv, obj.ptr)
-        ptr === C_NULL && geterror()
-        return JavaObject{T}(ptr)
+        return JavaObject{T}(obj.ptr)
     end
     throw(JavaCallError("Cannot cast java object from $S to $T"))
 end
@@ -27,6 +42,7 @@ isConvertible(T, S::Ptr{Nothing}) = (ccall(jnifunc.IsAssignableFrom, jboolean,
                                            metaclass(T)) == JNI_TRUE)
 
 unsafe_convert(::Type{Ptr{Nothing}}, cls::JavaMetaClass) = cls.ptr
+unsafe_convert(::Type{Ptr{Nothing}}, cls::JavaObject{Symbol("java.lang.Class")}) = cls.ptr
 
 # Get the JNI/C type for a particular Java type
 function real_jtype(rettype)
@@ -87,9 +103,9 @@ end
 function convert_arg(argtype::Type{Array{T,1}}, arg) where T<:JavaObject
     carg = convert(argtype, arg)
     sz = length(carg)
-    init = carg[1]
+    init = sz > 0 ? carg[1].ptr : C_NULL
     arrayptr = ccall(jnifunc.NewObjectArray, Ptr{Nothing},
-                     (Ptr{JNIEnv}, jint, Ptr{Nothing}, Ptr{Nothing}), penv, sz, metaclass(T), init.ptr)
+                     (Ptr{JNIEnv}, jint, Ptr{Nothing}, Ptr{Nothing}), penv, sz, metaclass(T), init)
     for i=2:sz
         ccall(jnifunc.SetObjectArrayElement, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}, jint, Ptr{Nothing}),
               penv, arrayptr, i-1, carg[i].ptr)
@@ -264,14 +280,16 @@ function convert(::Type{@jimport(java.util.List)}, x::Vector, V::Type{JavaObject
 end
 
 # Convert a reference to a java.lang.String into a Julia string. Copies the underlying byte buffer
-function unsafe_string(jstr::JString)  #jstr must be a jstring obtained via a JNI call
-    if isnull(jstr); return ""; end #Return empty string to keep type stability. But this is questionable
+unsafe_string(jstr::JString) = unsafe_string(jstr.ptr)  #jstr must be a jstring obtained via a JNI call
+
+function unsafe_string(jstr::Ptr{Nothing})  #jstr must be a jstring obtained via a JNI call
+    if jstr == C_NULL; return ""; end #Return empty string to keep type stability. But this is questionable
     pIsCopy = Array{jboolean}(undef, 1)
     buf::Ptr{UInt8} = ccall(jnifunc.GetStringUTFChars, Ptr{UInt8},
-                            (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{jboolean}), penv, jstr.ptr, pIsCopy)
+                            (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{jboolean}), penv, jstr, pIsCopy)
     s = unsafe_string(buf)
     ccall(jnifunc.ReleaseStringUTFChars, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{UInt8}), penv,
-          jstr.ptr, buf)
+          jstr, buf)
     return s
 end
 

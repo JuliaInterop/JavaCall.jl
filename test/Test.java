@@ -3,8 +3,10 @@ import java.util.ArrayList;
 
 public class Test {
 
+  public boolean booleanField = true;
   public int integerField = 100;
   public String stringField = "A STRING";
+  public Object objectField = null;
 
   public static short testShort(short i) {
       System.out.print("In Java, recd: ");System.out.println(i);
@@ -83,4 +85,47 @@ public class Test {
       }
   }
 
+  public int getInt() {
+    return integerField;
+  }
+
+  public void setInt(int v) {
+    integerField = v;
+  }
+
+  public String getString() {
+    return stringField;
+  }
+
+  public void setString(String s) {
+    stringField = s;
+  }
+
+  public Object getObject() {
+    return objectField;
+  }
+
+  public void setObject(Object val) {
+    objectField = val;
+  }
+
+  public String toString() {
+      return "Test(" + integerField + ", " + stringField + ")";
+  }
+
+  public String testArrayArgs(int i) {
+    return "int";
+  }
+
+  public String testArrayArgs(int[] i) {
+    return "int[]";
+  }
+
+  public String testArrayArgs(int[][] i) {
+    return "int[][]";
+  }
+
+  public String testArrayArgs(Object[] i) {
+    return "java.lang.Object[]";
+  }
 }
