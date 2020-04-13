@@ -45,6 +45,7 @@ jobs:
 branches:
   only:
     - master
+    - zot
     - /release-.*/
 
 notifications:
