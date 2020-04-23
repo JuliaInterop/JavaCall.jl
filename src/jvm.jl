@@ -145,6 +145,37 @@ end
 cp = OrderedSet{String}()
 opts = OrderedSet{String}()
 
+"""
+    JavaCall.getClassPath()
+
+    Obtains the Java classpath.
+
+    Before JavaCall.init(), this reports the classpath constructed using
+    JavaCall.addClasspath.
+
+    After JavaCall.init(), this reports System.getProperty("java.class.path")
+"""
+function getClassPath()
+    if isloaded()
+        # jls = @jimport java.lang.System
+        jls = JavaObject{Symbol("java.lang.System")}
+        return jcall(jls, "getProperty", JString, (JString,), "java.class.path")::String
+    else
+        ccp = collect(cp)
+        return join(ccp,sep)
+    end
+end
+
+"""
+    JavaCall.addClassPath(s::String)
+
+    Add a string to the classpath. Must be called before JavaCall.init
+
+    foo/*.jar will add all the jars in the directory foo to the classpath
+    foo/*     will add all the jars and directories recursively including foo
+
+    See also addClassPathRecursive and addJarsToClassPath
+"""
 function addClassPath(s::String)
     if isloaded()
         @warn("JVM already initialised. This call has no effect")
@@ -152,17 +183,54 @@ function addClassPath(s::String)
     end
     if s==""; return; end
     dirname, pattern = splitdir(s)
-    if pattern in ("*","*.jar") && isdir(dirname)
-        for filename in readdir(dirname)
-            if endswith(filename,".jar")
-                push!(cp, joinpath(dirname,filename))
-            end
-        end
-        return
+    if pattern == "*.jar" && isdir(dirname)
+        _addJarsToClassPath(dirname)
+    elseif pattern == "*" && isdir(dirname)
+        _addClassPathRecursive(dirname)
+    else
+        push!(cp, s)
     end
-    push!(cp, s)
     return
 end
+
+function _addClassPathRecursive(dirname::String)
+    push!(cp,dirname)
+    for (root,dirs,filenames) in walkdir(dirname)
+        addJarsToClassPath(filenames,root)
+        union!(cp, [joinpath(root,dir) for dir in dirs])
+    end
+end
+"""
+    JavaCall.addClassPathRecursive(dirname::String)
+
+    Adds dirname and all jars and directories in dirname recursively to the classpath
+"""
+addClassPathRecursive(dirname) = isloaded() ?
+    @warn("JVM already initialized. This call has no effect") :
+    _addClassPathRecursive(dirname)
+
+
+function _addJarsToClassPath(files::Array{String,1},path::String="")
+    for filename in files
+        if endswith(filename,".jar")
+            push!(cp, joinpath(path,filename) )
+        end
+    end
+end
+_addJarsToClassPath(dirname::String) = addJarsToClassPath(readdir(dirname),dirname)
+"""
+    JavaCall.addJarsToClassPath(dirname::String)
+
+    Add jars in dirname to the classpath.
+    Equivalent to JavaCall.addJarsToClasspath(readdir(dirname),dirname)
+
+    JavaCall.addJarsToClassPath(files::Array{String,1}, [path::String])
+
+    Add files which end in ".jar" to the classpath prefixed by an optional path
+"""
+addJarsToClassPath(args...) = isloaded() ?
+    @warn("JVM already initialized. This call has no effect") :
+    _addJarsToClassPath(args...)
 
 addOpts(s::String) = isloaded() ? @warn("JVM already initialised. This call has no effect") : push!(opts, s)
 
