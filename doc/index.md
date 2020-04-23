@@ -53,6 +53,26 @@ julia> jcall(j_u_arrays, "binarySearch", jint, (Array{jint,1}, jint), [10,20,30,
 
 ```
 
+### Building the Classpath
+
+The classpath can be passed in to the init call as a VM option.
+
+```jlcon
+julia> JavaCall.init("-Djava.class.path=foo")
+```
+
+The classpath can also be assembled using `JavaCall.addClassPath` which must be used before `JavaCall.init()`.
+An asterisk at the end of the string will be treated as a wildcard and recursively add jars and subdirectories to the classpath.
+A \*.jar at the end of the string will just add all the jar files in the directory to the classpath.
+
+```jlcon
+julia> JavaCall.addClassPath("src/main/java") # This will add just the directory
+
+julia> JavaCall.addClassPath("plugins/*.jar") # This just adds the jar files in the plugins directory
+
+julia> JavaCall.addClassPath("jars/*") # This will add all directories and jars in the "jars" folder recursively
+```
+
 ## Usage from a running JVM
 
 Use JNI or JNA to initialize a Julia VM, then call `JavaCall.init_current_vm()`. Here's an example using JNA:
