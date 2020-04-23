@@ -151,7 +151,10 @@ function addClassPath(s::String)
         return
     end
     if s==""; return; end
-    if endswith(s, "/*") && isdir(s[1:end-2])
+    if  endswith(s, "$(Base.Filesystem.path_separator)*.jar")
+        s=s[1:end-4]; # make it end with ".*" instead
+    end
+    if (endswith(s, "$(Base.Filesystem.path_separator)*") && isdir(s[1:end-2]))
         for x in s[1:end-1] .* readdir(s[1:end-2])
             endswith(x, ".jar") && push!(cp, x)
         end
