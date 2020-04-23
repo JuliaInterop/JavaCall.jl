@@ -48,6 +48,20 @@ function findjvm()
             ENV["JAVA_HOME"] = javahome_winreg()
             push!(javahomes, ENV["JAVA_HOME"])
         end
+        @static if Sys.isunix()
+            # Find default javahome by checking location of the java command
+            try
+                javapath = chomp(read(`which java`,String))
+                while(islink(javapath))
+                    javapath = readlink(javapath)
+                end
+                javapath = dirname(javapath)
+                javapath = match(r"(.*)(/jre)+(/bin)+",javapath)[1]
+                push!(javahomes,javapath)
+            catch err
+                @info "JavaCall could not determine javapath from `which java`"
+            end
+        end
     end
     isfile("/usr/libexec/java_home") && push!(javahomes, chomp(read(`/usr/libexec/java_home`, String)))
 
