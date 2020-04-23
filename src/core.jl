@@ -39,6 +39,7 @@ mutable struct JavaObject{T}
 end
 
 JavaObject(T, ptr) = JavaObject{T}(ptr)
+JavaObject{T}() where {T} = JavaObject{T}((),)
 
 function deleteref(x::JavaObject)
     if x.ptr == C_NULL; return; end
