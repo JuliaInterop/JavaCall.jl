@@ -1,24 +1,57 @@
 module JNI
-import ..JavaCall: JNIEnv, JavaVM, jbyte, jchar, jshort, jint, jlong, jsize, jdouble, jfloat, jboolean
-typealias jobject Ptr{Void}
-typealias jclass Ptr{Void}
-typealias jthrowable Ptr{Void}
-typealias jweak Ptr{Void}
-typealias jmethodID Ptr{Void}
-typealias jfieldID Ptr{Void}
-typealias jstring Ptr{Void}
-typealias jarray Ptr{Void}
-typealias JNINativeMethod Ptr{Void}
-typealias jobjectArray Ptr{Void}
-typealias jbooleanArray Ptr{Void}
-typealias jbyteArray Ptr{Void}
-typealias jshortArray Ptr{Void}
-typealias jintArray Ptr{Void}
-typealias jlongArray Ptr{Void}
-typealias jfloatArray Ptr{Void}
-typealias jdoubleArray Ptr{Void}
-typealias jcharArray Ptr{Void}
-typealias jvalue Int64
+
+# jnienv.jl exports
+export JNINativeInterface, JNIEnv, JNIInvokeInterface, JavaVM, JavaCallError
+# jni_md.h exports
+export jint, jlong, jbyte
+# jni.h exports
+export jboolean, jchar, jshort, jfloat, jdouble, jsize, jprimitive
+
+include("jnienv.jl")
+
+# jni_md.h
+const jint = Cint
+#ifdef _LP64 /* 64-bit Solaris */
+# typedef long jlong;
+const jlong = Clonglong
+const jbyte = Cchar
+
+# jni.h
+
+const jboolean = Cuchar
+const jchar = Cushort
+const jshort = Cshort
+const jfloat = Cfloat
+const jdouble = Cdouble
+const jsize = jint
+jprimitive = Union{jboolean, jchar, jshort, jfloat, jdouble, jint, jlong}
+
+jobject = Ptr{Nothing}
+jclass = Ptr{Nothing}
+jthrowable = Ptr{Nothing}
+jweak = Ptr{Nothing}
+jmethodID = Ptr{Nothing}
+jfieldID = Ptr{Nothing}
+jstring = Ptr{Nothing}
+jarray = Ptr{Nothing}
+JNINativeMethod = Ptr{Nothing}
+jobjectArray = Ptr{Nothing}
+jbooleanArray = Ptr{Nothing}
+jbyteArray = Ptr{Nothing}
+jshortArray = Ptr{Nothing}
+jintArray = Ptr{Nothing}
+jlongArray = Ptr{Nothing}
+jfloatArray = Ptr{Nothing}
+jdoubleArray = Ptr{Nothing}
+jcharArray = Ptr{Nothing}
+jvalue = Int64
+
+@enum jobjectRefType begin
+    JNIInvalidRefType    = 0
+    JNILocalRefType      = 1
+    JNIGlobalRefType     = 2
+    JNIWeakGlobalRefType = 3
+end
 
 export GetVersion
 GetVersion(env::Ptr{JNIEnv}) =
@@ -70,15 +103,15 @@ ExceptionOccurred(env::Ptr{JNIEnv}) =
 
 export ExceptionDescribe
 ExceptionDescribe(env::Ptr{JNIEnv}) =
-  ccall(Main.JavaCall.jnifunc.ExceptionDescribe, Void, (Ptr{JNIEnv},), env)
+  ccall(Main.JavaCall.jnifunc.ExceptionDescribe, Nothing, (Ptr{JNIEnv},), env)
 
 export ExceptionClear
 ExceptionClear(env::Ptr{JNIEnv}) =
-  ccall(Main.JavaCall.jnifunc.ExceptionClear, Void, (Ptr{JNIEnv},), env)
+  ccall(Main.JavaCall.jnifunc.ExceptionClear, Nothing, (Ptr{JNIEnv},), env)
 
 export FatalError
 FatalError(env::Ptr{JNIEnv}, msg::AbstractString) =
-  ccall(Main.JavaCall.jnifunc.FatalError, Void, (Ptr{JNIEnv}, Cstring,), env, String(msg))
+  ccall(Main.JavaCall.jnifunc.FatalError, Nothing, (Ptr{JNIEnv}, Cstring,), env, String(msg))
 
 export PushLocalFrame
 PushLocalFrame(env::Ptr{JNIEnv}, capacity::jint) =
@@ -94,11 +127,11 @@ NewGlobalRef(env::Ptr{JNIEnv}, lobj::jobject) =
 
 export DeleteGlobalRef
 DeleteGlobalRef(env::Ptr{JNIEnv}, gref::jobject) =
-  ccall(Main.JavaCall.jnifunc.DeleteGlobalRef, Void, (Ptr{JNIEnv}, jobject,), env, gref)
+  ccall(Main.JavaCall.jnifunc.DeleteGlobalRef, Nothing, (Ptr{JNIEnv}, jobject,), env, gref)
 
 export DeleteLocalRef
 DeleteLocalRef(env::Ptr{JNIEnv}, obj::jobject) =
-  ccall(Main.JavaCall.jnifunc.DeleteLocalRef, Void, (Ptr{JNIEnv}, jobject,), env, obj)
+  ccall(Main.JavaCall.jnifunc.DeleteLocalRef, Nothing, (Ptr{JNIEnv}, jobject,), env, obj)
 
 export IsSameObject
 IsSameObject(env::Ptr{JNIEnv}, obj1::jobject, obj2::jobject) =
@@ -170,7 +203,7 @@ CallDoubleMethodA(env::Ptr{JNIEnv}, obj::jobject, methodID::jmethodID, args::Arr
 
 export CallVoidMethodA
 CallVoidMethodA(env::Ptr{JNIEnv}, obj::jobject, methodID::jmethodID, args::Array{jvalue,1}) =
-  ccall(Main.JavaCall.jnifunc.CallVoidMethodA, Void, (Ptr{JNIEnv}, jobject, jmethodID, Ptr{jvalue},), env, obj, methodID, args)
+  ccall(Main.JavaCall.jnifunc.CallVoidMethodA, Nothing, (Ptr{JNIEnv}, jobject, jmethodID, Ptr{jvalue},), env, obj, methodID, args)
 
 export CallNonvirtualObjectMethodA
 CallNonvirtualObjectMethodA(env::Ptr{JNIEnv}, obj::jobject, clazz::jclass, methodID::jmethodID, args::Array{jvalue,1}) =
@@ -210,7 +243,7 @@ CallNonvirtualDoubleMethodA(env::Ptr{JNIEnv}, obj::jobject, clazz::jclass, metho
 
 export CallNonvirtualVoidMethodA
 CallNonvirtualVoidMethodA(env::Ptr{JNIEnv}, obj::jobject, clazz::jclass, methodID::jmethodID, args::Array{jvalue,1}) =
-  ccall(Main.JavaCall.jnifunc.CallNonvirtualVoidMethodA, Void, (Ptr{JNIEnv}, jobject, jclass, jmethodID, Ptr{jvalue},), env, obj, clazz, methodID, args)
+  ccall(Main.JavaCall.jnifunc.CallNonvirtualVoidMethodA, Nothing, (Ptr{JNIEnv}, jobject, jclass, jmethodID, Ptr{jvalue},), env, obj, clazz, methodID, args)
 
 export GetFieldID
 GetFieldID(env::Ptr{JNIEnv}, clazz::jclass, name::AbstractString, sig::AbstractString) =
@@ -254,39 +287,39 @@ GetDoubleField(env::Ptr{JNIEnv}, obj::jobject, fieldID::jfieldID) =
 
 export SetObjectField
 SetObjectField(env::Ptr{JNIEnv}, obj::jobject, fieldID::jfieldID, val::jobject) =
-  ccall(Main.JavaCall.jnifunc.SetObjectField, Void, (Ptr{JNIEnv}, jobject, jfieldID, jobject,), env, obj, fieldID, val)
+  ccall(Main.JavaCall.jnifunc.SetObjectField, Nothing, (Ptr{JNIEnv}, jobject, jfieldID, jobject,), env, obj, fieldID, val)
 
 export SetBooleanField
 SetBooleanField(env::Ptr{JNIEnv}, obj::jobject, fieldID::jfieldID, val::jboolean) =
-  ccall(Main.JavaCall.jnifunc.SetBooleanField, Void, (Ptr{JNIEnv}, jobject, jfieldID, jboolean,), env, obj, fieldID, val)
+  ccall(Main.JavaCall.jnifunc.SetBooleanField, Nothing, (Ptr{JNIEnv}, jobject, jfieldID, jboolean,), env, obj, fieldID, val)
 
 export SetByteField
 SetByteField(env::Ptr{JNIEnv}, obj::jobject, fieldID::jfieldID, val::jbyte) =
-  ccall(Main.JavaCall.jnifunc.SetByteField, Void, (Ptr{JNIEnv}, jobject, jfieldID, jbyte,), env, obj, fieldID, val)
+  ccall(Main.JavaCall.jnifunc.SetByteField, Nothing, (Ptr{JNIEnv}, jobject, jfieldID, jbyte,), env, obj, fieldID, val)
 
 export SetCharField
 SetCharField(env::Ptr{JNIEnv}, obj::jobject, fieldID::jfieldID, val::jchar) =
-  ccall(Main.JavaCall.jnifunc.SetCharField, Void, (Ptr{JNIEnv}, jobject, jfieldID, jchar,), env, obj, fieldID, val)
+  ccall(Main.JavaCall.jnifunc.SetCharField, Nothing, (Ptr{JNIEnv}, jobject, jfieldID, jchar,), env, obj, fieldID, val)
 
 export SetShortField
 SetShortField(env::Ptr{JNIEnv}, obj::jobject, fieldID::jfieldID, val::jshort) =
-  ccall(Main.JavaCall.jnifunc.SetShortField, Void, (Ptr{JNIEnv}, jobject, jfieldID, jshort,), env, obj, fieldID, val)
+  ccall(Main.JavaCall.jnifunc.SetShortField, Nothing, (Ptr{JNIEnv}, jobject, jfieldID, jshort,), env, obj, fieldID, val)
 
 export SetIntField
 SetIntField(env::Ptr{JNIEnv}, obj::jobject, fieldID::jfieldID, val::jint) =
-  ccall(Main.JavaCall.jnifunc.SetIntField, Void, (Ptr{JNIEnv}, jobject, jfieldID, jint,), env, obj, fieldID, val)
+  ccall(Main.JavaCall.jnifunc.SetIntField, Nothing, (Ptr{JNIEnv}, jobject, jfieldID, jint,), env, obj, fieldID, val)
 
 export SetLongField
 SetLongField(env::Ptr{JNIEnv}, obj::jobject, fieldID::jfieldID, val::jlong) =
-  ccall(Main.JavaCall.jnifunc.SetLongField, Void, (Ptr{JNIEnv}, jobject, jfieldID, jlong,), env, obj, fieldID, val)
+  ccall(Main.JavaCall.jnifunc.SetLongField, Nothing, (Ptr{JNIEnv}, jobject, jfieldID, jlong,), env, obj, fieldID, val)
 
 export SetFloatField
 SetFloatField(env::Ptr{JNIEnv}, obj::jobject, fieldID::jfieldID, val::jfloat) =
-  ccall(Main.JavaCall.jnifunc.SetFloatField, Void, (Ptr{JNIEnv}, jobject, jfieldID, jfloat,), env, obj, fieldID, val)
+  ccall(Main.JavaCall.jnifunc.SetFloatField, Nothing, (Ptr{JNIEnv}, jobject, jfieldID, jfloat,), env, obj, fieldID, val)
 
 export SetDoubleField
 SetDoubleField(env::Ptr{JNIEnv}, obj::jobject, fieldID::jfieldID, val::jdouble) =
-  ccall(Main.JavaCall.jnifunc.SetDoubleField, Void, (Ptr{JNIEnv}, jobject, jfieldID, jdouble,), env, obj, fieldID, val)
+  ccall(Main.JavaCall.jnifunc.SetDoubleField, Nothing, (Ptr{JNIEnv}, jobject, jfieldID, jdouble,), env, obj, fieldID, val)
 
 export GetStaticMethodID
 GetStaticMethodID(env::Ptr{JNIEnv}, clazz::jclass, name::AbstractString, sig::AbstractString) =
@@ -330,7 +363,7 @@ CallStaticDoubleMethodA(env::Ptr{JNIEnv}, clazz::jclass, methodID::jmethodID, ar
 
 export CallStaticVoidMethodA
 CallStaticVoidMethodA(env::Ptr{JNIEnv}, cls::jclass, methodID::jmethodID, args::Array{jvalue,1}) =
-  ccall(Main.JavaCall.jnifunc.CallStaticVoidMethodA, Void, (Ptr{JNIEnv}, jclass, jmethodID, Ptr{jvalue},), env, cls, methodID, args)
+  ccall(Main.JavaCall.jnifunc.CallStaticVoidMethodA, Nothing, (Ptr{JNIEnv}, jclass, jmethodID, Ptr{jvalue},), env, cls, methodID, args)
 
 export GetStaticFieldID
 GetStaticFieldID(env::Ptr{JNIEnv}, clazz::jclass, name::AbstractString, sig::AbstractString) =
@@ -374,39 +407,39 @@ GetStaticDoubleField(env::Ptr{JNIEnv}, clazz::jclass, fieldID::jfieldID) =
 
 export SetStaticObjectField
 SetStaticObjectField(env::Ptr{JNIEnv}, clazz::jclass, fieldID::jfieldID, value::jobject) =
-  ccall(Main.JavaCall.jnifunc.SetStaticObjectField, Void, (Ptr{JNIEnv}, jclass, jfieldID, jobject,), env, clazz, fieldID, value)
+  ccall(Main.JavaCall.jnifunc.SetStaticObjectField, Nothing, (Ptr{JNIEnv}, jclass, jfieldID, jobject,), env, clazz, fieldID, value)
 
 export SetStaticBooleanField
 SetStaticBooleanField(env::Ptr{JNIEnv}, clazz::jclass, fieldID::jfieldID, value::jboolean) =
-  ccall(Main.JavaCall.jnifunc.SetStaticBooleanField, Void, (Ptr{JNIEnv}, jclass, jfieldID, jboolean,), env, clazz, fieldID, value)
+  ccall(Main.JavaCall.jnifunc.SetStaticBooleanField, Nothing, (Ptr{JNIEnv}, jclass, jfieldID, jboolean,), env, clazz, fieldID, value)
 
 export SetStaticByteField
 SetStaticByteField(env::Ptr{JNIEnv}, clazz::jclass, fieldID::jfieldID, value::jbyte) =
-  ccall(Main.JavaCall.jnifunc.SetStaticByteField, Void, (Ptr{JNIEnv}, jclass, jfieldID, jbyte,), env, clazz, fieldID, value)
+  ccall(Main.JavaCall.jnifunc.SetStaticByteField, Nothing, (Ptr{JNIEnv}, jclass, jfieldID, jbyte,), env, clazz, fieldID, value)
 
 export SetStaticCharField
 SetStaticCharField(env::Ptr{JNIEnv}, clazz::jclass, fieldID::jfieldID, value::jchar) =
-  ccall(Main.JavaCall.jnifunc.SetStaticCharField, Void, (Ptr{JNIEnv}, jclass, jfieldID, jchar,), env, clazz, fieldID, value)
+  ccall(Main.JavaCall.jnifunc.SetStaticCharField, Nothing, (Ptr{JNIEnv}, jclass, jfieldID, jchar,), env, clazz, fieldID, value)
 
 export SetStaticShortField
 SetStaticShortField(env::Ptr{JNIEnv}, clazz::jclass, fieldID::jfieldID, value::jshort) =
-  ccall(Main.JavaCall.jnifunc.SetStaticShortField, Void, (Ptr{JNIEnv}, jclass, jfieldID, jshort,), env, clazz, fieldID, value)
+  ccall(Main.JavaCall.jnifunc.SetStaticShortField, Nothing, (Ptr{JNIEnv}, jclass, jfieldID, jshort,), env, clazz, fieldID, value)
 
 export SetStaticIntField
 SetStaticIntField(env::Ptr{JNIEnv}, clazz::jclass, fieldID::jfieldID, value::jint) =
-  ccall(Main.JavaCall.jnifunc.SetStaticIntField, Void, (Ptr{JNIEnv}, jclass, jfieldID, jint,), env, clazz, fieldID, value)
+  ccall(Main.JavaCall.jnifunc.SetStaticIntField, Nothing, (Ptr{JNIEnv}, jclass, jfieldID, jint,), env, clazz, fieldID, value)
 
 export SetStaticLongField
 SetStaticLongField(env::Ptr{JNIEnv}, clazz::jclass, fieldID::jfieldID, value::jlong) =
-  ccall(Main.JavaCall.jnifunc.SetStaticLongField, Void, (Ptr{JNIEnv}, jclass, jfieldID, jlong,), env, clazz, fieldID, value)
+  ccall(Main.JavaCall.jnifunc.SetStaticLongField, Nothing, (Ptr{JNIEnv}, jclass, jfieldID, jlong,), env, clazz, fieldID, value)
 
 export SetStaticFloatField
 SetStaticFloatField(env::Ptr{JNIEnv}, clazz::jclass, fieldID::jfieldID, value::jfloat) =
-  ccall(Main.JavaCall.jnifunc.SetStaticFloatField, Void, (Ptr{JNIEnv}, jclass, jfieldID, jfloat,), env, clazz, fieldID, value)
+  ccall(Main.JavaCall.jnifunc.SetStaticFloatField, Nothing, (Ptr{JNIEnv}, jclass, jfieldID, jfloat,), env, clazz, fieldID, value)
 
 export SetStaticDoubleField
 SetStaticDoubleField(env::Ptr{JNIEnv}, clazz::jclass, fieldID::jfieldID, value::jdouble) =
-  ccall(Main.JavaCall.jnifunc.SetStaticDoubleField, Void, (Ptr{JNIEnv}, jclass, jfieldID, jdouble,), env, clazz, fieldID, value)
+  ccall(Main.JavaCall.jnifunc.SetStaticDoubleField, Nothing, (Ptr{JNIEnv}, jclass, jfieldID, jdouble,), env, clazz, fieldID, value)
 
 export NewString
 NewString(env::Ptr{JNIEnv}, unicode::Array{jchar,1}, len::Integer) =
@@ -422,7 +455,7 @@ GetStringChars(env::Ptr{JNIEnv}, str::jstring, isCopy::Array{jboolean,1}) =
 
 export ReleaseStringChars
 ReleaseStringChars(env::Ptr{JNIEnv}, str::jstring, chars::Array{jchar,1}) =
-  ccall(Main.JavaCall.jnifunc.ReleaseStringChars, Void, (Ptr{JNIEnv}, jstring, Ptr{jchar},), env, str, chars)
+  ccall(Main.JavaCall.jnifunc.ReleaseStringChars, Nothing, (Ptr{JNIEnv}, jstring, Ptr{jchar},), env, str, chars)
 
 export NewStringUTF
 NewStringUTF(env::Ptr{JNIEnv}, utf::AbstractString) =
@@ -438,7 +471,7 @@ GetStringUTFChars(env::Ptr{JNIEnv}, str::jstring, isCopy::Array{jboolean,1}) =
 
 export ReleaseStringUTFChars
 ReleaseStringUTFChars(env::Ptr{JNIEnv}, str::jstring, chars::Ptr{UInt8}) =
-  ccall(Main.JavaCall.jnifunc.ReleaseStringUTFChars, Void, (Ptr{JNIEnv}, jstring, Ptr{UInt8},), env, str, chars)
+  ccall(Main.JavaCall.jnifunc.ReleaseStringUTFChars, Nothing, (Ptr{JNIEnv}, jstring, Ptr{UInt8},), env, str, chars)
 
 export GetArrayLength
 GetArrayLength(env::Ptr{JNIEnv}, array::jarray) =
@@ -454,7 +487,7 @@ GetObjectArrayElement(env::Ptr{JNIEnv}, array::jobjectArray, index::Integer) =
 
 export SetObjectArrayElement
 SetObjectArrayElement(env::Ptr{JNIEnv}, array::jobjectArray, index::Integer, val::jobject) =
-  ccall(Main.JavaCall.jnifunc.SetObjectArrayElement, Void, (Ptr{JNIEnv}, jobjectArray, jsize, jobject,), env, array, index, val)
+  ccall(Main.JavaCall.jnifunc.SetObjectArrayElement, Nothing, (Ptr{JNIEnv}, jobjectArray, jsize, jobject,), env, array, index, val)
 
 export NewBooleanArray
 NewBooleanArray(env::Ptr{JNIEnv}, len::Integer) =
@@ -522,99 +555,99 @@ GetDoubleArrayElements(env::Ptr{JNIEnv}, array::jdoubleArray, isCopy::Array{jboo
 
 export ReleaseBooleanArrayElements
 ReleaseBooleanArrayElements(env::Ptr{JNIEnv}, array::jbooleanArray, elems::Array{jboolean,1}, mode::jint) =
-  ccall(Main.JavaCall.jnifunc.ReleaseBooleanArrayElements, Void, (Ptr{JNIEnv}, jbooleanArray, Ptr{jboolean}, jint,), env, array, elems, mode)
+  ccall(Main.JavaCall.jnifunc.ReleaseBooleanArrayElements, Nothing, (Ptr{JNIEnv}, jbooleanArray, Ptr{jboolean}, jint,), env, array, elems, mode)
 
 export ReleaseByteArrayElements
 ReleaseByteArrayElements(env::Ptr{JNIEnv}, array::jbyteArray, elems::Array{jbyte,1}, mode::jint) =
-  ccall(Main.JavaCall.jnifunc.ReleaseByteArrayElements, Void, (Ptr{JNIEnv}, jbyteArray, Ptr{jbyte}, jint,), env, array, elems, mode)
+  ccall(Main.JavaCall.jnifunc.ReleaseByteArrayElements, Nothing, (Ptr{JNIEnv}, jbyteArray, Ptr{jbyte}, jint,), env, array, elems, mode)
 
 export ReleaseCharArrayElements
 ReleaseCharArrayElements(env::Ptr{JNIEnv}, array::jcharArray, elems::Array{jchar,1}, mode::jint) =
-  ccall(Main.JavaCall.jnifunc.ReleaseCharArrayElements, Void, (Ptr{JNIEnv}, jcharArray, Ptr{jchar}, jint,), env, array, elems, mode)
+  ccall(Main.JavaCall.jnifunc.ReleaseCharArrayElements, Nothing, (Ptr{JNIEnv}, jcharArray, Ptr{jchar}, jint,), env, array, elems, mode)
 
 export ReleaseShortArrayElements
 ReleaseShortArrayElements(env::Ptr{JNIEnv}, array::jshortArray, elems::Array{jshort,1}, mode::jint) =
-  ccall(Main.JavaCall.jnifunc.ReleaseShortArrayElements, Void, (Ptr{JNIEnv}, jshortArray, Ptr{jshort}, jint,), env, array, elems, mode)
+  ccall(Main.JavaCall.jnifunc.ReleaseShortArrayElements, Nothing, (Ptr{JNIEnv}, jshortArray, Ptr{jshort}, jint,), env, array, elems, mode)
 
 export ReleaseIntArrayElements
 ReleaseIntArrayElements(env::Ptr{JNIEnv}, array::jintArray, elems::Array{jint,1}, mode::jint) =
-  ccall(Main.JavaCall.jnifunc.ReleaseIntArrayElements, Void, (Ptr{JNIEnv}, jintArray, Ptr{jint}, jint,), env, array, elems, mode)
+  ccall(Main.JavaCall.jnifunc.ReleaseIntArrayElements, Nothing, (Ptr{JNIEnv}, jintArray, Ptr{jint}, jint,), env, array, elems, mode)
 
 export ReleaseLongArrayElements
 ReleaseLongArrayElements(env::Ptr{JNIEnv}, array::jlongArray, elems::Array{jlong,1}, mode::jint) =
-  ccall(Main.JavaCall.jnifunc.ReleaseLongArrayElements, Void, (Ptr{JNIEnv}, jlongArray, Ptr{jlong}, jint,), env, array, elems, mode)
+  ccall(Main.JavaCall.jnifunc.ReleaseLongArrayElements, Nothing, (Ptr{JNIEnv}, jlongArray, Ptr{jlong}, jint,), env, array, elems, mode)
 
 export ReleaseFloatArrayElements
 ReleaseFloatArrayElements(env::Ptr{JNIEnv}, array::jfloatArray, elems::Array{jfloat,1}, mode::jint) =
-  ccall(Main.JavaCall.jnifunc.ReleaseFloatArrayElements, Void, (Ptr{JNIEnv}, jfloatArray, Ptr{jfloat}, jint,), env, array, elems, mode)
+  ccall(Main.JavaCall.jnifunc.ReleaseFloatArrayElements, Nothing, (Ptr{JNIEnv}, jfloatArray, Ptr{jfloat}, jint,), env, array, elems, mode)
 
 export ReleaseDoubleArrayElements
 ReleaseDoubleArrayElements(env::Ptr{JNIEnv}, array::jdoubleArray, elems::Array{jdouble,1}, mode::jint) =
-  ccall(Main.JavaCall.jnifunc.ReleaseDoubleArrayElements, Void, (Ptr{JNIEnv}, jdoubleArray, Ptr{jdouble}, jint,), env, array, elems, mode)
+  ccall(Main.JavaCall.jnifunc.ReleaseDoubleArrayElements, Nothing, (Ptr{JNIEnv}, jdoubleArray, Ptr{jdouble}, jint,), env, array, elems, mode)
 
 export GetBooleanArrayRegion
 GetBooleanArrayRegion(env::Ptr{JNIEnv}, array::jbooleanArray, start::Integer, l::Integer, buf::Array{jboolean,1}) =
-  ccall(Main.JavaCall.jnifunc.GetBooleanArrayRegion, Void, (Ptr{JNIEnv}, jbooleanArray, jsize, jsize, Ptr{jboolean},), env, array, start, l, buf)
+  ccall(Main.JavaCall.jnifunc.GetBooleanArrayRegion, Nothing, (Ptr{JNIEnv}, jbooleanArray, jsize, jsize, Ptr{jboolean},), env, array, start, l, buf)
 
 export GetByteArrayRegion
 GetByteArrayRegion(env::Ptr{JNIEnv}, array::jbyteArray, start::Integer, len::Integer, buf::Array{jbyte,1}) =
-  ccall(Main.JavaCall.jnifunc.GetByteArrayRegion, Void, (Ptr{JNIEnv}, jbyteArray, jsize, jsize, Ptr{jbyte},), env, array, start, len, buf)
+  ccall(Main.JavaCall.jnifunc.GetByteArrayRegion, Nothing, (Ptr{JNIEnv}, jbyteArray, jsize, jsize, Ptr{jbyte},), env, array, start, len, buf)
 
 export GetCharArrayRegion
 GetCharArrayRegion(env::Ptr{JNIEnv}, array::jcharArray, start::Integer, len::Integer, buf::Array{jchar,1}) =
-  ccall(Main.JavaCall.jnifunc.GetCharArrayRegion, Void, (Ptr{JNIEnv}, jcharArray, jsize, jsize, Ptr{jchar},), env, array, start, len, buf)
+  ccall(Main.JavaCall.jnifunc.GetCharArrayRegion, Nothing, (Ptr{JNIEnv}, jcharArray, jsize, jsize, Ptr{jchar},), env, array, start, len, buf)
 
 export GetShortArrayRegion
 GetShortArrayRegion(env::Ptr{JNIEnv}, array::jshortArray, start::Integer, len::Integer, buf::Array{jshort,1}) =
-  ccall(Main.JavaCall.jnifunc.GetShortArrayRegion, Void, (Ptr{JNIEnv}, jshortArray, jsize, jsize, Ptr{jshort},), env, array, start, len, buf)
+  ccall(Main.JavaCall.jnifunc.GetShortArrayRegion, Nothing, (Ptr{JNIEnv}, jshortArray, jsize, jsize, Ptr{jshort},), env, array, start, len, buf)
 
 export GetIntArrayRegion
 GetIntArrayRegion(env::Ptr{JNIEnv}, array::jintArray, start::Integer, len::Integer, buf::Array{jint,1}) =
-  ccall(Main.JavaCall.jnifunc.GetIntArrayRegion, Void, (Ptr{JNIEnv}, jintArray, jsize, jsize, Ptr{jint},), env, array, start, len, buf)
+  ccall(Main.JavaCall.jnifunc.GetIntArrayRegion, Nothing, (Ptr{JNIEnv}, jintArray, jsize, jsize, Ptr{jint},), env, array, start, len, buf)
 
 export GetLongArrayRegion
 GetLongArrayRegion(env::Ptr{JNIEnv}, array::jlongArray, start::Integer, len::Integer, buf::Array{jlong,1}) =
-  ccall(Main.JavaCall.jnifunc.GetLongArrayRegion, Void, (Ptr{JNIEnv}, jlongArray, jsize, jsize, Ptr{jlong},), env, array, start, len, buf)
+  ccall(Main.JavaCall.jnifunc.GetLongArrayRegion, Nothing, (Ptr{JNIEnv}, jlongArray, jsize, jsize, Ptr{jlong},), env, array, start, len, buf)
 
 export GetFloatArrayRegion
 GetFloatArrayRegion(env::Ptr{JNIEnv}, array::jfloatArray, start::Integer, len::Integer, buf::Array{jfloat,1}) =
-  ccall(Main.JavaCall.jnifunc.GetFloatArrayRegion, Void, (Ptr{JNIEnv}, jfloatArray, jsize, jsize, Ptr{jfloat},), env, array, start, len, buf)
+  ccall(Main.JavaCall.jnifunc.GetFloatArrayRegion, Nothing, (Ptr{JNIEnv}, jfloatArray, jsize, jsize, Ptr{jfloat},), env, array, start, len, buf)
 
 export GetDoubleArrayRegion
 GetDoubleArrayRegion(env::Ptr{JNIEnv}, array::jdoubleArray, start::Integer, len::Integer, buf::Array{jdouble,1}) =
-  ccall(Main.JavaCall.jnifunc.GetDoubleArrayRegion, Void, (Ptr{JNIEnv}, jdoubleArray, jsize, jsize, Ptr{jdouble},), env, array, start, len, buf)
+  ccall(Main.JavaCall.jnifunc.GetDoubleArrayRegion, Nothing, (Ptr{JNIEnv}, jdoubleArray, jsize, jsize, Ptr{jdouble},), env, array, start, len, buf)
 
 export SetBooleanArrayRegion
 SetBooleanArrayRegion(env::Ptr{JNIEnv}, array::jbooleanArray, start::Integer, l::Integer, buf::Array{jboolean,1}) =
-  ccall(Main.JavaCall.jnifunc.SetBooleanArrayRegion, Void, (Ptr{JNIEnv}, jbooleanArray, jsize, jsize, Ptr{jboolean},), env, array, start, l, buf)
+  ccall(Main.JavaCall.jnifunc.SetBooleanArrayRegion, Nothing, (Ptr{JNIEnv}, jbooleanArray, jsize, jsize, Ptr{jboolean},), env, array, start, l, buf)
 
 export SetByteArrayRegion
 SetByteArrayRegion(env::Ptr{JNIEnv}, array::jbyteArray, start::Integer, len::Integer, buf::Array{jbyte,1}) =
-  ccall(Main.JavaCall.jnifunc.SetByteArrayRegion, Void, (Ptr{JNIEnv}, jbyteArray, jsize, jsize, Ptr{jbyte},), env, array, start, len, buf)
+  ccall(Main.JavaCall.jnifunc.SetByteArrayRegion, Nothing, (Ptr{JNIEnv}, jbyteArray, jsize, jsize, Ptr{jbyte},), env, array, start, len, buf)
 
 export SetCharArrayRegion
 SetCharArrayRegion(env::Ptr{JNIEnv}, array::jcharArray, start::Integer, len::Integer, buf::Array{jchar,1}) =
-  ccall(Main.JavaCall.jnifunc.SetCharArrayRegion, Void, (Ptr{JNIEnv}, jcharArray, jsize, jsize, Ptr{jchar},), env, array, start, len, buf)
+  ccall(Main.JavaCall.jnifunc.SetCharArrayRegion, Nothing, (Ptr{JNIEnv}, jcharArray, jsize, jsize, Ptr{jchar},), env, array, start, len, buf)
 
 export SetShortArrayRegion
 SetShortArrayRegion(env::Ptr{JNIEnv}, array::jshortArray, start::Integer, len::Integer, buf::Array{jshort,1}) =
-  ccall(Main.JavaCall.jnifunc.SetShortArrayRegion, Void, (Ptr{JNIEnv}, jshortArray, jsize, jsize, Ptr{jshort},), env, array, start, len, buf)
+  ccall(Main.JavaCall.jnifunc.SetShortArrayRegion, Nothing, (Ptr{JNIEnv}, jshortArray, jsize, jsize, Ptr{jshort},), env, array, start, len, buf)
 
 export SetIntArrayRegion
 SetIntArrayRegion(env::Ptr{JNIEnv}, array::jintArray, start::Integer, len::Integer, buf::Array{jint,1}) =
-  ccall(Main.JavaCall.jnifunc.SetIntArrayRegion, Void, (Ptr{JNIEnv}, jintArray, jsize, jsize, Ptr{jint},), env, array, start, len, buf)
+  ccall(Main.JavaCall.jnifunc.SetIntArrayRegion, Nothing, (Ptr{JNIEnv}, jintArray, jsize, jsize, Ptr{jint},), env, array, start, len, buf)
 
 export SetLongArrayRegion
 SetLongArrayRegion(env::Ptr{JNIEnv}, array::jlongArray, start::Integer, len::Integer, buf::Array{jlong,1}) =
-  ccall(Main.JavaCall.jnifunc.SetLongArrayRegion, Void, (Ptr{JNIEnv}, jlongArray, jsize, jsize, Ptr{jlong},), env, array, start, len, buf)
+  ccall(Main.JavaCall.jnifunc.SetLongArrayRegion, Nothing, (Ptr{JNIEnv}, jlongArray, jsize, jsize, Ptr{jlong},), env, array, start, len, buf)
 
 export SetFloatArrayRegion
 SetFloatArrayRegion(env::Ptr{JNIEnv}, array::jfloatArray, start::Integer, len::Integer, buf::Array{jfloat,1}) =
-  ccall(Main.JavaCall.jnifunc.SetFloatArrayRegion, Void, (Ptr{JNIEnv}, jfloatArray, jsize, jsize, Ptr{jfloat},), env, array, start, len, buf)
+  ccall(Main.JavaCall.jnifunc.SetFloatArrayRegion, Nothing, (Ptr{JNIEnv}, jfloatArray, jsize, jsize, Ptr{jfloat},), env, array, start, len, buf)
 
 export SetDoubleArrayRegion
 SetDoubleArrayRegion(env::Ptr{JNIEnv}, array::jdoubleArray, start::Integer, len::Integer, buf::Array{jdouble,1}) =
-  ccall(Main.JavaCall.jnifunc.SetDoubleArrayRegion, Void, (Ptr{JNIEnv}, jdoubleArray, jsize, jsize, Ptr{jdouble},), env, array, start, len, buf)
+  ccall(Main.JavaCall.jnifunc.SetDoubleArrayRegion, Nothing, (Ptr{JNIEnv}, jdoubleArray, jsize, jsize, Ptr{jdouble},), env, array, start, len, buf)
 
 export RegisterNatives
 RegisterNatives(env::Ptr{JNIEnv}, clazz::jclass, methods::Array{JNINativeMethod,1}, nMethods::jint) =
@@ -638,19 +671,19 @@ GetJavaVM(env::Ptr{JNIEnv}, vm::Array{JavaVM,1}) =
 
 export GetStringRegion
 GetStringRegion(env::Ptr{JNIEnv}, str::jstring, start::Integer, len::Integer, buf::Array{jchar,1}) =
-  ccall(Main.JavaCall.jnifunc.GetStringRegion, Void, (Ptr{JNIEnv}, jstring, jsize, jsize, Ptr{jchar},), env, str, start, len, buf)
+  ccall(Main.JavaCall.jnifunc.GetStringRegion, Nothing, (Ptr{JNIEnv}, jstring, jsize, jsize, Ptr{jchar},), env, str, start, len, buf)
 
 export GetStringUTFRegion
 GetStringUTFRegion(env::Ptr{JNIEnv}, str::jstring, start::Integer, len::Integer, buf::AbstractString) =
-  ccall(Main.JavaCall.jnifunc.GetStringUTFRegion, Void, (Ptr{JNIEnv}, jstring, jsize, jsize, Cstring,), env, str, start, len, String(buf))
+  ccall(Main.JavaCall.jnifunc.GetStringUTFRegion, Nothing, (Ptr{JNIEnv}, jstring, jsize, jsize, Cstring,), env, str, start, len, String(buf))
 
 export GetPrimitiveArrayCritical
 GetPrimitiveArrayCritical(env::Ptr{JNIEnv}, array::jarray, isCopy::Array{jboolean,1}) =
-  ccall(Main.JavaCall.jnifunc.GetPrimitiveArrayCritical, Ptr{Void}, (Ptr{JNIEnv}, jarray, Ptr{jboolean},), env, array, isCopy)
+  ccall(Main.JavaCall.jnifunc.GetPrimitiveArrayCritical, Ptr{Nothing}, (Ptr{JNIEnv}, jarray, Ptr{jboolean},), env, array, isCopy)
 
 export ReleasePrimitiveArrayCritical
-ReleasePrimitiveArrayCritical(env::Ptr{JNIEnv}, array::jarray, carray::Ptr{Void}, mode::jint) =
-  ccall(Main.JavaCall.jnifunc.ReleasePrimitiveArrayCritical, Void, (Ptr{JNIEnv}, jarray, Ptr{Void}, jint,), env, array, carray, mode)
+ReleasePrimitiveArrayCritical(env::Ptr{JNIEnv}, array::jarray, carray::Ptr{Nothing}, mode::jint) =
+  ccall(Main.JavaCall.jnifunc.ReleasePrimitiveArrayCritical, Nothing, (Ptr{JNIEnv}, jarray, Ptr{Nothing}, jint,), env, array, carray, mode)
 
 export GetStringCritical
 GetStringCritical(env::Ptr{JNIEnv}, string::jstring, isCopy::Array{jboolean,1}) =
@@ -658,7 +691,7 @@ GetStringCritical(env::Ptr{JNIEnv}, string::jstring, isCopy::Array{jboolean,1}) 
 
 export ReleaseStringCritical
 ReleaseStringCritical(env::Ptr{JNIEnv}, string::jstring, cstring::Array{jchar,1}) =
-  ccall(Main.JavaCall.jnifunc.ReleaseStringCritical, Void, (Ptr{JNIEnv}, jstring, Ptr{jchar},), env, string, cstring)
+  ccall(Main.JavaCall.jnifunc.ReleaseStringCritical, Nothing, (Ptr{JNIEnv}, jstring, Ptr{jchar},), env, string, cstring)
 
 export NewWeakGlobalRef
 NewWeakGlobalRef(env::Ptr{JNIEnv}, obj::jobject) =
@@ -666,19 +699,19 @@ NewWeakGlobalRef(env::Ptr{JNIEnv}, obj::jobject) =
 
 export DeleteWeakGlobalRef
 DeleteWeakGlobalRef(env::Ptr{JNIEnv}, ref::jweak) =
-  ccall(Main.JavaCall.jnifunc.DeleteWeakGlobalRef, Void, (Ptr{JNIEnv}, jweak,), env, ref)
+  ccall(Main.JavaCall.jnifunc.DeleteWeakGlobalRef, Nothing, (Ptr{JNIEnv}, jweak,), env, ref)
 
 export ExceptionCheck
 ExceptionCheck(env::Ptr{JNIEnv}) =
   ccall(Main.JavaCall.jnifunc.ExceptionCheck, jboolean, (Ptr{JNIEnv},), env)
 
 export NewDirectByteBuffer
-NewDirectByteBuffer(env::Ptr{JNIEnv}, address::Ptr{Void}, capacity::jlong) =
-  ccall(Main.JavaCall.jnifunc.NewDirectByteBuffer, jobject, (Ptr{JNIEnv}, Ptr{Void}, jlong,), env, address, capacity)
+NewDirectByteBuffer(env::Ptr{JNIEnv}, address::Ptr{Nothing}, capacity::jlong) =
+  ccall(Main.JavaCall.jnifunc.NewDirectByteBuffer, jobject, (Ptr{JNIEnv}, Ptr{Nothing}, jlong,), env, address, capacity)
 
 export GetDirectBufferAddress
 GetDirectBufferAddress(env::Ptr{JNIEnv}, buf::jobject) =
-  ccall(Main.JavaCall.jnifunc.GetDirectBufferAddress, Ptr{Void}, (Ptr{JNIEnv}, jobject,), env, buf)
+  ccall(Main.JavaCall.jnifunc.GetDirectBufferAddress, Ptr{Nothing}, (Ptr{JNIEnv}, jobject,), env, buf)
 
 export GetDirectBufferCapacity
 GetDirectBufferCapacity(env::Ptr{JNIEnv}, buf::jobject) =

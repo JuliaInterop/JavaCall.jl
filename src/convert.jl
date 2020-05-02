@@ -18,8 +18,9 @@ function convert(::Type{JavaObject{T}}, obj::JavaObject{S}) where {T,S}
     throw(JavaCallError("Cannot cast java object from $S to $T"))
 end
 
+#Is java type convertible from S to T.
 isConvertible(T, S) = IsAssignableFrom(penv, metaclass(S).ptr, metaclass(T).ptr) == JNI_TRUE
-isConvertible(T, S::Ptr{Void} ) = IsAssignableFrom(penv, S, metaclass(T).ptr) == JNI_TRUE
+isConvertible(T, S::Ptr{Nothing} ) = IsAssignableFrom(penv, S, metaclass(T).ptr) == JNI_TRUE
 
 unsafe_convert(::Type{Ptr{Nothing}}, cls::JavaMetaClass) = cls.ptr
 
@@ -108,7 +109,6 @@ for (x, y, z) in [(:jboolean, :(jnifunc.GetBooleanArrayElements), :(jnifunc.Rele
             arr = ccall($(y), Ptr{$(x)}, (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{jboolean} ), penv, result,
                         C_NULL)
             jl_arr::Array = unsafe_wrap(Array, arr, Int(sz))
-            #jl_arr::Array = pointer_to_array(arr, (@compat Int(sz)), false)
             jl_arr = deepcopy(jl_arr)
             ccall($(z), Nothing, (Ptr{JNIEnv},Ptr{Nothing}, Ptr{$(x)}, jint), penv, result, arr, 0)
             return jl_arr
@@ -261,7 +261,6 @@ function unsafe_string(jstr::JString)  #jstr must be a jstring obtained via a JN
     pIsCopy = Array{jboolean}(undef, 1)
     buf::Ptr{UInt8} = GetStringUTFChars(penv, jstr.ptr, pIsCopy)
     s = unsafe_string(buf)
-    # s = bytestring(buf)
     ReleaseStringUTFChars(penv, jstr.ptr, buf)
     return s
 end

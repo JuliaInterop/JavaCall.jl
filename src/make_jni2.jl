@@ -1,12 +1,12 @@
 println("module JNI")
 println("import ..JavaCall: JNIEnv, JavaVM, jbyte, jchar, jshort, jint, jlong, jsize, jdouble, jfloat, jboolean")
 for t in ["jobject", "jclass", "jthrowable", "jweak", "jmethodID", "jfieldID",  "jstring", "jarray", "JNINativeMethod"]
-println("typealias $t Ptr{Void}")
+println("$t = Ptr{Nothing}")
 end
 for t in ["object", "boolean", "byte", "short", "int", "long", "float", "double", "char"]
-println("typealias j$(t)Array Ptr{Void}")
+println("j$(t)Array = Ptr{Nothing}")
 end
-println("typealias jvalue Int64")
+println("jvalue = Int64")
 println()
 
 function arg_name(m)
@@ -26,7 +26,7 @@ function decl_arg_type(t, s)
     if t == "char"
       return "AbstractString"
     elseif t == "void"
-      return "Ptr{Void}"
+      return "Ptr{Nothing}"
     elseif t == "JNIEnv"
       return "Ptr{JNIEnv}"
     else
@@ -37,7 +37,7 @@ function decl_arg_type(t, s)
   end
 
   if t == "void"
-    return "Void"
+    return "Nothing"
   end
 
   return s == "" ? t : "Array{$t,1}"
@@ -48,7 +48,7 @@ function ccall_arg_type(t, s; r=false)
     if t == "char"
       return "Cstring"
     elseif t == "void"
-      return "Ptr{Void}"
+      return "Ptr{Nothing}"
     elseif t == "JNIEnv"
       return "Ptr{JNIEnv}"
     else
@@ -57,7 +57,7 @@ function ccall_arg_type(t, s; r=false)
   end
 
   if t == "void"
-    return "Void"
+    return "Nothing"
   end
 
   return s == "" ? t : r ? "Ptr{$t}" : "Array{$t,1}"
@@ -69,8 +69,8 @@ for line in open(readlines, "jnienv.jl", "r")
   m = match(r"\# \s* (?:const\s*)? ((?:void|char|j\w+)) \s* (\**) \s* \( \s* \* (\w+) \s* \) \s* \((.*)\) \s* ;"x, line)
   if m === nothing continue end
 
-  if contains(m.captures[4], "...") continue end
-  if contains(m.captures[4], "va_list") continue end
+  if occursin("...", m.captures[4]) continue end
+  if occursin("va_list", m.captures[4]) continue end
 
   rtype = ccall_arg_type(m.captures[1], m.captures[2], r=true)
 

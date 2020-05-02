@@ -1,21 +1,3 @@
-
-# jni_md.h
-const jint = Cint
-#ifdef _LP64 /* 64-bit Solaris */
-# typedef long jlong;
-const jlong = Clonglong
-const jbyte = Cchar
-
-# jni.h
-
-const jboolean = Cuchar
-const jchar = Cushort
-const jshort = Cshort
-const jfloat = Cfloat
-const jdouble = Cdouble
-const jsize = jint
-jprimitive = Union{jboolean, jchar, jshort, jfloat, jdouble, jint, jlong}
-
 struct JavaMetaClass{T}
     ptr::Ptr{Nothing}
 end
@@ -64,7 +46,7 @@ Checks if the passed JavaObject is null or not
 true if the passed object is null else false
 """
 isnull(obj::JavaObject) = obj.ptr == C_NULL
-isnull(obj::Ptr{Void}) = obj == C_NULL
+isnull(obj::Ptr{Nothing}) = obj == C_NULL
 
 """
 ```
@@ -134,7 +116,6 @@ function jnew(T::Symbol, argtypes::Tuple, args...)
 end
 
 # Call static methods
-<<<<<<< HEAD
 function jcall(typ::Type{JavaObject{T}}, method::AbstractString, rettype::Type, argtypes::Tuple,
                args... ) where T
     assertroottask_or_goodenv()
@@ -146,7 +127,6 @@ end
 
 # Call instance methods
 function jcall(obj::JavaObject, method::AbstractString, rettype::Type, argtypes::Tuple, args... )
-<<<<<<< HEAD
     assertroottask_or_goodenv()
     sig = method_signature(rettype, argtypes...)
     jmethodId = GetMethodID(penv, metaclass(obj).ptr, String(method), sig)
@@ -278,7 +258,7 @@ function geterror(allow=false)
         jthrow==C_NULL && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
         ExceptionDescribe(penv ) #Print java stackstrace to stdout
         ExceptionClear(penv )
-                       "java/lang/Throwable")
+        jclass = FindClass(penv, "java/lang/Throwable")
         jclass==C_NULL && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
         jmethodId=GetMethodID(penv, jclass, "toString", "()Ljava/lang/String;")
         jmethodId==C_NULL && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
