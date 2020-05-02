@@ -1,3 +1,20 @@
+# jni_md.h
+typealias jint Cint
+#ifdef _LP64 /* 64-bit Solaris */
+# typedef long jlong;
+typealias jlong Clonglong
+typealias jbyte Cchar
+
+# jni.h
+
+typealias jboolean Cuchar
+typealias jchar Cushort
+typealias jshort Cshort
+typealias jfloat Cfloat
+typealias jdouble Cdouble
+typealias jsize jint
+jprimitive = @compat Union{jboolean, jchar, jshort, jfloat, jdouble, jint, jlong}
+
 
 
 struct JNINativeInterface #struct JNINativeInterface_ {

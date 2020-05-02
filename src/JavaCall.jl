@@ -25,6 +25,9 @@ JULIA_COPY_STACKS = false
 
 include("jnienv.jl")
 include("jvm.jl")
+include("jnienv2.jl")
+using .JNI
+
 include("core.jl")
 include("convert.jl")
 include("reflect.jl")

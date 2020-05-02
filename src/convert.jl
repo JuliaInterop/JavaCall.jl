@@ -9,7 +9,7 @@ function convert(::Type{JavaObject{T}}, obj::JavaObject{S}) where {T,S}
         return JavaObject{T}(ptr)
     end
     isnull(obj) && throw(ArgumentError("Cannot convert NULL"))
-    realClass = ccall(jnifunc.GetObjectClass, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing} ), penv, obj.ptr)
+    realClass = GetObjectClass(penv, obj.ptr)
     if isConvertible(T, realClass)  #dynamic cast
         ptr = ccall(jnifunc.NewLocalRef, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing}), penv, obj.ptr)
         ptr === C_NULL && geterror()
@@ -18,13 +18,8 @@ function convert(::Type{JavaObject{T}}, obj::JavaObject{S}) where {T,S}
     throw(JavaCallError("Cannot cast java object from $S to $T"))
 end
 
-#Is java type convertible from S to T.
-isConvertible(T, S) = (ccall(jnifunc.IsAssignableFrom, jboolean,
-                             (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}), penv, metaclass(S),
-                             metaclass(T)) == JNI_TRUE)
-isConvertible(T, S::Ptr{Nothing}) = (ccall(jnifunc.IsAssignableFrom, jboolean,
-                                           (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}), penv, S,
-                                           metaclass(T)) == JNI_TRUE)
+isConvertible(T, S) = IsAssignableFrom(penv, metaclass(S).ptr, metaclass(T).ptr) == JNI_TRUE
+isConvertible(T, S::Ptr{Void} ) = IsAssignableFrom(penv, S, metaclass(T).ptr) == JNI_TRUE
 
 unsafe_convert(::Type{Ptr{Nothing}}, cls::JavaMetaClass) = cls.ptr
 
@@ -88,11 +83,9 @@ function convert_arg(argtype::Type{Array{T,1}}, arg) where T<:JavaObject
     carg = convert(argtype, arg)
     sz = length(carg)
     init = carg[1]
-    arrayptr = ccall(jnifunc.NewObjectArray, Ptr{Nothing},
-                     (Ptr{JNIEnv}, jint, Ptr{Nothing}, Ptr{Nothing}), penv, sz, metaclass(T), init.ptr)
+    arrayptr = NewObjectArray(penv, sz, metaclass(T).ptr, init.ptr)
     for i=2:sz
-        ccall(jnifunc.SetObjectArrayElement, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}, jint, Ptr{Nothing}),
-              penv, arrayptr, i-1, carg[i].ptr)
+        SetObjectArrayElement(penv, arrayptr, i-1, carg[i].ptr)
     end
     return carg, arrayptr
 end
@@ -111,10 +104,11 @@ for (x, y, z) in [(:jboolean, :(jnifunc.GetBooleanArrayElements), :(jnifunc.Rele
                   (:jdouble, :(jnifunc.GetDoubleArrayElements), :(jnifunc.ReleaseDoubleArrayElements)) ]
     m = quote
         function convert_result(rettype::Type{Array{$(x),1}}, result)
-            sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Nothing}), penv, result)
+            sz = GetArrayLength(penv, result)
             arr = ccall($(y), Ptr{$(x)}, (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{jboolean} ), penv, result,
                         C_NULL)
             jl_arr::Array = unsafe_wrap(Array, arr, Int(sz))
+            #jl_arr::Array = pointer_to_array(arr, (@compat Int(sz)), false)
             jl_arr = deepcopy(jl_arr)
             ccall($(z), Nothing, (Ptr{JNIEnv},Ptr{Nothing}, Ptr{$(x)}, jint), penv, result, arr, 0)
             return jl_arr
@@ -123,15 +117,13 @@ for (x, y, z) in [(:jboolean, :(jnifunc.GetBooleanArrayElements), :(jnifunc.Rele
     eval(m)
 end
 
-
 function convert_result(rettype::Type{Array{JavaObject{T},1}}, result) where T
-    sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Nothing}), penv, result)
+    sz = GetArrayLength(penv, result)
 
     ret = Array{JavaObject{T}}(undef, sz)
 
     for i=1:sz
-        a = ccall(jnifunc.GetObjectArrayElement, Ptr{Nothing}, (Ptr{JNIEnv},Ptr{Nothing}, jint), penv,
-                  result, i-1)
+        a=GetObjectArrayElement(penv, result, i-1)
         ret[i] = JavaObject{T}(a)
     end
     return ret
@@ -267,11 +259,10 @@ end
 function unsafe_string(jstr::JString)  #jstr must be a jstring obtained via a JNI call
     if isnull(jstr); return ""; end #Return empty string to keep type stability. But this is questionable
     pIsCopy = Array{jboolean}(undef, 1)
-    buf::Ptr{UInt8} = ccall(jnifunc.GetStringUTFChars, Ptr{UInt8},
-                            (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{jboolean}), penv, jstr.ptr, pIsCopy)
+    buf::Ptr{UInt8} = GetStringUTFChars(penv, jstr.ptr, pIsCopy)
     s = unsafe_string(buf)
-    ccall(jnifunc.ReleaseStringUTFChars, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{UInt8}), penv,
-          jstr.ptr, buf)
+    # s = bytestring(buf)
+    ReleaseStringUTFChars(penv, jstr.ptr, buf)
     return s
 end
 
