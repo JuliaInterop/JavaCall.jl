@@ -1,21 +1,3 @@
-const JNI_VERSION_1_1 = convert(Cint, 0x00010001)
-const JNI_VERSION_1_2 = convert(Cint, 0x00010002)
-const JNI_VERSION_1_4 = convert(Cint, 0x00010004)
-const JNI_VERSION_1_6 = convert(Cint, 0x00010006)
-const JNI_VERSION_1_8 = convert(Cint, 0x00010008)
-
-const JNI_TRUE = convert(Cchar, 1)
-const JNI_FALSE = convert(Cchar, 0)
-
-# Return Values
-const JNI_OK           = convert(Cint, 0)               #/* success */
-const JNI_ERR          = convert(Cint, -1)              #/* unknown error */
-const JNI_EDETACHED    = convert(Cint, -2)              #/* thread detached from the VM */
-const JNI_EVERSION     = convert(Cint, -3)              #/* JNI version error */
-const JNI_ENOMEM       = convert(Cint, -4)              #/* not enough memory */
-const JNI_EEXIST       = convert(Cint, -5)              #/* VM already created */
-const JNI_EINVAL       = convert(Cint, -6)              #/* invalid arguments */
-
 const JAVA_HOME_CANDIDATES = ["/usr/lib/jvm/default-java/",
                               "/usr/lib/jvm/default/"]
 
@@ -274,7 +256,7 @@ function init(opts)
     opt = [JavaVMOption(pointer(x), C_NULL) for x in opts]
     ppjvm = Array{Ptr{JavaVM}}(undef, 1)
     ppenv = Array{Ptr{JNIEnv}}(undef, 1)
-    vm_args = JavaVMInitArgs(JNI_VERSION_1_6, convert(Cint, length(opts)),
+    vm_args = JavaVMInitArgs(JNI.JNI_VERSION_1_8, convert(Cint, length(opts)),
                              convert(Ptr{JavaVMOption}, pointer(opt)), JNI_TRUE)
     res = ccall(create, Cint, (Ptr{Ptr{JavaVM}}, Ptr{Ptr{JNIEnv}}, Ptr{JavaVMInitArgs}), ppjvm, ppenv,
                 Ref(vm_args))
