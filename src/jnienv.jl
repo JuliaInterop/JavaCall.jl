@@ -328,7 +328,3 @@ end
 struct JavaVM
     JNIInvokeInterface_::Ptr{JNIInvokeInterface}
 end
-
-struct JavaCallError <: Exception
-    msg::String
-end

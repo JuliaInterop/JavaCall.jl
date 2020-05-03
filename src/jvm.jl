@@ -1,6 +1,10 @@
 const JAVA_HOME_CANDIDATES = ["/usr/lib/jvm/default-java/",
                               "/usr/lib/jvm/default/"]
 
+struct JavaCallError <: Exception
+    msg::String
+end
+
 function javahome_winreg()
     keys = ["SOFTWARE\\JavaSoft\\Java Runtime Environment", "SOFTWARE\\JavaSoft\\Java Development Kit", "SOFTWARE\\JavaSoft\\JDK"]
 

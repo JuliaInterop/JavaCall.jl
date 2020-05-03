@@ -1,7 +1,7 @@
 module JNI
 
 # jnienv.jl exports
-export JNINativeInterface, JNIEnv, JNIInvokeInterface, JavaVM, JavaCallError
+export JNINativeInterface, JNIEnv, JNIInvokeInterface, JavaVM
 # jni_md.h exports
 export jint, jlong, jbyte
 # jni.h exports
