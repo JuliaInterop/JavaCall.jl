@@ -218,16 +218,16 @@ addJarsToClassPath(args...) = isloaded() ?
     @warn("JVM already initialized. This call has no effect") :
     _addJarsToClassPath(args...)
 
-addOpts(s::String) = isloaded() ? @warn("JVM already initialised. This call has no effect") : push!(opts, s)
-
-function init()
-    if isempty(cp)
-        init(opts)
+function addOpts(s::String)
+    if isloaded()
+        @warn("JVM already initialised. This call has no effect")
     else
-        ccp = collect(cp)
-        options = collect(opts)
-        classpath = "-Djava.class.path="*join(ccp,sep)
-        init(vcat(options, classpath))
+        m = match(r"^-Djava.class.path=(.*)",s)
+        if m != nothing
+            addClassPath(String(m.captures[1]))
+        else
+            push!(opts, s)
+        end
     end
 end
 
@@ -253,8 +253,46 @@ isloaded() = JNI.is_jni_loaded() && isdefined(JavaCall, :penv) && penv != C_NULL
 assertloaded() = isloaded() ? nothing : throw(JavaCallError("JVM not initialised. Please run init()"))
 assertnotloaded() = isloaded() ? throw(JavaCallError("JVM already initialised")) : nothing
 
+"""
+    JavaCall.init(opts::Array{String,1})
+    JavaCall.init(opt1::String,opt2::String, ...)
+    JavaCall.init()
+
+    Initialize JavaCall with JVM options.
+
+    As of JavaCall v0.7.4 new options passed to init will be appended
+    to previous options added with addClasspath and addOpts.
+
+    Once init() is called, addClasspath and addOpts no longer have any effect.
+
+    See http://juliainterop.github.io/JavaCall.jl/methods.html
+
+    Example
+    JavaCall.init(["-Xmx512M", "-Djava.class.path=$(@__DIR__)", "-verbose:jni", "-verbose:gc"])
+"""
+function init(opts::Array{String,1})
+    addOpts.(opts)
+    init()
+end
+
+# Accept options strings as a set of arguments
+init(opts::Array{AbstractString,1}) = init(String.(opts))
+init(opts::Vararg{AbstractString,N}) where N = init(String.([opts...]))
+
+function init()
+    if isempty(cp)
+        _init(opts)
+    else
+        ccp = collect(cp)
+        options = collect(opts)
+        classpath = "-Djava.class.path="*join(ccp,sep)
+        _init(vcat(options, classpath))
+    end
+end
+
+# Below is the original main initialization option
 # Pointer to pointer to pointer to pointer alert! Hurrah for unsafe load
-function init(opts)
+function _init(opts)
     assertnotloaded()
     assertroottask_or_goodenv()
     opt = [JavaVMOption(pointer(x), C_NULL) for x in opts]
