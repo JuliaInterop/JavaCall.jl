@@ -17,11 +17,15 @@ JAVACALL_FORCE_ASYNC_INIT = get(ENV,"JAVACALL_FORCE_ASYNC_INIT","") ∈ ("1","ye
 JAVACALL_FORCE_ASYNC_TEST = get(ENV,"JAVACALL_FORCE_ASYNC_TEST","") ∈ ("1","yes")
 
 @testset "initialization" begin
+    JavaCall.addClassPath("foo")
+    JavaCall.addOpts("-Djava.class.path=bar")
+    JavaCall.addOpts("-Xmx512M")
     if JavaCall.JULIA_COPY_STACKS || JAVACALL_FORCE_ASYNC_INIT
         @testasync JavaCall.init(["-Djava.class.path=$(@__DIR__)"])==nothing
     else
         @test JavaCall.init(["-Djava.class.path=$(@__DIR__)"])==nothing
     end
+    @test match(r"foo[:;]+bar",JavaCall.getClassPath()) != nothing
     # JavaCall.init(["-verbose:gc","-Djava.class.path=$(@__DIR__)"])
     # JavaCall.init()
 end

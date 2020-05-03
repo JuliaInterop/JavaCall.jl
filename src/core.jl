@@ -81,6 +81,9 @@ function deletelocals()
     end
 end
 
+JavaObject(T, ptr) = JavaObject{T}(ptr)
+JavaObject{T}() where {T} = JavaObject{T}((),)
+
 function deleteref(x::JavaMetaClass)
     deleteref(x.ptr)
     x.ptr=C_NULL #Safety in case this function is called direcly, rather than at finalize

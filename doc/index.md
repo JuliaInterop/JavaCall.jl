@@ -6,9 +6,10 @@ layout: default
 
 The JavaCall package allows calling Java programs from within Julia code. It uses the Java Native Interface ([JNI][]) to call into an in-process Java Virtual Machine (JVM). The primary entry point to Java is the `jcall` function. This is modeled on the Julia `ccall` function, and takes as input the receiver object (or class, for static methods), the method name, the output type, a tuple of the method parameter types, and the parameters themselves.
 
-This package has been tested using Oracle JDK 7, 8 and 9 on MacOSX and Ubuntu on 64 bit environments. It has also been shown to work with `OpenJDK` flavour of java. It has also been tested on Windows 64 bit environments. However, it does not work on 32 bit environments. It will not work with the Apple 1.6 JDK since that is a 32 bit JVM, and Julia is typically built as a 64 bit executable on OSX.
+This package has been tested using Oracle JDK 8 and 11 on MacOSX and Ubuntu on 64 bit environments. It has also been shown to work with `OpenJDK` flavour of Java. It has also been tested on Windows 64 bit environments. However, it does not work on 32 bit environments. It will not work with the Apple 1.6 JDK since that is a 32 bit JVM, and Julia is typically built as a 64 bit executable on OSX. JDK versions prior to Java 8 are not recommended due to security concerns.
 
-[JNI]: http://docs.oracle.com/javase/1.5.0/docs/guide/jni/spec/jniTOC.html
+[JNI]: https://docs.oracle.com/javase/8/docs/technotes/guides/jni/spec/jniTOC.html
+[JNI Java 11]: https://docs.oracle.com/en/java/javase/11/docs/specs/jni/index.html
 
 ## Installation
 
@@ -50,6 +51,26 @@ JavaObject{:java.util.Arrays} (constructor with 2 methods)
 julia> jcall(j_u_arrays, "binarySearch", jint, (Array{jint,1}, jint), [10,20,30,40,50,60], 40)
 3
 
+```
+
+### Building the Classpath
+
+The classpath can be passed in to the init call as a VM option.
+
+```jlcon
+julia> JavaCall.init("-Djava.class.path=foo")
+```
+
+The classpath can also be assembled using `JavaCall.addClassPath` which must be used before `JavaCall.init()`.
+An asterisk at the end of the string will be treated as a wildcard and recursively add jars and subdirectories to the classpath.
+A \*.jar at the end of the string will just add all the jar files in the directory to the classpath.
+
+```jlcon
+julia> JavaCall.addClassPath("src/main/java") # This will add just the directory
+
+julia> JavaCall.addClassPath("plugins/*.jar") # This just adds the jar files in the plugins directory
+
+julia> JavaCall.addClassPath("jars/*") # This will add all directories and jars in the "jars" folder recursively
 ```
 
 ## Usage from a running JVM
@@ -148,7 +169,7 @@ hello
 
 * Setting `JULIA_COPY_STACKS=yes` in startup.jl will not work. It must be set before Julia starts. On \*nix based systems, this can be done from the shell by using `$ JULIA_COPY_STACKS=yes julia` from a shell.
 
-* JavaCall can be used in a limited capacity from the root `Task` of Julia without `JULIA_COPY_STACKS=yes`. For example, using JavaCall in a programfile or via `julia --eval` will work. However, JavaCall will not function with `@async` or the standard REPL backend.
+* JavaCall can be used in a limited capacity from the root `Task` of Julia without `JULIA_COPY_STACKS=yes`. For example, using JavaCall in a programfile or via `julia --eval` will work. However, JavaCall will not function with `@async` or the standard REPL backend. For Julia pre-1.5, use (RootTaskREPL.jl)[https://github.com/mkitti/RootTaskREPL.jl] to execute the REPL backend on the root Task.
 
 * Alternatively, Julia 1.0.x works with all versions of Java.
 
