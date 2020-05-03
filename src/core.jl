@@ -26,8 +26,7 @@ JavaObject{T}() where {T} = JavaObject{T}((),)
 function deleteref(x::JavaObject)
     if x.ptr == C_NULL; return; end
     if (penv==C_NULL); return; end
-    #ccall(:jl_,Nothing,(Any,),x)
-    DeleteLocalRef(penv, x.ptr)
+    JNI.DeleteLocalRef(penv, x.ptr)
     x.ptr=C_NULL #Safety in case this function is called direcly, rather than at finalize
     return
 end
@@ -70,7 +69,7 @@ const JClassLoader = JavaObject{Symbol("java.lang.ClassLoader")}
 const JString = JavaObject{Symbol("java.lang.String")}
 
 function JString(str::AbstractString)
-    jstring = NewStringUTF(penv, String(str))
+    jstring = JNI.NewStringUTF(penv, String(str))
     if jstring == C_NULL
         geterror()
     else
@@ -108,11 +107,11 @@ end
 function jnew(T::Symbol, argtypes::Tuple, args...)
     assertroottask_or_goodenv()
     sig = method_signature(Nothing, argtypes...)
-    jmethodId = GetMethodID(penv, metaclass(T).ptr, String("<init>"), sig)
+    jmethodId = JNI.GetMethodID(penv, metaclass(T).ptr, String("<init>"), sig)
     if jmethodId == C_NULL
         throw(JavaCallError("No constructor for $T with signature $sig"))
     end
-    return  _jcall(metaclass(T), jmethodId, jnifunc.NewObjectA, JavaObject{T}, argtypes, args...)
+    return  _jcall(metaclass(T), jmethodId, JNI.NewObjectA, JavaObject{T}, argtypes, args...)
 end
 
 # Call static methods
@@ -120,7 +119,7 @@ function jcall(typ::Type{JavaObject{T}}, method::AbstractString, rettype::Type, 
                args... ) where T
     assertroottask_or_goodenv()
     sig = method_signature(rettype, argtypes...)
-    jmethodId = GetStaticMethodID(penv, metaclass(T).ptr, String(method), sig)
+    jmethodId = JNI.GetStaticMethodID(penv, metaclass(T).ptr, String(method), sig)
     jmethodId==C_NULL && geterror(true)
     _jcall(metaclass(T), jmethodId, C_NULL, rettype, argtypes, args...)
 end
@@ -129,39 +128,38 @@ end
 function jcall(obj::JavaObject, method::AbstractString, rettype::Type, argtypes::Tuple, args... )
     assertroottask_or_goodenv()
     sig = method_signature(rettype, argtypes...)
-    jmethodId = GetMethodID(penv, metaclass(obj).ptr, String(method), sig)
+    jmethodId = JNI.GetMethodID(penv, metaclass(obj).ptr, String(method), sig)
     jmethodId==C_NULL && geterror(true)
     _jcall(obj, jmethodId, C_NULL, rettype,  argtypes, args...)
 end
 
 function jfield(typ::Type{JavaObject{T}}, field::AbstractString, fieldType::Type) where T
     assertroottask_or_goodenv()
-    jfieldID  = GetStaticFieldID(penv, metaclass(T).ptr, String(field), signature(fieldType))
+    jfieldID  = JNI.GetStaticFieldID(penv, metaclass(T).ptr, String(field), signature(fieldType))
     jfieldID==C_NULL && geterror(true)
     _jfield(metaclass(T), jfieldID, fieldType)
 end
 
 function jfield(obj::JavaObject, field::AbstractString, fieldType::Type)
     assertroottask_or_goodenv()
-    jfieldID  = GetFieldID(penv, metaclass(obj).ptr, String(field), signature(fieldType))
+    jfieldID  = JNI.GetFieldID(penv, metaclass(obj).ptr, String(field), signature(fieldType))
     jfieldID==C_NULL && geterror(true)
     _jfield(obj, jfieldID, fieldType)
 end
 
-for (x, y, z) in [(:jboolean, :(jnifunc.GetBooleanField), :(jnifunc.GetStaticBooleanField)),
-                  (:jchar, :(jnifunc.GetCharField), :(jnifunc.GetStaticCharField)),
-                  (:jbyte, :(jnifunc.GetByteField), :(jnifunc.GetStaticBypeField)),
-                  (:jshort, :(jnifunc.GetShortField), :(jnifunc.GetStaticShortField)),
-                  (:jint, :(jnifunc.GetIntField), :(jnifunc.GetStaticIntField)),
-                  (:jlong, :(jnifunc.GetLongField), :(jnifunc.GetStaticLongField)),
-                  (:jfloat, :(jnifunc.GetFloatField), :(jnifunc.GetStaticFloatField)),
-                  (:jdouble, :(jnifunc.GetDoubleField), :(jnifunc.GetStaticDoubleField)) ]
+for (x, y, z) in [(:jboolean, :(JNI.GetBooleanField), :(JNI.GetStaticBooleanField)),
+                  (:jchar,    :(JNI.GetCharField),    :(JNI.GetStaticCharField))   ,
+                  (:jbyte,    :(JNI.GetByteField),    :(JNI.GetStaticBypeField))   ,
+                  (:jshort,   :(JNI.GetShortField),   :(JNI.GetStaticShortField))  ,
+                  (:jint,     :(JNI.GetIntField),     :(JNI.GetStaticIntField))    ,
+                  (:jlong,    :(JNI.GetLongField),    :(JNI.GetStaticLongField))   ,
+                  (:jfloat,   :(JNI.GetFloatField),   :(JNI.GetStaticFloatField))  ,
+                  (:jdouble,  :(JNI.GetDoubleField),  :(JNI.GetStaticDoubleField)) ]
 
     m = quote
         function _jfield(obj, jfieldID::Ptr{Nothing}, fieldType::Type{$(x)})
             callmethod = ifelse( typeof(obj)<:JavaObject, $y , $z )
-            result = ccall(callmethod, $x, (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}), penv, obj.ptr,
-                           jfieldID)
+            result = callmethod(penv, obj.ptr, jfieldID)
             result==C_NULL && geterror()
             return convert_result(fieldType, result)
         end
@@ -170,24 +168,23 @@ for (x, y, z) in [(:jboolean, :(jnifunc.GetBooleanField), :(jnifunc.GetStaticBoo
 end
 
 function _jfield(obj, jfieldID::Ptr{Nothing}, fieldType::Type)
-    callmethod = ifelse( typeof(obj)<:JavaObject, jnifunc.GetObjectField , jnifunc.GetStaticObjectField )
-    result = ccall(callmethod, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}), penv, obj.ptr,
-                   jfieldID)
+    callmethod = ifelse( typeof(obj)<:JavaObject, JNI.GetObjectField , JNI.GetStaticObjectField )
+    result = callmethod(penv, obj.ptr, jfieldID)
     result==C_NULL && geterror()
     return convert_result(fieldType, result)
 end
 
 #Generate these methods to satisfy ccall's compile time constant requirement
 #_jcall for primitive and Nothing return types
-for (x, y, z) in [ (:jboolean, :(jnifunc.CallBooleanMethodA), :(jnifunc.CallStaticBooleanMethodA)),
-                  (:jchar, :(jnifunc.CallCharMethodA), :(jnifunc.CallStaticCharMethodA)),
-                  (:jbyte, :(jnifunc.CallByteMethodA), :(jnifunc.CallStaticByteMethodA)),
-                  (:jshort, :(jnifunc.CallShortMethodA), :(jnifunc.CallStaticShortMethodA)),
-                  (:jint, :(jnifunc.CallIntMethodA), :(jnifunc.CallStaticIntMethodA)),
-                  (:jlong, :(jnifunc.CallLongMethodA), :(jnifunc.CallStaticLongMethodA)),
-                  (:jfloat, :(jnifunc.CallFloatMethodA), :(jnifunc.CallStaticFloatMethodA)),
-                  (:jdouble, :(jnifunc.CallDoubleMethodA), :(jnifunc.CallStaticDoubleMethodA)),
-                  (:Nothing, :(jnifunc.CallVoidMethodA), :(jnifunc.CallStaticVoidMethodA)) ]
+for (x, y, z) in [(:jboolean, :(JNI.CallBooleanMethodA), :(JNI.CallStaticBooleanMethodA)),
+                  (:jchar,    :(JNI.CallCharMethodA),    :(JNI.CallStaticCharMethodA))   ,
+                  (:jbyte,    :(JNI.CallByteMethodA),    :(JNI.CallStaticByteMethodA))   ,
+                  (:jshort,   :(JNI.CallShortMethodA),   :(JNI.CallStaticShortMethodA))  ,
+                  (:jint,     :(JNI.CallIntMethodA),     :(JNI.CallStaticIntMethodA))    ,
+                  (:jlong,    :(JNI.CallLongMethodA),    :(JNI.CallStaticLongMethodA))   ,
+                  (:jfloat,   :(JNI.CallFloatMethodA),   :(JNI.CallStaticFloatMethodA))  ,
+                  (:jdouble,  :(JNI.CallDoubleMethodA),  :(JNI.CallStaticDoubleMethodA)) ,
+                  (:Nothing,  :(JNI.CallVoidMethodA),    :(JNI.CallStaticVoidMethodA))   ]
     m = quote
         function _jcall(obj, jmethodId::Ptr{Nothing}, callmethod::Ptr{Nothing}, rettype::Type{$(x)},
                         argtypes::Tuple, args...)
@@ -198,7 +195,7 @@ for (x, y, z) in [ (:jboolean, :(jnifunc.CallBooleanMethodA), :(jnifunc.CallStat
             @assert jmethodId != C_NULL
             isnull(obj) && throw(JavaCallError("Attempt to call method on Java NULL"))
             savedArgs, convertedArgs = convert_args(argtypes, args...)
-            result = ccall(callmethod, $x , (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}), penv, obj.ptr, jmethodId, convertedArgs)
+            result = callmethod(penv, obj.ptr, jmethodId, convertedArgs)
             result==C_NULL && geterror()
             result == nothing && (return)
             return convert_result(rettype, result)
@@ -211,18 +208,18 @@ end
 #obj -- receiver - Class pointer or object prointer
 #jmethodId -- Java method ID
 #callmethod -- the C method pointer to call
-function _jcall(obj, jmethodId::Ptr{Nothing}, callmethod::Ptr{Nothing}, rettype::Type, argtypes::Tuple,
+function _jcall(obj, jmethodId::Ptr{Nothing}, callmethod::Union{Function,Ptr{Nothing}}, rettype::Type, argtypes::Tuple,
                 args...)
     if callmethod == C_NULL
-        callmethod = ifelse(typeof(obj)<:JavaObject, jnifunc.CallObjectMethodA ,
-                            jnifunc.CallStaticObjectMethodA)
+        callmethod = ifelse(typeof(obj)<:JavaObject,
+                            JNI.CallObjectMethodA  ,
+                            JNI.CallStaticObjectMethodA)
     end
     @assert callmethod != C_NULL
     @assert jmethodId != C_NULL
     isnull(obj) && error("Attempt to call method on Java NULL")
     savedArgs, convertedArgs = convert_args(argtypes, args...)
-    result = ccall(callmethod, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
-                   penv, obj.ptr, jmethodId, convertedArgs)
+    result = callmethod(penv, obj.ptr, jmethodId, convertedArgs)
     result==C_NULL && geterror()
     return convert_result(rettype, result)
 end
@@ -232,7 +229,7 @@ global const _jmc_cache = Dict{Symbol, JavaMetaClass}()
 
 function _metaclass(class::Symbol)
     jclass=javaclassname(class)
-    jclassptr = ccall(jnifunc.FindClass, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{UInt8}), penv, jclass)
+    jclassptr = JNI.FindClass(penv, jclass)
     jclassptr == C_NULL && throw(JavaCallError("Class Not Found $jclass"))
     return JavaMetaClass(class, jclassptr)
 end
@@ -250,22 +247,21 @@ metaclass(::JavaObject{T}) where {T} = metaclass(T)
 javaclassname(class::Symbol) = replace(string(class), "."=>"/")
 
 function geterror(allow=false)
-    isexception = ExceptionCheck(penv)
+    isexception = JNI.ExceptionCheck(penv)
 
     if isexception == JNI_TRUE
-        jthrow = ExceptionOccurred(penv)
-        jthrow = ccall(jnifunc.ExceptionOccurred, Ptr{Nothing}, (Ptr{JNIEnv},), penv)
+        jthrow = JNI.ExceptionOccurred(penv)
         jthrow==C_NULL && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
-        ExceptionDescribe(penv ) #Print java stackstrace to stdout
-        ExceptionClear(penv )
-        jclass = FindClass(penv, "java/lang/Throwable")
+        JNI.ExceptionDescribe(penv ) #Print java stackstrace to stdout
+        JNI.ExceptionClear(penv )
+        jclass = JNI.FindClass(penv, "java/lang/Throwable")
         jclass==C_NULL && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
-        jmethodId=GetMethodID(penv, jclass, "toString", "()Ljava/lang/String;")
+        jmethodId=JNI.GetMethodID(penv, jclass, "toString", "()Ljava/lang/String;")
         jmethodId==C_NULL && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
-        res = CallObjectMethodA(penv, jthrow, jmethodId, Int[])
+        res = JNI.CallObjectMethodA(penv, jthrow, jmethodId, Int[])
         res==C_NULL && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
         msg = unsafe_string(JString(res))
-        DeleteLocalRef(penv, jthrow)
+        JNI.DeleteLocalRef(penv, jthrow)
         throw(JavaCallError(string("Error calling Java: ",msg)))
     else
         if allow==false

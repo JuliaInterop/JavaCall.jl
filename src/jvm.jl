@@ -262,7 +262,7 @@ else
     assertroottask_or_goodenv() = isgoodenv() ? nothing : throw(ROOT_TASK_ERROR)
 end
 
-isloaded() = isdefined(JavaCall, :jnifunc) && isdefined(JavaCall, :penv) && penv != C_NULL
+isloaded() = JNI.is_jni_loaded() && isdefined(JavaCall, :penv) && penv != C_NULL
 
 assertloaded() = isloaded() ? nothing : throw(JavaCallError("JVM not initialised. Please run init()"))
 assertnotloaded() = isloaded() ? throw(JavaCallError("JVM already initialised")) : nothing
@@ -281,10 +281,9 @@ function init(opts)
     res < 0 && throw(JavaCallError("Unable to initialise Java VM: $(res)"))
     global penv = ppenv[1]
     global pjvm = ppjvm[1]
-    jnienv = unsafe_load(penv)
     jvm = unsafe_load(pjvm)
     global jvmfunc = unsafe_load(jvm.JNIInvokeInterface_)
-    global jnifunc = unsafe_load(jnienv.JNINativeInterface_) #The JNI Function table
+    JNI.load_jni(penv)
     return
 end
 
@@ -339,8 +338,7 @@ function init_current_vm()
     global jvmfunc = unsafe_load(jvm.JNIInvokeInterface_)
     ccall(jvmfunc.GetEnv, Cint, (Ptr{Nothing}, Ptr{Ptr{JNIEnv}}, Cint), pjvm, ppenv, JNI_VERSION_1_8)
     global penv = ppenv[1]
-    jnienv = unsafe_load(penv)
-    global jnifunc = unsafe_load(jnienv.JNINativeInterface_) #The JNI Function table
+    JNI.load_jni(penv)
 end
 
 function destroy()
