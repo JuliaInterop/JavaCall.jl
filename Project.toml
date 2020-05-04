@@ -12,3 +12,4 @@ WinReg = "1b915085-20d7-51cf-bf83-8f477d6f5128"
 [compat]
 julia = "1"
 DataStructures = "0.17"
+WinReg = "0.3.1"
