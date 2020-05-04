@@ -118,7 +118,7 @@ for line in open(readlines, "jnienv.jl", "r")
 
   # Commented out export command
   # print("#export $fname\n")
-  print("$fname($julia_args) =\n  ccall(jnifunc.$(fname), $rtype, ($arg_types,), $arg_names)\n\n")
+  print("$fname($julia_args) =\n  ccall(jniref[].$(fname), $rtype, ($arg_types,), $arg_names)\n\n")
 end
 
 # println("end")
