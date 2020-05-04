@@ -360,7 +360,7 @@ function init_current_vm()
     global pjvm = ppjvm[1]
     jvm = unsafe_load(pjvm)
     global jvmfunc = unsafe_load(jvm.JNIInvokeInterface_)
-    ccall(jvmfunc.GetEnv, Cint, (Ptr{Nothing}, Ptr{Ptr{JNIEnv}}, Cint), pjvm, ppenv, JNI_VERSION_1_8)
+    ccall(jvmfunc.GetEnv, Cint, (Ptr{Nothing}, Ptr{Ptr{JNIEnv}}, Cint), pjvm, ppenv, JNI.JNI_VERSION_1_8)
     global penv = ppenv[1]
     JNI.load_jni(penv)
 end
