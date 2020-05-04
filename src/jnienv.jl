@@ -303,6 +303,7 @@ struct JNINativeInterface #struct JNINativeInterface_ {
     #/* New JNI 1.6 Features */
 
     GetObjectRefType::Ptr{Nothing} # jobjectRefType ( *GetObjectRefType) (JNIEnv* env, jobject obj);
+    JNINativeInterface() = new(repeat([C_NULL],233)...)
 end #};
 
 struct JNIEnv
