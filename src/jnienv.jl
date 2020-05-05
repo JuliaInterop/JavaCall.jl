@@ -309,6 +309,7 @@ JNINativeInterface() = JNINativeInterface(repeat([C_NULL],233)...)
 struct JNIEnv
     JNINativeInterface_::Ptr{JNINativeInterface}
 end
+JNIEnv() = JNIEnv(C_NULL)
 
 struct JNIInvokeInterface #struct JNIInvokeInterface_ {
     reserved0::Ptr{Nothing} #void *reserved0;
@@ -325,6 +326,7 @@ struct JNIInvokeInterface #struct JNIInvokeInterface_ {
 
     AttachCurrentThreadAsDaemon::Ptr{Nothing} #jint (JNICALL *AttachCurrentThreadAsDaemon)(JavaVM *vm, void **penv, void *args);
 end
+JNIInvokeInterface() = JNIInvokeInterface(repeat([C_NULL],8)...)
 
 struct JavaVM
     JNIInvokeInterface_::Ptr{JNIInvokeInterface}

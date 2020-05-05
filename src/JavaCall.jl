@@ -11,7 +11,6 @@ export JavaObject, JavaMetaClass,
 # using Sys: iswindows, islinux, isunix, isapple
 
 import DataStructures: OrderedSet
-import Libdl
 using Dates
 
 @static if Sys.iswindows()
@@ -44,8 +43,6 @@ function __init__()
                   "Calling the JVM may result in undefined behavior.")
         end
     end
-    findjvm()
-    global create = Libdl.dlsym(libjvm, :JNI_CreateJavaVM)
 end
 
 
