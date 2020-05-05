@@ -4,14 +4,14 @@ convert(::Type{JObject}, str::AbstractString) = convert(JObject, JString(str))
 #Cast java object from S to T . Needed for polymorphic calls
 function convert(::Type{JavaObject{T}}, obj::JavaObject{S}) where {T,S}
     if isConvertible(T, S)   #Safe static cast
-        ptr = ccall(jnifunc.NewLocalRef, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing}), penv, obj.ptr)
+        ptr = JNI.NewLocalRef(penv, obj.ptr)
         ptr === C_NULL && geterror()
         return JavaObject{T}(ptr)
     end
     isnull(obj) && throw(ArgumentError("Cannot convert NULL"))
-    realClass = ccall(jnifunc.GetObjectClass, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing} ), penv, obj.ptr)
+    realClass = JNI.GetObjectClass(penv, obj.ptr)
     if isConvertible(T, realClass)  #dynamic cast
-        ptr = ccall(jnifunc.NewLocalRef, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing}), penv, obj.ptr)
+        ptr = JNI.NewLocalRef(penv, obj.ptr)
         ptr === C_NULL && geterror()
         return JavaObject{T}(ptr)
     end
@@ -19,12 +19,8 @@ function convert(::Type{JavaObject{T}}, obj::JavaObject{S}) where {T,S}
 end
 
 #Is java type convertible from S to T.
-isConvertible(T, S) = (ccall(jnifunc.IsAssignableFrom, jboolean,
-                             (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}), penv, metaclass(S),
-                             metaclass(T)) == JNI_TRUE)
-isConvertible(T, S::Ptr{Nothing}) = (ccall(jnifunc.IsAssignableFrom, jboolean,
-                                           (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}), penv, S,
-                                           metaclass(T)) == JNI_TRUE)
+isConvertible(T, S) = JNI.IsAssignableFrom(penv, metaclass(S).ptr, metaclass(T).ptr) == JNI_TRUE
+isConvertible(T, S::Ptr{Nothing} ) = JNI.IsAssignableFrom(penv, S, metaclass(T).ptr) == JNI_TRUE
 
 unsafe_convert(::Type{Ptr{Nothing}}, cls::JavaMetaClass) = cls.ptr
 
@@ -63,21 +59,20 @@ function convert_arg(argtype::Type{T}, arg) where T<:JavaObject
     return x, x.ptr
 end
 
-for (x, y, z) in [ (:jboolean, :(jnifunc.NewBooleanArray), :(jnifunc.SetBooleanArrayRegion)),
-                  (:jchar, :(jnifunc.NewCharArray), :(jnifunc.SetCharArrayRegion)),
-                  (:jbyte, :(jnifunc.NewByteArray), :(jnifunc.SetByteArrayRegion)),
-                  (:jshort, :(jnifunc.NewShortArray), :(jnifunc.SetShortArrayRegion)),
-                  (:jint, :(jnifunc.NewIntArray), :(jnifunc.SetIntArrayRegion)),
-                  (:jlong, :(jnifunc.NewLongArray), :(jnifunc.SetLongArrayRegion)),
-                  (:jfloat, :(jnifunc.NewFloatArray), :(jnifunc.SetFloatArrayRegion)),
-                  (:jdouble, :(jnifunc.NewDoubleArray), :(jnifunc.SetDoubleArrayRegion)) ]
+for (x, y, z) in [(:jboolean, :(JNI.NewBooleanArray), :(JNI.SetBooleanArrayRegion)),
+                  (:jchar,    :(JNI.NewCharArray),    :(JNI.SetCharArrayRegion))   ,
+                  (:jbyte,    :(JNI.NewByteArray),    :(JNI.SetByteArrayRegion))   ,
+                  (:jshort,   :(JNI.NewShortArray),   :(JNI.SetShortArrayRegion))  ,
+                  (:jint,     :(JNI.NewIntArray),     :(JNI.SetIntArrayRegion))    ,
+                  (:jlong,    :(JNI.NewLongArray),    :(JNI.SetLongArrayRegion))   ,
+                  (:jfloat,   :(JNI.NewFloatArray),   :(JNI.SetFloatArrayRegion))  ,
+                  (:jdouble,  :(JNI.NewDoubleArray),  :(JNI.SetDoubleArrayRegion)) ]
     m = quote
         function convert_arg(argtype::Type{Array{$x,1}}, arg)
             carg = convert(argtype, arg)
             sz=length(carg)
-            arrayptr = ccall($y, Ptr{Nothing}, (Ptr{JNIEnv}, jint), penv, sz)
-            ccall($z, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}, jint, jint, Ptr{$x}), penv, arrayptr, 0, sz,
-                  carg)
+            arrayptr = $y(penv, sz)
+            $z(penv, arrayptr, 0, sz, carg)
             return carg, arrayptr
         end
     end
@@ -88,11 +83,9 @@ function convert_arg(argtype::Type{Array{T,1}}, arg) where T<:JavaObject
     carg = convert(argtype, arg)
     sz = length(carg)
     init = carg[1]
-    arrayptr = ccall(jnifunc.NewObjectArray, Ptr{Nothing},
-                     (Ptr{JNIEnv}, jint, Ptr{Nothing}, Ptr{Nothing}), penv, sz, metaclass(T), init.ptr)
+    arrayptr = JNI.NewObjectArray(penv, sz, metaclass(T).ptr, init.ptr)
     for i=2:sz
-        ccall(jnifunc.SetObjectArrayElement, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}, jint, Ptr{Nothing}),
-              penv, arrayptr, i-1, carg[i].ptr)
+        JNI.SetObjectArrayElement(penv, arrayptr, i-1, carg[i].ptr)
     end
     return carg, arrayptr
 end
@@ -101,37 +94,34 @@ convert_result(rettype::Type{T}, result) where {T<:JString} = unsafe_string(JStr
 convert_result(rettype::Type{T}, result) where {T<:JavaObject} = T(result)
 convert_result(rettype, result) = result
 
-for (x, y, z) in [(:jboolean, :(jnifunc.GetBooleanArrayElements), :(jnifunc.ReleaseBooleanArrayElements)),
-                  (:jchar, :(jnifunc.GetCharArrayElements), :(jnifunc.ReleaseCharArrayElements)),
-                  (:jbyte, :(jnifunc.GetByteArrayElements), :(jnifunc.ReleaseByteArrayElements)),
-                  (:jshort, :(jnifunc.GetShortArrayElements), :(jnifunc.ReleaseShortArrayElements)),
-                  (:jint, :(jnifunc.GetIntArrayElements), :(jnifunc.ReleaseIntArrayElements)),
-                  (:jlong, :(jnifunc.GetLongArrayElements), :(jnifunc.ReleaseLongArrayElements)),
-                  (:jfloat, :(jnifunc.GetFloatArrayElements), :(jnifunc.ReleaseFloatArrayElements)),
-                  (:jdouble, :(jnifunc.GetDoubleArrayElements), :(jnifunc.ReleaseDoubleArrayElements)) ]
+for (x, y, z) in [(:jboolean, :(JNI.GetBooleanArrayElements), :(JNI.ReleaseBooleanArrayElements)),
+                  (:jchar,    :(JNI.GetCharArrayElements),    :(JNI.ReleaseCharArrayElements))   ,
+                  (:jbyte,    :(JNI.GetByteArrayElements),    :(JNI.ReleaseByteArrayElements))   ,
+                  (:jshort,   :(JNI.GetShortArrayElements),   :(JNI.ReleaseShortArrayElements))  ,
+                  (:jint,     :(JNI.GetIntArrayElements),     :(JNI.ReleaseIntArrayElements))    ,
+                  (:jlong,    :(JNI.GetLongArrayElements),    :(JNI.ReleaseLongArrayElements))   ,
+                  (:jfloat,   :(JNI.GetFloatArrayElements),   :(JNI.ReleaseFloatArrayElements))  ,
+                  (:jdouble,  :(JNI.GetDoubleArrayElements),  :(JNI.ReleaseDoubleArrayElements)) ]
     m = quote
         function convert_result(rettype::Type{Array{$(x),1}}, result)
-            sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Nothing}), penv, result)
-            arr = ccall($(y), Ptr{$(x)}, (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{jboolean} ), penv, result,
-                        C_NULL)
+            sz = JNI.GetArrayLength(penv, result)
+            arr = $y(penv, result, Ptr{jboolean}(C_NULL))
             jl_arr::Array = unsafe_wrap(Array, arr, Int(sz))
             jl_arr = deepcopy(jl_arr)
-            ccall($(z), Nothing, (Ptr{JNIEnv},Ptr{Nothing}, Ptr{$(x)}, jint), penv, result, arr, 0)
+            $z(penv, result, arr, Int32(0))
             return jl_arr
         end
     end
     eval(m)
 end
 
-
 function convert_result(rettype::Type{Array{JavaObject{T},1}}, result) where T
-    sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Nothing}), penv, result)
+    sz = JNI.GetArrayLength(penv, result)
 
     ret = Array{JavaObject{T}}(undef, sz)
 
     for i=1:sz
-        a = ccall(jnifunc.GetObjectArrayElement, Ptr{Nothing}, (Ptr{JNIEnv},Ptr{Nothing}, jint), penv,
-                  result, i-1)
+        a=JNI.GetObjectArrayElement(penv, result, i-1)
         ret[i] = JavaObject{T}(a)
     end
     return ret
@@ -140,12 +130,12 @@ end
 
 # covers return types like Vector{Vector{T}}
 function convert_result(rettype::Type{Array{T,1}}, result) where T
-    sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Nothing}), penv, result)
+    sz = JNI.GetArrayLength(penv, result)
 
     ret = Array{T}(undef, sz)
 
     for i=1:sz
-        a=ccall(jnifunc.GetObjectArrayElement, Ptr{Nothing}, (Ptr{JNIEnv},Ptr{Nothing}, jint), penv, result, i-1)
+        a=JNI.GetObjectArrayElement(penv, result, i-1)
         ret[i] = convert_result(T, a)
     end
     return ret
@@ -153,23 +143,20 @@ end
 
 
 function convert_result(rettype::Type{Array{JavaObject{T},2}}, result) where T
-    sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Nothing}), penv, result)
+    sz = JNI.GetArrayLength(penv, result)
     if sz == 0
         return Array{T}(undef, 0,0)
     end
-    a_1 = ccall(jnifunc.GetObjectArrayElement, Ptr{Nothing}, (Ptr{JNIEnv},Ptr{Nothing}, jint), penv,
-                result, 0)
-    sz_1 = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Nothing}), penv, a_1)
+    a_1 = JNI.GetObjectArrayElement(penv, result, 0)
+    sz_1 = JNI.GetArrayLength(penv, a_1)
     ret = Array{JavaObject{T}}(undef, sz, sz_1)
     for i=1:sz
-        a = ccall(jnifunc.GetObjectArrayElement, Ptr{Nothing}, (Ptr{JNIEnv},Ptr{Nothing}, jint), penv,
-                  result, i-1)
+        a = JNI.GetObjectArrayElement(penv, result, i-1)
         # check that size of the current subarray is the same as for the first one
-        sz_a = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Nothing}), penv, a)
+        sz_a = JNI.GetArrayLength(penv, a)
         @assert(sz_a == sz_1, "Size of $(i)th subrarray is $sz_a, but size of the 1st subarray was $sz_1")
         for j=1:sz_1
-            x = ccall(jnifunc.GetObjectArrayElement, Ptr{Nothing}, (Ptr{JNIEnv},Ptr{Nothing}, jint),
-                      penv, a, j-1)
+            x = JNI.GetObjectArrayElement(penv, a, j-1)
             ret[i, j] = JavaObject{T}(x)
         end
     end
@@ -179,19 +166,17 @@ end
 
 # matrices of primitive types and other arrays
 function convert_result(rettype::Type{Array{T,2}}, result) where T
-    sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Nothing}), penv, result)
+    sz = JNI.GetArrayLength(penv, result)
     if sz == 0
         return Array{T}(undef, 0,0)
     end
-    a_1 = ccall(jnifunc.GetObjectArrayElement, Ptr{Nothing}, (Ptr{JNIEnv},Ptr{Nothing}, jint), penv,
-                result, 0)
-    sz_1 = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Nothing}), penv, a_1)
+    a_1 = JNI.GetObjectArrayElement(penv, result, 0)
+    sz_1 = JNI.GetArrayLength(penv, a_1)
     ret = Array{T}(undef, sz, sz_1)
     for i=1:sz
-        a = ccall(jnifunc.GetObjectArrayElement, Ptr{Nothing}, (Ptr{JNIEnv},Ptr{Nothing}, jint), penv,
-                  result, i-1)
+        a = JNI.GetObjectArrayElement(penv, result, i-1)
         # check that size of the current subarray is the same as for the first one
-        sz_a = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Nothing}), penv, a)
+        sz_a = JNI.GetArrayLength(penv, a)
         @assert(sz_a == sz_1, "Size of $(i)th subrarray is $sz_a, but size of the 1st subarray was $sz_1")
         ret[i, :] = convert_result(Vector{T}, a)
     end
@@ -267,30 +252,28 @@ end
 function unsafe_string(jstr::JString)  #jstr must be a jstring obtained via a JNI call
     if isnull(jstr); return ""; end #Return empty string to keep type stability. But this is questionable
     pIsCopy = Array{jboolean}(undef, 1)
-    buf::Ptr{UInt8} = ccall(jnifunc.GetStringUTFChars, Ptr{UInt8},
-                            (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{jboolean}), penv, jstr.ptr, pIsCopy)
+    #buf::Ptr{UInt8} = JNI.GetStringUTFChars(penv, jstr.ptr, pIsCopy)
+    buf = JNI.GetStringUTFChars(penv, jstr.ptr, pIsCopy)
     s = unsafe_string(buf)
-    ccall(jnifunc.ReleaseStringUTFChars, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{UInt8}), penv,
-          jstr.ptr, buf)
+    JNI.ReleaseStringUTFChars(penv, jstr.ptr, buf)
     return s
 end
 
-for (x, y, z) in [(:jboolean, :(jnifunc.GetBooleanArrayElements), :(jnifunc.ReleaseBooleanArrayElements)),
-                  (:jchar, :(jnifunc.GetCharArrayElements), :(jnifunc.ReleaseCharArrayElements)),
-                  (:jbyte, :(jnifunc.GetByteArrayElements), :(jnifunc.ReleaseByteArrayElements)),
-                  (:jshort, :(jnifunc.GetShortArrayElements), :(jnifunc.ReleaseShortArrayElements)),
-                  (:jint, :(jnifunc.GetIntArrayElements), :(jnifunc.ReleaseIntArrayElements)),
-                  (:jlong, :(jnifunc.GetLongArrayElements), :(jnifunc.ReleaseLongArrayElements)),
-                  (:jfloat, :(jnifunc.GetFloatArrayElements), :(jnifunc.ReleaseFloatArrayElements)),
-                  (:jdouble, :(jnifunc.GetDoubleArrayElements), :(jnifunc.ReleaseDoubleArrayElements)) ]
+for (x, y, z) in [(:jboolean, :(JNI.GetBooleanArrayElements), :(JNI.ReleaseBooleanArrayElements)),
+                  (:jchar,    :(JNI.GetCharArrayElements),    :(JNI.ReleaseCharArrayElements))   ,
+                  (:jbyte,    :(JNI.GetByteArrayElements),    :(JNI.ReleaseByteArrayElements))   ,
+                  (:jshort,   :(JNI.GetShortArrayElements),   :(JNI.ReleaseShortArrayElements))  ,
+                  (:jint,     :(JNI.GetIntArrayElements),     :(JNI.ReleaseIntArrayElements))    ,
+                  (:jlong,    :(JNI.GetLongArrayElements),    :(JNI.ReleaseLongArrayElements))   ,
+                  (:jfloat,   :(JNI.GetFloatArrayElements),   :(JNI.ReleaseFloatArrayElements))  ,
+                  (:jdouble,  :(JNI.GetDoubleArrayElements),  :(JNI.ReleaseDoubleArrayElements)) ]
     m = quote
         function convert(::Type{Array{$(x),1}}, obj::JObject)
-            sz = ccall(jnifunc.GetArrayLength, jint, (Ptr{JNIEnv}, Ptr{Nothing}), penv, obj.ptr)
-            arr = ccall($(y), Ptr{$(x)}, (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{jboolean}), penv, obj.ptr,
-                        C_NULL)
+            sz = JNI.GetArrayLength(penv, obj.ptr)
+            arr = $y(penv, obj.ptr, Ptr{jboolean}(C_NULL))
             jl_arr::Array = unsafe_wrap(Array, arr, Int(sz))
             jl_arr = deepcopy(jl_arr)
-            ccall($(z), Nothing, (Ptr{JNIEnv},Ptr{Nothing}, Ptr{$(x)}, jint), penv, obj.ptr, arr, 0)
+            $z(penv, obj.ptr, arr, Int32(0))
             return jl_arr
         end
     end
@@ -299,12 +282,10 @@ end
 
 
 function convert(::Type{Array{T, 1}}, obj::JObject) where T
-    sz = ccall(jnifunc.GetArrayLength, jint,
-               (Ptr{JNIEnv}, Ptr{Nothing}), penv, obj.ptr)
+    sz = JNI.GetArrayLength(penv, obj.ptr)
     ret = Array{T}(undef, sz)
     for i=1:sz
-        ptr = ccall(jnifunc.GetObjectArrayElement, Ptr{Nothing},
-                  (Ptr{JNIEnv}, Ptr{Nothing}, jint), penv, obj.ptr, i-1)
+        ptr = JNI.GetObjectArrayElement(penv, obj.ptr, i-1)
         ret[i] = convert(T, JObject(ptr))
     end
     return ret

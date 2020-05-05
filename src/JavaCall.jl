@@ -23,7 +23,8 @@ import Base: convert, unsafe_convert, unsafe_string
 
 JULIA_COPY_STACKS = false
 
-include("jnienv.jl")
+include("JNI.jl")
+using .JNI
 include("jvm.jl")
 include("core.jl")
 include("convert.jl")

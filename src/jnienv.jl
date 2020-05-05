@@ -76,7 +76,7 @@ struct JNINativeInterface #struct JNINativeInterface_ {
     CallLongMethodA::Ptr{Nothing} #jlong ( *CallLongMethodA) (JNIEnv *env, jobject obj, jmethodID methodID, const jvalue *args);
 
     CallFloatMethod::Ptr{Nothing} #jfloat ( *CallFloatMethod) (JNIEnv *env, jobject obj, jmethodID methodID, ...);
-    CallFloatMEthodV::Ptr{Nothing} #jfloat ( *CallFloatMethodV) (JNIEnv *env, jobject obj, jmethodID methodID, va_list args);
+    CallFloatMethodV::Ptr{Nothing} #jfloat ( *CallFloatMethodV) (JNIEnv *env, jobject obj, jmethodID methodID, va_list args);
     CallFloatMethodA::Ptr{Nothing} #jfloat ( *CallFloatMethodA) (JNIEnv *env, jobject obj, jmethodID methodID, const jvalue *args);
 
     CallDoubleMethod::Ptr{Nothing} #jdouble ( *CallDoubleMethod) (JNIEnv *env, jobject obj, jmethodID methodID, ...);
@@ -89,7 +89,7 @@ struct JNINativeInterface #struct JNINativeInterface_ {
 
     CallNonvirtualObjectMethod::Ptr{Nothing} #jobject ( *CallNonvirtualObjectMethod) (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, ...);
     CallNonvirtualObjectMethodV::Ptr{Nothing} #jobject ( *CallNonvirtualObjectMethodV) (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, va_list args);
-    CallNonvirtualObjectMEthodA::Ptr{Nothing} #jobject ( *CallNonvirtualObjectMethodA) (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, const jvalue * args);
+    CallNonvirtualObjectMethodA::Ptr{Nothing} #jobject ( *CallNonvirtualObjectMethodA) (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, const jvalue * args);
 
     CallNonvirtualBooleanMethod::Ptr{Nothing} #jboolean ( *CallNonvirtualBooleanMethod) (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, ...);
     CallNonvirtualBooleanMethodV::Ptr{Nothing} #jboolean ( *CallNonvirtualBooleanMethodV) (JNIEnv *env, jobject obj, jclass clazz, jmethodID methodID, va_list args);
@@ -304,6 +304,7 @@ struct JNINativeInterface #struct JNINativeInterface_ {
 
     GetObjectRefType::Ptr{Nothing} # jobjectRefType ( *GetObjectRefType) (JNIEnv* env, jobject obj);
 end #};
+JNINativeInterface() = JNINativeInterface(repeat([C_NULL],233)...) 
 
 struct JNIEnv
     JNINativeInterface_::Ptr{JNINativeInterface}
@@ -327,8 +328,4 @@ end
 
 struct JavaVM
     JNIInvokeInterface_::Ptr{JNIInvokeInterface}
-end
-
-struct JavaCallError <: Exception
-    msg::String
 end
