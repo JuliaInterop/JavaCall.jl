@@ -120,21 +120,19 @@ is_env_loaded() = penv[] != C_NULL
 
 """
     init_new_vm(opts)
+
+Initialize a new Java virtual machine.
 """
 function init_new_vm(libpath,opts)
     libjvm = Libdl.dlopen(libpath)
     @debug("Loaded $libpath")
     create = Libdl.dlsym(libjvm, :JNI_CreateJavaVM)
     opt = [JavaVMOption(pointer(x), C_NULL) for x in opts]
-    ppjvm = Array{Ptr{JavaVM}}(undef, 1)
-    ppenv = Array{Ptr{JNIEnv}}(undef, 1)
     vm_args = JavaVMInitArgs(JNI_VERSION_1_8, convert(Cint, length(opts)),
                              convert(Ptr{JavaVMOption}, pointer(opt)), JNI_TRUE)
-    res = ccall(create, Cint, (Ptr{Ptr{JavaVM}}, Ptr{Ptr{JNIEnv}}, Ptr{JavaVMInitArgs}), ppjvm, ppenv,
+    res = ccall(create, Cint, (Ptr{Ptr{JavaVM}}, Ptr{Ptr{JNIEnv}}, Ptr{JavaVMInitArgs}), pjvm, penv,
                 Ref(vm_args))
     res < 0 && throw(JNIError("Unable to initialise Java VM: $(res)"))
-    global penv[] = ppenv[1]
-    global pjvm[] = ppjvm[1]
     jvm = unsafe_load(pjvm[])
     global jvmfunc[] = unsafe_load(jvm.JNIInvokeInterface_)
     JNI.load_jni(penv[])
@@ -149,15 +147,11 @@ Allow initialization from running VM. Uses the first VM it finds.
 function init_current_vm(libpath)
     libjvm = Libdl.dlopen(libpath)
     @debug("Loaded $libpath")
-    ppjvm = Array{Ptr{JavaVM}}(undef, 1)
-    ppenv = Array{Ptr{JNIEnv}}(undef, 1)
     pnum = Array{Cint}(undef, 1)
-    ccall(Libdl.dlsym(libjvm, :JNI_GetCreatedJavaVMs), Cint, (Ptr{Ptr{JavaVM}}, Cint, Ptr{Cint}), ppjvm, 1, pnum)
-    global pjvm[] = ppjvm[1]
+    ccall(Libdl.dlsym(libjvm, :JNI_GetCreatedJavaVMs), Cint, (Ptr{Ptr{JavaVM}}, Cint, Ptr{Cint}), pjvm, 1, pnum)
     jvm = unsafe_load(pjvm[])
     global jvmfunc[] = unsafe_load(jvm.JNIInvokeInterface_)
-    ccall(jvmfunc[].GetEnv, Cint, (Ptr{Nothing}, Ptr{Ptr{JNIEnv}}, Cint), pjvm[], ppenv, JNI.JNI_VERSION_1_8)
-    global penv[] = ppenv[1]
+    ccall(jvmfunc[].GetEnv, Cint, (Ptr{Nothing}, Ptr{Ptr{JNIEnv}}, Cint), pjvm[], penv, JNI.JNI_VERSION_1_8)
     JNI.load_jni(penv)
 end
 
