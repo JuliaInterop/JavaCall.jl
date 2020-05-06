@@ -17,7 +17,11 @@ end
 
 function arg_value(m)
   #if m.captures[2] == "*" && m.captures[1] == "char" return "String($(m.captures[3]))" end
-  m.captures[3]
+  if m.captures[3] == "env"
+      "penv[]"
+  else
+     m.captures[3]
+  end
 end
 
 decl_arg_type(m) = decl_arg_type(m.captures[1], m.captures[2])
@@ -112,7 +116,8 @@ for line in open(readlines, "jnienv.jl", "r")
   # Group 3: Argument name (\w+)
   mm = map(x->match(r"^\s* (?:const\s+)? \s* ((?:void|j\w+|char|JNI\w+|JavaVM)) \s*? (\**) \s* (\w+) \s*$"x, x), args)
 
-  julia_args = join(map(julia_arg, mm), ", ")
+  # skip the JNIEnv arg for julia since it is passed as a global to ccall
+  julia_args = join(map(julia_arg, mm)[2:end], ", ")
   arg_types = join(map(ccall_arg_type, mm), ", ")
   arg_names = join(map(arg_value, mm), ", ")
 
