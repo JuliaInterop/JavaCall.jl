@@ -150,7 +150,7 @@ function init_current_vm(libpath)
     jvm = unsafe_load(pjvm[])
     global jvmfunc[] = unsafe_load(jvm.JNIInvokeInterface_)
     ccall(jvmfunc[].GetEnv, Cint, (Ptr{Nothing}, Ptr{Ptr{JNIEnv}}, Cint), pjvm[], penv, JNI.JNI_VERSION_1_8)
-    JNI.load_jni(penv)
+    JNI.load_jni(penv[])
 end
 
 function load_libjvm(libpath::AbstractString)
