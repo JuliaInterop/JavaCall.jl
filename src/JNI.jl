@@ -110,7 +110,7 @@ struct JavaVMInitArgs
 end
 
 function load_jni(penv::Ptr{JNIEnv})
-    jnienv = unsafe_load(penv)
+    global jnienv = unsafe_load(penv)
     jniref[] = unsafe_load(jnienv.JNINativeInterface_) #The JNI Function table
     global jnifunc = jniref[]
 end
