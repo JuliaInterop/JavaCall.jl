@@ -127,14 +127,16 @@ function init_new_vm(libpath,opts)
     libjvm = load_libjvm(libpath)
     create = Libdl.dlsym(libjvm, :JNI_CreateJavaVM)
     opt = [JavaVMOption(pointer(x), C_NULL) for x in opts]
-    vm_args = JavaVMInitArgs(JNI_VERSION_1_8, convert(Cint, length(opts)),
-                             convert(Ptr{JavaVMOption}, pointer(opt)), JNI_TRUE)
-    res = ccall(create, Cint, (Ptr{Ptr{JavaVM}}, Ptr{Ptr{JNIEnv}}, Ptr{JavaVMInitArgs}), pjvm, penv,
-                Ref(vm_args))
-    res < 0 && throw(JNIError("Unable to initialise Java VM: $(res)"))
+    GC.@preserve opt begin
+        vm_args = JavaVMInitArgs(JNI_VERSION_1_8, convert(Cint, length(opts)),
+                                 convert(Ptr{JavaVMOption}, pointer(opt)), JNI_TRUE)
+        res = ccall(create, Cint, (Ptr{Ptr{JavaVM}}, Ptr{Ptr{JNIEnv}}, Ptr{JavaVMInitArgs}), pjvm, penv,
+                    Ref(vm_args))
+        res < 0 && throw(JNIError("Unable to initialise Java VM: $(res)"))
+    end
     jvm = unsafe_load(pjvm[])
-    global jvmfunc[] = unsafe_load(jvm.JNIInvokeInterface_)
-    JNI.load_jni(penv[])
+    jvmfunc[] = unsafe_load(jvm.JNIInvokeInterface_)
+    load_jni(penv[])
     return
 end
 
@@ -150,7 +152,7 @@ function init_current_vm(libpath)
     jvm = unsafe_load(pjvm[])
     global jvmfunc[] = unsafe_load(jvm.JNIInvokeInterface_)
     ccall(jvmfunc[].GetEnv, Cint, (Ptr{Nothing}, Ptr{Ptr{JNIEnv}}, Cint), pjvm[], penv, JNI.JNI_VERSION_1_8)
-    JNI.load_jni(penv[])
+    load_jni(penv[])
 end
 
 function load_libjvm(libpath::AbstractString)
