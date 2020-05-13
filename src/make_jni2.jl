@@ -18,7 +18,7 @@ end
 function arg_value(m)
   #if m.captures[2] == "*" && m.captures[1] == "char" return "String($(m.captures[3]))" end
   if m.captures[3] == "env"
-      "penv[]"
+      "penv"
   else
      m.captures[3]
   end
@@ -117,7 +117,7 @@ for line in open(readlines, "jnienv.jl", "r")
   mm = map(x->match(r"^\s* (?:const\s+)? \s* ((?:void|j\w+|char|JNI\w+|JavaVM)) \s*? (\**) \s* (\w+) \s*$"x, x), args)
 
   # skip the JNIEnv arg for julia since it is passed as a global to ccall
-  julia_args = join(map(julia_arg, mm)[2:end], ", ")
+  julia_args = join(push!(map(julia_arg, mm)[2:end],"penv=ppenv[]"), ", ")
   arg_types = join(map(ccall_arg_type, mm), ", ")
   arg_names = join(map(arg_value, mm), ", ")
 
