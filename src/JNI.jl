@@ -20,6 +20,7 @@ include("jnienv.jl")
 
 const jniref = Ref(JNINativeInterface())
 global jnifunc
+Base.@deprecate_binding jnifunc jniref[]
 
 const ppenv = Ref(Ptr{JNIEnv}(C_NULL))
 const ppjvm = Ref(Ptr{JavaVM}(C_NULL))

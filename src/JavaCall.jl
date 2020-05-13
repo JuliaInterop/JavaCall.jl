@@ -29,6 +29,8 @@ include("core.jl")
 include("convert.jl")
 include("reflect.jl")
 
+Base.@deprecate_binding jnifunc JavaCall.JNI.jniref[]
+
 function __init__()
     global JULIA_COPY_STACKS = get(ENV, "JULIA_COPY_STACKS", "") ∈ ("1", "yes")
     if ! Sys.iswindows()
