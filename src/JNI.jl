@@ -13,13 +13,12 @@ export JNI_TRUE, JNI_FALSE
 export JNI_VERSION_1_1, JNI_VERSION_1_2, JNI_VERSION_1_4, JNI_VERSION_1_6, JNI_VERSION_1_8
 # export JNI_VERSION_9, JNI_VERSION_10 # Intentionally excluded, use JNI.JNI_VERSION_9
 export JNI_OK, JNI_ERR, JNI_EDETACHED, JNI_EVERSION, JNI_ENOMEM, JNI_EEXIST, JNI_EINV
-# Legacy exports
-export jnifunc
+#export jnifunc
 
 include("jnienv.jl")
 
 const jniref = Ref(JNINativeInterface())
-global jnifunc
+#global jnifunc
 Base.@deprecate_binding jnifunc jniref[]
 
 const ppenv = Ref(Ptr{JNIEnv}(C_NULL))
@@ -113,7 +112,7 @@ end
 function load_jni(penv::Ptr{JNIEnv})
     global jnienv = unsafe_load(penv)
     jniref[] = unsafe_load(jnienv.JNINativeInterface_) #The JNI Function table
-    global jnifunc = jniref[]
+    #global jnifunc = jniref[]
 end
 is_jni_loaded() = jniref[].GetVersion != C_NULL
 is_env_loaded() = ppenv[] != C_NULL
