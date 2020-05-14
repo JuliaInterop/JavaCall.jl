@@ -11,7 +11,6 @@ export JavaObject, JavaMetaClass,
 # using Sys: iswindows, islinux, isunix, isapple
 
 import DataStructures: OrderedSet
-import Libdl
 using Dates
 
 @static if Sys.iswindows()
@@ -30,6 +29,8 @@ include("core.jl")
 include("convert.jl")
 include("reflect.jl")
 
+Base.@deprecate_binding jnifunc JavaCall.JNI.jniref[]
+
 function __init__()
     global JULIA_COPY_STACKS = get(ENV, "JULIA_COPY_STACKS", "") ∈ ("1", "yes")
     if ! Sys.iswindows()
@@ -44,8 +45,6 @@ function __init__()
                   "Calling the JVM may result in undefined behavior.")
         end
     end
-    findjvm()
-    global create = Libdl.dlsym(libjvm, :JNI_CreateJavaVM)
 end
 
 

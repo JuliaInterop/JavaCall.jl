@@ -35,10 +35,8 @@ System = @jimport java.lang.System
 @testset "unsafe_strings_1" begin
     a=JString("how are you")
     @test a.ptr != C_NULL
-    @test 11 == ccall(JavaCall.jnifunc.GetStringUTFLength, jint, (Ptr{JavaCall.JNIEnv}, Ptr{Nothing}),
-                      JavaCall.penv, a.ptr)
-    b = ccall(JavaCall.jnifunc.GetStringUTFChars, Ptr{UInt8},
-              (Ptr{JavaCall.JNIEnv}, Ptr{Nothing}, Ptr{Nothing}), JavaCall.penv, a.ptr, C_NULL)
+    @test 11 == JavaCall.JNI.GetStringUTFLength(a.ptr)
+    b = JavaCall.JNI.GetStringUTFChars(a.ptr,Ref{JavaCall.JNI.jboolean}())
     @test unsafe_string(b) == "how are you"
 end
 
