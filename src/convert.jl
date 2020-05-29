@@ -72,6 +72,7 @@ for (x, y, z) in [(:jboolean, :(JNI.NewBooleanArray), :(JNI.SetBooleanArrayRegio
             carg = convert(argtype, arg)
             sz=length(carg)
             arrayptr = $y(sz)
+            arrayptr === C_NULL && geterror()
             $z(arrayptr, 0, sz, carg)
             return carg, arrayptr
         end
