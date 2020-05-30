@@ -56,6 +56,10 @@ T = @jimport Test
     c=JString(C_NULL)
     @test isnull(c)
     @test "" == jcall(T, "testString", JString, (JString,), c)
+    a = rand(10^7)
+    @test [jcall(T, "testDoubleArray", jdouble, (Array{jdouble,1},),a)
+           for i in 1:10][1] ≈ sum(a)
+    a = nothing
 end
 
 @testset "static_method_call_1" begin

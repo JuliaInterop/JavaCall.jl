@@ -36,6 +36,15 @@ public class Test {
       return i;
   }
 
+  public static double testDoubleArray(double[] array) {
+      //Inspired from jsum of #122
+      double sum = 0;
+      for (double value : array) {
+          sum += value;
+      }
+      return sum;
+  }
+
   public static java.util.HashMap testNull() {
     return null;
   }
