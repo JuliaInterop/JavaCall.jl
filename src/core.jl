@@ -196,7 +196,9 @@ for (x, y, z) in [(:jboolean, :(JNI.CallBooleanMethodA), :(JNI.CallStaticBoolean
             @assert jmethodId != C_NULL
             isnull(obj) && throw(JavaCallError("Attempt to call method on Java NULL"))
             savedArgs, convertedArgs = convert_args(argtypes, args...)
-            result = callmethod(obj.ptr, jmethodId, Array{JNI.jvalue}(jvalue.(convertedArgs)))
+            GC.@preserve savedArgs begin
+                result = callmethod(obj.ptr, jmethodId, Array{JNI.jvalue}(jvalue.(convertedArgs)))
+            end
             deleteref.(filter(x->isa(x,JavaObject),convertedArgs))
             result==C_NULL && geterror()
             result == nothing && (return)
@@ -221,7 +223,9 @@ function _jcall(obj, jmethodId::Ptr{Nothing}, callmethod::Union{Function,Ptr{Not
     @assert jmethodId != C_NULL
     isnull(obj) && error("Attempt to call method on Java NULL")
     savedArgs, convertedArgs = convert_args(argtypes, args...)
-    result = callmethod(obj.ptr, jmethodId, Array{JNI.jvalue}(jvalue.(convertedArgs)))
+    GC.@preserve savedArgs begin
+        result = callmethod(obj.ptr, jmethodId, Array{JNI.jvalue}(jvalue.(convertedArgs)))
+    end
     deleteref.(filter(x->isa(x,JavaObject),convertedArgs))
     result==C_NULL && geterror()
     return convert_result(rettype, result)
