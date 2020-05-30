@@ -35,19 +35,22 @@ function real_jtype(rettype)
 end
 
 function convert_args(argtypes::Tuple, args...)
-    convertedArgs = Array{Int64}(undef, length(args))
+    # Previously we converted to jvalue here
+    # Instead convert to jvalue in _jcall so that we can delete local refs
+    convertedArgs = Array{Any}(undef, length(args))
     savedArgs = Array{Any}(undef, length(args))
     for i in 1:length(args)
         r = convert_arg(argtypes[i], args[i])
         savedArgs[i] = r[1]
-        convertedArgs[i] = jvalue(r[2])
+        convertedArgs[i] = r[2]
     end
     return savedArgs, convertedArgs
 end
 
+# We may be able to consolidate these convert_arg functions
 function convert_arg(argtype::Type{JString}, arg)
     x = convert(JString, arg)
-    return x, x.ptr
+    return x,x
 end
 
 function convert_arg(argtype::Type, arg)
@@ -56,7 +59,7 @@ function convert_arg(argtype::Type, arg)
 end
 function convert_arg(argtype::Type{T}, arg) where T<:JavaObject
     x = convert(T, arg)::T
-    return x, x.ptr
+    return x,x
 end
 
 for (x, y, z) in [(:jboolean, :(JNI.NewBooleanArray), :(JNI.SetBooleanArrayRegion)),
@@ -74,7 +77,8 @@ for (x, y, z) in [(:jboolean, :(JNI.NewBooleanArray), :(JNI.SetBooleanArrayRegio
             arrayptr = $y(sz)
             arrayptr === C_NULL && geterror()
             $z(arrayptr, 0, sz, carg)
-            return carg, arrayptr
+            # Wrap into JavaObjects so we can delete the local refs
+            return carg, JavaObject{argtype}(arrayptr)
         end
     end
     eval( m)
@@ -85,10 +89,11 @@ function convert_arg(argtype::Type{Array{T,1}}, arg) where T<:JavaObject
     sz = length(carg)
     init = carg[1]
     arrayptr = JNI.NewObjectArray(sz, metaclass(T).ptr, init.ptr)
+    arrayptr === C_NULL && geterror()
     for i=2:sz
         JNI.SetObjectArrayElement(arrayptr, i-1, carg[i].ptr)
     end
-    return carg, arrayptr
+    return carg, JavaObject{argtype}(arrayptr)
 end
 
 convert_result(rettype::Type{T}, result) where {T<:JString} = unsafe_string(JString(result))

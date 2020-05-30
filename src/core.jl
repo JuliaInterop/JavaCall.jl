@@ -78,10 +78,11 @@ function JString(str::AbstractString)
 end
 
 # jvalue(v::Integer) = int64(v) << (64-8*sizeof(v))
-jvalue(v::Integer) = Int64(v)
+jvalue(v::Integer)::JNI.jvalue = JNI.jvalue(v)
 jvalue(v::Float32) = jvalue(reinterpret(Int32, v))
 jvalue(v::Float64) = jvalue(reinterpret(Int64, v))
 jvalue(v::Ptr) = jvalue(Int(v))
+jvalue(v::JavaObject) = jvalue(v.ptr)
 
 
 function _jimport(juliaclass)
@@ -195,7 +196,8 @@ for (x, y, z) in [(:jboolean, :(JNI.CallBooleanMethodA), :(JNI.CallStaticBoolean
             @assert jmethodId != C_NULL
             isnull(obj) && throw(JavaCallError("Attempt to call method on Java NULL"))
             savedArgs, convertedArgs = convert_args(argtypes, args...)
-            result = callmethod(obj.ptr, jmethodId, convertedArgs)
+            result = callmethod(obj.ptr, jmethodId, Array{JNI.jvalue}(jvalue.(convertedArgs)))
+            deleteref.(filter(x->isa(x,JavaObject),convertedArgs))
             result==C_NULL && geterror()
             result == nothing && (return)
             return convert_result(rettype, result)
@@ -219,7 +221,8 @@ function _jcall(obj, jmethodId::Ptr{Nothing}, callmethod::Union{Function,Ptr{Not
     @assert jmethodId != C_NULL
     isnull(obj) && error("Attempt to call method on Java NULL")
     savedArgs, convertedArgs = convert_args(argtypes, args...)
-    result = callmethod(obj.ptr, jmethodId, convertedArgs)
+    result = callmethod(obj.ptr, jmethodId, Array{JNI.jvalue}(jvalue.(convertedArgs)))
+    deleteref.(filter(x->isa(x,JavaObject),convertedArgs))
     result==C_NULL && geterror()
     return convert_result(rettype, result)
 end
