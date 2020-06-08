@@ -1,6 +1,10 @@
 module JavaCall
-if isdefined(Base, :Experimental) && isdefined(Base.Experimental, Symbol("@optlevel"))
-    @eval Base.Experimental.@optlevel 1
+
+# Cuts runtests.jl time by one to two seconds
+# https://github.com/JuliaLang/julia/pull/34896
+@static if isdefined(Base, :Experimental) &&
+           isdefined(Base.Experimental, Symbol("@optlevel"))
+    Base.Experimental.@optlevel 1
 end
 
 export JavaObject, JavaMetaClass,
