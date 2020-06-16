@@ -1,17 +1,19 @@
+convert(::Type{Ptr{Nothing}}, obj::JavaObject{T}) where T = Ptr(obj)
+
 convert(::Type{JString}, str::AbstractString) = JString(str)
 convert(::Type{JObject}, str::AbstractString) = convert(JObject, JString(str))
 
 #Cast java object from S to T . Needed for polymorphic calls
 function convert(::Type{JavaObject{T}}, obj::JavaObject{S}) where {T,S}
     if isConvertible(T, S)   #Safe static cast
-        ptr = JNI.NewLocalRef(obj.ptr)
+        ptr = JNI.NewLocalRef(Ptr(obj))
         ptr === C_NULL && geterror()
         return JavaObject{T}(ptr)
     end
     isnull(obj) && throw(ArgumentError("Cannot convert NULL"))
-    realClass = JNI.GetObjectClass(obj.ptr)
+    realClass = JNI.GetObjectClass(Ptr(obj))
     if isConvertible(T, realClass)  #dynamic cast
-        ptr = JNI.NewLocalRef(obj.ptr)
+        ptr = JNI.NewLocalRef(Ptr(obj))
         ptr === C_NULL && geterror()
         return JavaObject{T}(ptr)
     end
@@ -19,10 +21,10 @@ function convert(::Type{JavaObject{T}}, obj::JavaObject{S}) where {T,S}
 end
 
 #Is java type convertible from S to T.
-isConvertible(T, S) = JNI.IsAssignableFrom(metaclass(S).ptr, metaclass(T).ptr) == JNI_TRUE
-isConvertible(T, S::Ptr{Nothing} ) = JNI.IsAssignableFrom(S, metaclass(T).ptr) == JNI_TRUE
+isConvertible(T, S) = JNI.IsAssignableFrom(Ptr(metaclass(S)), Ptr(metaclass(T))) == JNI_TRUE
+isConvertible(T, S::Ptr{Nothing} ) = JNI.IsAssignableFrom(S, Ptr(metaclass(T))) == JNI_TRUE
 
-unsafe_convert(::Type{Ptr{Nothing}}, cls::JavaMetaClass) = cls.ptr
+unsafe_convert(::Type{Ptr{Nothing}}, cls::JavaMetaClass) = Ptr(cls)
 
 # Get the JNI/C type for a particular Java type
 function real_jtype(rettype)
@@ -88,10 +90,10 @@ function convert_arg(argtype::Type{Array{T,1}}, arg) where T<:JavaObject
     carg = convert(argtype, arg)
     sz = length(carg)
     init = carg[1]
-    arrayptr = JNI.NewObjectArray(sz, metaclass(T).ptr, init.ptr)
+    arrayptr = JNI.NewObjectArray(sz, Ptr(metaclass(T)), Ptr(init))
     arrayptr === C_NULL && geterror()
     for i=2:sz
-        JNI.SetObjectArrayElement(arrayptr, i-1, carg[i].ptr)
+        JNI.SetObjectArrayElement(arrayptr, i-1, Ptr(carg[i]))
     end
     return carg, JavaObject{argtype}(arrayptr)
 end
@@ -258,10 +260,10 @@ end
 function unsafe_string(jstr::JString)  #jstr must be a jstring obtained via a JNI call
     if isnull(jstr); return ""; end #Return empty string to keep type stability. But this is questionable
     pIsCopy = Array{jboolean}(undef, 1)
-    #buf::Ptr{UInt8} = JNI.GetStringUTFChars(jstr.ptr, pIsCopy)
-    buf = JNI.GetStringUTFChars(jstr.ptr, pIsCopy)
+    #buf::Ptr{UInt8} = JNI.GetStringUTFChars(Ptr(jstr), pIsCopy)
+    buf = JNI.GetStringUTFChars(Ptr(jstr), pIsCopy)
     s = unsafe_string(buf)
-    JNI.ReleaseStringUTFChars(jstr.ptr, buf)
+    JNI.ReleaseStringUTFChars(Ptr(jstr), buf)
     return s
 end
 
@@ -275,11 +277,11 @@ for (x, y, z) in [(:jboolean, :(JNI.GetBooleanArrayElements), :(JNI.ReleaseBoole
                   (:jdouble,  :(JNI.GetDoubleArrayElements),  :(JNI.ReleaseDoubleArrayElements)) ]
     m = quote
         function convert(::Type{Array{$(x),1}}, obj::JObject)
-            sz = JNI.GetArrayLength(obj.ptr)
-            arr = $y(obj.ptr, Ptr{jboolean}(C_NULL))
+            sz = JNI.GetArrayLength(Ptr(obj))
+            arr = $y(Ptr(obj), Ptr{jboolean}(C_NULL))
             jl_arr::Array = unsafe_wrap(Array, arr, Int(sz))
             jl_arr = deepcopy(jl_arr)
-            $z(obj.ptr, arr, Int32(0))
+            $z(Ptr(obj), arr, Int32(0))
             return jl_arr
         end
     end
@@ -288,10 +290,10 @@ end
 
 
 function convert(::Type{Array{T, 1}}, obj::JObject) where T
-    sz = JNI.GetArrayLength(obj.ptr)
+    sz = JNI.GetArrayLength(Ptr(obj))
     ret = Array{T}(undef, sz)
     for i=1:sz
-        ptr = JNI.GetObjectArrayElement(obj.ptr, i-1)
+        ptr = JNI.GetObjectArrayElement(Ptr(obj), i-1)
         ret[i] = convert(T, JObject(ptr))
     end
     return ret

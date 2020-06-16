@@ -34,9 +34,9 @@ System = @jimport java.lang.System
 
 @testset "unsafe_strings_1" begin
     a=JString("how are you")
-    @test a.ptr != C_NULL
-    @test 11 == JavaCall.JNI.GetStringUTFLength(a.ptr)
-    b = JavaCall.JNI.GetStringUTFChars(a.ptr,Ref{JavaCall.JNI.jboolean}())
+    @test Ptr(a) != C_NULL
+    @test 11 == JavaCall.JNI.GetStringUTFLength(Ptr(a))
+    b = JavaCall.JNI.GetStringUTFChars(Ptr(a),Ref{JavaCall.JNI.jboolean}())
     @test unsafe_string(b) == "how are you"
 end
 
