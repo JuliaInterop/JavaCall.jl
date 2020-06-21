@@ -14,9 +14,10 @@ WinReg = "0.3.1"
 julia = "1"
 
 [extras]
-Taro = "61d0e4fa-4e73-5030-88a9-ae4c27b203dd"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Taro = "61d0e4fa-4e73-5030-88a9-ae4c27b203dd"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 
 [targets]
-test = ["Taro","Pkg","Test"]
+test = ["Taro", "Pkg", "Test","DataFrames"]

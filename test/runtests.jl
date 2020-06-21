@@ -280,7 +280,13 @@ end
 
 # Test downstream dependencies
 using Pkg
+Pkg.add("Taro")
+
+using Taro
+chmod(joinpath(dirname(dirname(pathof(Taro))),"test","df-test.xlsx"),0o600)
+
 Pkg.test("Taro")
+#include(joinpath(dirname(dirname(pathof(Taro))),"test","runtests.jl"))
 
 # At the end, unload the JVM before exiting
 JavaCall.destroy()
