@@ -278,5 +278,9 @@ end
     end
 end
 
+# Test downstream dependencies
+using Pkg
+Pkg.test("Taro")
+
 # At the end, unload the JVM before exiting
 JavaCall.destroy()
