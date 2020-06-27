@@ -2,6 +2,7 @@ language: julia
 os:
   - linux
 before_install:
+  - echo $JAVA_HOME
   - ls -l /usr/lib/jvm/*
 julia:
   - 1.0
