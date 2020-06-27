@@ -16,6 +16,13 @@ env:
   - JULIA_COPY_STACKS=1
 
 jobs:
+  include:
+  - julia: 1
+    env: JULIA_COPY_STACKS=1 JAVA_HOME=/usr/local/lib/jvm/openjdk8
+    os: linux
+  - julia: 1
+    env: JULIA_COPY_STACKS=1 JAVA_HOME=/usr/local/lib/jvm/openjdk11
+    os: linux
   exclude:
   - julia: 1.0
     env: JULIA_COPY_STACKS=0
