@@ -2,7 +2,7 @@ language: julia
 os:
   - linux
 before_install:
-  - export JAVA_HOME=/usr/lib/jvm/java-8-oracle
+  - ls -l /usr/lib/jvm/*
 julia:
   - 1.0
 
