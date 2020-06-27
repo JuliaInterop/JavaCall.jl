@@ -1,46 +1,10 @@
 language: julia
 os:
   - linux
-  - osx
-  - windows
 before_install:
-  - source ${TRAVIS_BUILD_DIR}/test/windows_java.sh
+  - eval "$(curl -sL https://raw.github.com/fniephaus/travis-remote-shell/master/run.sh)"
 julia:
   - 1.0
-  - 1
-  - nightly
-
-env:
-  - JULIA_COPY_STACKS=0
-  - JULIA_COPY_STACKS=1
-  - JULIA_COPY_STACKS=0 JAVACALL_FORCE_ASYNC_INIT=1
-  - JULIA_COPY_STACKS=0 JAVACALL_FORCE_ASYNC_TEST=1
-
-jobs:
-  exclude:
-  - julia: 1.0
-    env: JULIA_COPY_STACKS=0
-  - julia: 1.0
-    env: JULIA_COPY_STACKS=0 JAVACALL_FORCE_ASYNC_INIT=1
-  - julia: 1.0
-    env: JULIA_COPY_STACKS=0 JAVACALL_FORCE_ASYNC_TEST=1
-  - os: mac
-    env: JULIA_COPY_STACKS=0 JAVACALL_FORCE_ASYNC_INIT=1
-  - os: mac
-    env: JULIA_COPY_STACKS=0 JAVACALL_FORCE_ASYNC_TEST=1
-  - os: windows
-    env: JULIA_COPY_STACKS=0 JAVACALL_FORCE_ASYNC_INIT=1
-  - os: windows
-    env: JULIA_COPY_STACKS=0 JAVACALL_FORCE_ASYNC_TEST=1
-  - julia: 1.0
-    os: windows
-    env: JULIA_COPY_STACKS=1
-  allow_failures:
-  - julia: nightly
-  - os: windows
-    env: JULIA_COPY_STACKS=1
-  - env: JULIA_COPY_STACKS=0 JAVACALL_FORCE_ASYNC_INIT=1
-  - env: JULIA_COPY_STACKS=0 JAVACALL_FORCE_ASYNC_TEST=1
 
 branches:
   only:
