@@ -2,7 +2,7 @@ language: julia
 os:
   - linux
 before_install:
-  - eval "$(curl -sL https://raw.github.com/fniephaus/travis-remote-shell/master/run.sh)"
+  - echo $JAVA_HOME
 julia:
   - 1.0
 
