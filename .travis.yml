@@ -2,7 +2,7 @@ language: julia
 os:
   - linux
 before_install:
-  - echo $JAVA_HOME
+  - export JAVA_HOME=/usr/local/lib/jvm/openjdk8
 julia:
   - 1.0
 
