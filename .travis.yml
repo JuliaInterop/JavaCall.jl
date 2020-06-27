@@ -4,7 +4,7 @@ os:
 before_install:
   - echo $JAVA_HOME
   - ls -l /usr/lib/jvm/*
-  - ls -l /urs/local/lib/jvm/*
+  - ls -l /usr/local/lib/jvm/*
 julia:
   - 1.0
 
