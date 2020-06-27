@@ -1,3 +1,4 @@
+dist: bionic
 language: julia
 os:
   - linux
