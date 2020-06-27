@@ -3,6 +3,7 @@ os:
   - linux
   - osx
   - windows
+dist: bionic
 before_install:
   - source ${TRAVIS_BUILD_DIR}/test/windows_java.sh
 julia:
@@ -13,25 +14,11 @@ julia:
 env:
   - JULIA_COPY_STACKS=0
   - JULIA_COPY_STACKS=1
-  - JULIA_COPY_STACKS=0 JAVACALL_FORCE_ASYNC_INIT=1
-  - JULIA_COPY_STACKS=0 JAVACALL_FORCE_ASYNC_TEST=1
 
 jobs:
   exclude:
   - julia: 1.0
     env: JULIA_COPY_STACKS=0
-  - julia: 1.0
-    env: JULIA_COPY_STACKS=0 JAVACALL_FORCE_ASYNC_INIT=1
-  - julia: 1.0
-    env: JULIA_COPY_STACKS=0 JAVACALL_FORCE_ASYNC_TEST=1
-  - os: mac
-    env: JULIA_COPY_STACKS=0 JAVACALL_FORCE_ASYNC_INIT=1
-  - os: mac
-    env: JULIA_COPY_STACKS=0 JAVACALL_FORCE_ASYNC_TEST=1
-  - os: windows
-    env: JULIA_COPY_STACKS=0 JAVACALL_FORCE_ASYNC_INIT=1
-  - os: windows
-    env: JULIA_COPY_STACKS=0 JAVACALL_FORCE_ASYNC_TEST=1
   - julia: 1.0
     os: windows
     env: JULIA_COPY_STACKS=1
@@ -39,8 +26,6 @@ jobs:
   - julia: nightly
   - os: windows
     env: JULIA_COPY_STACKS=1
-  - env: JULIA_COPY_STACKS=0 JAVACALL_FORCE_ASYNC_INIT=1
-  - env: JULIA_COPY_STACKS=0 JAVACALL_FORCE_ASYNC_TEST=1
 
 branches:
   only:
