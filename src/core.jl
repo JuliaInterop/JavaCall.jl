@@ -1,28 +1,61 @@
-abstract type JavaRef end
+"""
+    JavaRef is abstract parent for JavaLocalRef, JavaGlobalRef, and JavaNullRef in the JavaCall Module
 
+    It is distinct from its parent type, JavaCall.JNI.AbstractJavaRef, since its use is defined in 
+    JavaCall itself rather than the JNI submodule.
+"""
+abstract type JavaRef <: JNI.AbstractJavaRef end
+
+"""
+    JavaLocalRef is a JavaRef that is meant to be used with local variables in a function call.
+    After the function call these references may be freed and garbage collected. See note about
+    JNI memory management below.
+
+    This is the default reference type returned from the JNI.
+
+    Use this with JNI.PushLocalFrame / JNI.PopLocalFrame for memory management.
+    Also see JNI.EnsureLocalCapacity.
+
+    The internal pointer should be deleted using JNI.DeleteLocalRef
+"""
 struct JavaLocalRef <: JavaRef
     ptr::Ptr{Nothing}
 end
 
+"""
+    JavaGlobalRef is a JavaRef that is meant to be used with global variables that live beyond 
+    a single function call.
+"""
 struct JavaGlobalRef <: JavaRef
     ptr::Ptr{Nothing}
 end
 
+"""
+    JavaNullRef is a JavaRef that serves as a placeholder to mark where references have already been deleted.
+
+    See J_NULL
+"""
 struct JavaNullRef <: JavaRef
     ptr::Ptr{Nothing}
     JavaNullRef() = new(C_NULL)
 end
 
+""" Constant JavaNullRef """
 const J_NULL = JavaNullRef()
 
 Ptr(ref::JavaRef) = ref.ptr
+Ptr{Nothing}(ref::JavaRef) = ref.ptr
 
 JavaLocalRef(ref::JavaRef) = JavaLocalRef(JNI.NewLocalRef(Ptr(ref)))
 JavaGlobalRef(ref::JavaRef) = JavaGlobalRef(JNI.NewGlobalRef(Ptr(ref)))
 
+# _deleteref does local/global reference deletion without null or state checking
 _deleteref(ref::JavaLocalRef ) = JNI.DeleteLocalRef( Ptr(ref))
 _deleteref(ref::JavaGlobalRef) = JNI.DeleteGlobalRef(Ptr(ref))
 
+"""
+    deleteref deletes a JavaRef using either JNI.DeleteLocalRef or JNI.DeleteGlobalRef
+"""
 function deleteref(x::JavaRef)
     if x.ptr == C_NULL; return; end
     if !JNI.is_env_loaded(); return; end;
@@ -30,8 +63,13 @@ function deleteref(x::JavaRef)
     return
 end
 
+"""
+    JavaMetaClass represents meta information about a Java class
 
-struct JavaMetaClass{T}
+    These are usually cached in _jmc_cache and are meant to live
+    as long as the cache is valid.
+"""
+struct JavaMetaClass{T} <: JNI.AbstractJavaRef
     ref::JavaRef
 end
 
@@ -41,8 +79,15 @@ JavaMetaClass(T, ptr::Ptr{Nothing}) = JavaMetaClass{T}(JavaGlobalRef(ptr))
 
 ref(mc::JavaMetaClass{T}) where T = mc.ref
 Ptr(mc::JavaMetaClass{T}) where T = Ptr(mc.ref)
+Ptr{Nothing}(mc::JavaMetaClass{T}) where T = Ptr(mc.ref)
 
-mutable struct JavaObject{T}
+"""
+    JavaObject{T} is the main JavaCall type representing either an instance
+    or a static class
+
+    T is usually a symbol referring a Java class name
+"""
+mutable struct JavaObject{T} <: JNI.AbstractJavaRef
     ref::JavaRef
 
     #This below is ugly. Once we stop supporting 0.5, this can be replaced by
@@ -57,16 +102,23 @@ mutable struct JavaObject{T}
     JavaObject{T}(argtypes::Tuple, args...) where {T} = jnew(T, argtypes, args...)
 end
 
+# JavaObject Construction
 JavaObject(T, ptr) = JavaObject{T}(ptr)
 JavaObject{T}() where {T} = JavaObject{T}((),)
 JavaObject{T}(ptr::Ptr{Nothing}) where {T} = JavaObject{T}(JavaLocalRef(ptr))
 
+# JavaObject Reference Management
 ref(x::JavaObject{T}) where T = x.ref
 copyref(x::JavaObject{T}) where T = JavaObject{T}(JavaLocalRef(x.ref))
 deleteref(x::JavaObject{T}) where T = ( deleteref(x.ref); x.ref = J_NULL )
 
+# Obtain the underlying pointer for a JavaObject
 Ptr(x::JavaObject{T}) where T = Ptr(x.ref)
+Ptr{Nothing}(x::JavaObject{T}) where T = Ptr(x.ref)
 
+"""
+   jglobal(x::JavaObject) creates a new JavaGlobalRef and deletes the prior JavaRef
+"""
 function jglobal(x::JavaObject)
     gref = JavaGlobalRef(JNI.NewGlobalRef(Ptr(x)))
     deleteref(x.ref)

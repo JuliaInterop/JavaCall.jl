@@ -25,6 +25,8 @@ isConvertible(T, S) = JNI.IsAssignableFrom(Ptr(metaclass(S)), Ptr(metaclass(T)))
 isConvertible(T, S::Ptr{Nothing} ) = JNI.IsAssignableFrom(S, Ptr(metaclass(T))) == JNI_TRUE
 
 unsafe_convert(::Type{Ptr{Nothing}}, cls::JavaMetaClass) = Ptr(cls)
+unsafe_convert(::Type{Ptr{Nothing}}, obj::JavaObject) = Ptr(obj)
+unsafe_convert(::Type{Ptr{Nothing}}, ref::JavaRef) = Ptr(ref)
 
 # Get the JNI/C type for a particular Java type
 function real_jtype(rettype)
