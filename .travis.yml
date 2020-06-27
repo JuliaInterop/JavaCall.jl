@@ -23,6 +23,10 @@ jobs:
   - julia: 1
     env: JULIA_COPY_STACKS=1 JAVA_HOME=/usr/local/lib/jvm/openjdk11
     os: linux
+  - julia: 1
+    env: JULIA_COPY_STACKS=1
+    os: osx
+    osx_image: xcode9.3
   exclude:
   - julia: 1.0
     env: JULIA_COPY_STACKS=0
