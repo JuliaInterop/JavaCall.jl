@@ -1,23 +1,9 @@
-const JNI_VERSION_1_1 = convert(Cint, 0x00010001)
-const JNI_VERSION_1_2 = convert(Cint, 0x00010002)
-const JNI_VERSION_1_4 = convert(Cint, 0x00010004)
-const JNI_VERSION_1_6 = convert(Cint, 0x00010006)
-const JNI_VERSION_1_8 = convert(Cint, 0x00010008)
-
-const JNI_TRUE = convert(Cchar, 1)
-const JNI_FALSE = convert(Cchar, 0)
-
-# Return Values
-const JNI_OK           = convert(Cint, 0)               #/* success */
-const JNI_ERR          = convert(Cint, -1)              #/* unknown error */
-const JNI_EDETACHED    = convert(Cint, -2)              #/* thread detached from the VM */
-const JNI_EVERSION     = convert(Cint, -3)              #/* JNI version error */
-const JNI_ENOMEM       = convert(Cint, -4)              #/* not enough memory */
-const JNI_EEXIST       = convert(Cint, -5)              #/* VM already created */
-const JNI_EINVAL       = convert(Cint, -6)              #/* invalid arguments */
-
 const JAVA_HOME_CANDIDATES = ["/usr/lib/jvm/default-java/",
                               "/usr/lib/jvm/default/"]
+
+struct JavaCallError <: Exception
+    msg::String
+end
 
 function javahome_winreg()
     keys = ["SOFTWARE\\JavaSoft\\Java Runtime Environment", "SOFTWARE\\JavaSoft\\Java Development Kit", "SOFTWARE\\JavaSoft\\JDK"]
@@ -101,16 +87,14 @@ function findjvm()
                     bindir = dirname(dirname(libpath))
                     m = filter(x -> occursin(r"msvcr(?:.*).dll",x), readdir(bindir))
                     if !isempty(m)
-                        Libdl.dlopen(joinpath(bindir,m[1]))
+                        return (joinpath(bindir,m[1]),libpath)
                     end
                 end
-                global libjvm = Libdl.dlopen(libpath)
-                println("LOADED $libpath")
-                @debug("Loaded $libpath")
-                return
+                return (libpath,)
             end
         end
-    catch
+    catch err
+        throw(err)
     end
 
     errorMsg =
@@ -128,17 +112,6 @@ end
 
 
 
-struct JavaVMOption
-    optionString::Ptr{UInt8}
-    extraInfo::Ptr{Nothing}
-end
-
-struct JavaVMInitArgs
-    version::Cint
-    nOptions::Cint
-    options::Ptr{JavaVMOption}
-    ignoreUnrecognized::Cchar
-end
 
 
 @static Sys.isunix() ? (const sep = ":") : nothing
@@ -263,7 +236,7 @@ else
     assertroottask_or_goodenv() = isgoodenv() ? nothing : throw(ROOT_TASK_ERROR)
 end
 
-isloaded() = isdefined(JavaCall, :jnifunc) && isdefined(JavaCall, :penv) && penv != C_NULL
+isloaded() = JNI.is_jni_loaded() && JNI.is_env_loaded()
 
 assertloaded() = isloaded() ? nothing : throw(JavaCallError("JVM not initialised. Please run init()"))
 assertnotloaded() = isloaded() ? throw(JavaCallError("JVM already initialised")) : nothing
@@ -310,22 +283,7 @@ end
 function _init(opts)
     assertnotloaded()
     assertroottask_or_goodenv()
-    opt = [JavaVMOption(pointer(x), C_NULL) for x in opts]
-    ppjvm = Array{Ptr{JavaVM}}(undef, 1)
-    ppenv = Array{Ptr{JNIEnv}}(undef, 1)
-    vm_args = JavaVMInitArgs(JNI_VERSION_1_6, convert(Cint, length(opts)),
-                             convert(Ptr{JavaVMOption}, pointer(opt)), JNI_TRUE)
-    res = ccall(create, Cint, (Ptr{Ptr{JavaVM}}, Ptr{Ptr{JNIEnv}}, Ptr{JavaVMInitArgs}), ppjvm, ppenv,
-                Ref(vm_args))
-    res < 0 && throw(JavaCallError("Unable to initialise Java VM: $(res)"))
-    global penv = ppenv[1]
-    global pjvm = ppjvm[1]
-    jnienv = unsafe_load(penv)
-    jvm = unsafe_load(pjvm)
-    global jvmfunc = unsafe_load(jvm.JNIInvokeInterface_)
-    global jnifunc = unsafe_load(jnienv.JNINativeInterface_) #The JNI Function table
-    initProxy()
-    return
+    JNI.init_new_vm(findjvm(),opts);
 end
 
 """
@@ -370,25 +328,10 @@ public class Julia {
 ```
 """
 function init_current_vm()
-    ppjvm = Array{Ptr{JavaVM}}(undef, 1)
-    ppenv = Array{Ptr{JNIEnv}}(undef, 1)
-    pnum = Array{Cint}(undef, 1)
-    ccall(Libdl.dlsym(libjvm, :JNI_GetCreatedJavaVMs), Cint, (Ptr{Ptr{JavaVM}}, Cint, Ptr{Cint}), ppjvm, 1, pnum)
-    global pjvm = ppjvm[1]
-    jvm = unsafe_load(pjvm)
-    global jvmfunc = unsafe_load(jvm.JNIInvokeInterface_)
-    ccall(jvmfunc.GetEnv, Cint, (Ptr{Nothing}, Ptr{Ptr{JNIEnv}}, Cint), pjvm, ppenv, JNI_VERSION_1_8)
-    global penv = ppenv[1]
-    jnienv = unsafe_load(penv)
-    global jnifunc = unsafe_load(jnienv.JNINativeInterface_) #The JNI Function table
+    JNI.init_current_vm(findjvm())
 end
 
 function destroy()
-    if (!isdefined(JavaCall, :penv) || penv == C_NULL)
-        throw(JavaCallError("Called destroy without initialising Java VM"))
-    end
     assertroottask_or_goodenv()
-    res = ccall(jvmfunc.DestroyJavaVM, Cint, (Ptr{Nothing},), pjvm)
-    res < 0 && throw(JavaCallError("Unable to destroy Java VM"))
-    global penv=C_NULL; global pjvm=C_NULL;
+    JNI.destroy()
 end

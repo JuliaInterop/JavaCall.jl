@@ -79,7 +79,7 @@ const types = Dict()
 @defjtype java_util_Map <: interface
 
 const modifiers = JavaObject{Symbol("java.lang.reflect.Modifier")}
-const JField = JavaObject{Symbol("java.lang.reflect.Field")}
+#const JField = JavaObject{Symbol("java.lang.reflect.Field")}
 const JPrimitive = Union{Bool, Char, UInt8, Int8, UInt16, Int16, Int32, Int64, Float32, Float64}
 const JNumber = Union{Int8, Int16, Int32, Int64, Float32, Float64}
 const JBoxTypes = Union{
@@ -113,12 +113,12 @@ struct JavaTypeInfo
     boxType::Type{JavaObject{T}} where T
     boxClass::JClass
     primClass::JClass
-    getter::Ptr{Nothing}
-    staticGetter::Ptr{Nothing}
-    setter::Ptr{Nothing}
-    staticSetter::Ptr{Nothing}
-    newarray::Ptr{Nothing}
-    arrayregionsetter::Ptr{Nothing}
+    getter::Function
+    staticGetter::Function
+    setter::Function
+    staticSetter::Function
+    newarray::Function
+    arrayregionsetter::Function
 end
 
 struct JReadonlyField
@@ -170,6 +170,15 @@ struct Boxing
     unboxer::Ptr{Nothing}
 end
 
+newglobalref(x) = JNI.NewGlobalRef(x)
+deleteglobalref(x) = JNI.DeleteGlobalRef(x)
+#deleteglobalref(x) = x
+function deletelocals()
+    #JNI.PopLocalFrame(C_NULL)
+    #JNI.PushLocalFrame(jint(5))
+end
+
+
 """
     PtrBox(ptr::Ptr{Nothing}
 
@@ -179,7 +188,7 @@ Temporarily holds a globalref to a Java object during JProxy creation
 mutable struct PtrBox
     ptr::Ptr{Nothing}
 
-    PtrBox(obj::JavaObject) = PtrBox(obj.ptr)
+    PtrBox(obj::JavaObject) = PtrBox(Ptr(obj))
     function PtrBox(ptr::Ptr{Nothing})
         finalizer(finalizebox, new(newglobalref(ptr)))
     end
@@ -256,7 +265,7 @@ mutable struct JProxy{T, STATIC}
     ptr::Ptr{Nothing}
     info::JClassInfo
     function JProxy{T, STATIC}(obj::JavaObject, info) where {T, STATIC}
-        finalizer(finalizeproxy, new{T, STATIC}(newglobalref(obj.ptr), info))
+        finalizer(finalizeproxy, new{T, STATIC}(newglobalref(obj), info))
     end
     function JProxy{T, STATIC}(obj::PtrBox, info) where {T, STATIC}
         finalizer(finalizeproxy, new{T, STATIC}(newglobalref(obj.ptr), info))
@@ -282,7 +291,7 @@ const typeInfo = Dict{AbstractString, JavaTypeInfo}()
 const boxers = Dict()
 const juliaConverters = Dict()
 global jnicalls = Dict()
-const defaultjnicall = (instance=:CallObjectMethod,static=:CallStaticObjectMethod)
+const defaultjnicall = (instance=:CallObjectMethodA,static=:CallStaticObjectMethodA)
 const dynamicTypeCache = Dict()
 
 global genericFieldInfo
@@ -298,9 +307,10 @@ macro jnicallregistered(func, rettype, types, args...)
 end
 function _jnicall(func, rettype, types, args)
     quote
-        local result = ccall($(esc(func)), $(esc(rettype)),
-                       (Ptr{JNIEnv}, $(esc.(types.args)...)),
-                       penv, $(esc.(args)...))
+        #local result = ccall($(esc(func)), $(esc(rettype)),
+        #               (Ptr{JNIEnv}, $(esc.(types.args)...)),
+        #               penv, $(esc.(args)...))
+        local result = JNI.$func($(esc.(args)...))
         result == C_NULL && geterror()
         result
     end
@@ -311,9 +321,10 @@ macro message(obj, rettype, methodid, args...)
     @verbose("INSTANCE FUNC: ", func, " RETURNING ", rettype, " ARGS ", typeof.(args))
     flush(stdout)
     quote
-        result = ccall(jnifunc.$func, Ptr{Nothing},
-                       (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, $((typeof(arg) for arg in args)...)),
-                       penv, $(esc(obj)), $(esc(methodid)), $(esc.(args)...))
+        #result = ccall(jnifunc.$func, Ptr{Nothing},
+        #               (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, $((typeof(arg) for arg in args)...)),
+        #               penv, $(esc(obj)), $(esc(methodid)), $(esc.(args)...))
+        result = JNI.$func($(esc(obj)), $(esc(methodid)), JNI.jvalue.([$(esc.(args)...)]))
         result == C_NULL && geterror()
         $(if rettype == Ptr{Nothing} || rettype == :(Ptr{Nothing})
               :(registerreturn(result))
@@ -328,9 +339,10 @@ macro staticmessage(rettype, methodid, args...)
     @verbose("STATIC FUNC: ", func, " RETURNING ", rettype, " ARGS ", typeof.(args))
     flush(stdout)
     quote
-        result = ccall(jnifunc.$func, $(esc(rettype)),
-                       (Ptr{JNIEnv}, Ptr{Nothing}, $((Ptr{Nothing} for i in args)...)),
-                       penv, $(esc(methodid)), $(esc.(args)...))
+        #result = ccall(jnifunc.$func, $(esc(rettype)),
+        #               (Ptr{JNIEnv}, Ptr{Nothing}, $((Ptr{Nothing} for i in args)...)),
+        #               penv, $(esc(methodid)), $(esc.(args)...))
+        result = JNI.$func($(esc(methodid)), $(esc.(args)...))
         result == C_NULL && geterror()
         $(if rettype == Ptr{Nothing} || rettype == :(Ptr{Nothing})
               :(registerreturn(result))
@@ -342,6 +354,8 @@ end
 
 registerreturn(x) = x
 registerreturn(x::Ptr{Nothing}) = registerlocal(x)
+# We are not going to run our own registry, use JNI.PushLocalFrame, JNI.PopLocalFrame instead
+registerlocal(x) = x
 
 function arrayinfo(str)
     if (m = match(r"^(\[+)(.)$", str)) != nothing
@@ -355,13 +369,13 @@ end
 
 function finalizeproxy(pxy::JProxy)
     ptr = pxyptr(pxy)
-    if ptr == C_NULL || penv == C_NULL; return; end
+    if ptr == C_NULL || !JavaCall.isloaded(); return; end
     deleteglobalref(ptr)
     setfield!(pxy, :ptr, C_NULL) #Safety in case this function is called direcly, rather than at finalize
 end
 
 function finalizebox(box::PtrBox)
-    if box.ptr == C_NULL || penv == C_NULL; return; end
+    if box.ptr == C_NULL !JavaCall.isloaded(); return; end
     deleteglobalref(box.ptr)
     box.ptr = C_NULL #Safety in case this function is called direcly, rather than at finalize
 end
@@ -634,8 +648,8 @@ pxyinfo(p::JProxy) = getfield(p, :info)
 
 ==(j1::JProxy, j2::JProxy) = isSame(pxyptr(j1), pxyptr(j2))
 
-isSame(j1::JavaObject, j2::JavaObject) = isSame(j1.ptr, j2.ptr)
-isSame(j1::Ptr{Nothing}, j2::Ptr{Nothing}) = @jnicall(jnifunc.IsSameObject, jboolean, (Ptr{Nothing}, Ptr{Nothing}), j1, j2) != 0
+isSame(j1::JavaObject, j2::JavaObject) = isSame(Ptr(j1), Ptr(j2))
+isSame(j1::Ptr{Nothing}, j2::Ptr{Nothing}) = Bool(JNI.IsSameObject(j1, j2))
 
 getreturntype(c::JConstructor) = voidClass
 
@@ -653,7 +667,7 @@ function getConstructors(class::JClass)
 end
 
 function argtypefor(class::JClass)
-    cln = getclassname(class.ptr)
+    cln = getclassname(Ptr(class))
     tinfo = gettypeinfo(cln)
     if tinfo.primitive
         tinfo.convertType
@@ -706,28 +720,31 @@ end
 sym(s...) = :(Symbol($(join(string.(s)))))
 
 function _typeInf(jclass, ctyp, sig, jtyp, Typ, object, accessor, boxType)
-    j = (strs...)-> :(jnifunc.$(Symbol(reduce(*, string.(strs)))))
+    #j = (strs...)-> :(jnifunc.$(Symbol(reduce(*, string.(strs)))))
+    j = (strs...)-> :(JNI.$(Symbol(reduce(*, string.(strs)))))
     s = (p, t)-> j(p, t, "Field")
-    newarray = (length(sig) == 1 && sig != "V" ? j("New", Typ, "Array") : C_NULL)
-    arrayregionsetter = (length(sig) == 1 && sig != "V" ? j("Set", Typ, "ArrayRegion") : C_NULL)
-    arrayset = (length(sig) == 1 && sig != "V" ? j("New", Typ, "Array") : C_NULL)
+    newarray = (length(sig) == 1 && sig != "V" ? j("New", Typ, "Array") : identity)
+    arrayregionsetter = (length(sig) == 1 && sig != "V" ? j("Set", Typ, "ArrayRegion") : identity)
+    arrayset = (length(sig) == 1 && sig != "V" ? j("New", Typ, "Array") : identity)
     arrayget = if length(sig) == 1 && sig != "V"
         type_ctyp = getfield(JavaCall, ctyp)
         type_jtyp = getfield(Core, jtyp)
         quote
             function arrayget(pxy::JProxy{<:Array{$ctyp}, false}, index)
                 result = $type_jtyp[$(type_jtyp(0))]
-                @jnicall($(j("Get" * Typ * "ArrayRegion")), Nothing,
-                         (Ptr{Nothing}, Csize_t, Csize_t, Ptr{$(jtyp)}),
-                         pxyptr(pxy), index, 1, result)
+                #@jnicall($(j("Get" * Typ * "ArrayRegion")), Nothing,
+                #         (Ptr{Nothing}, Csize_t, Csize_t, Ptr{$(jtyp)}),
+                #         pxyptr(pxy), index, 1, result)
+                $(j("Get" * Typ * "ArrayRegion"))( pxyptr(pxy), index, 1, result )
                 result == C_NULL && geterror()
                 $(type_jtyp == Bool ? :(result[1] != 0) : :(result[1]))
             end
             function arrayset!(pxy::JProxy{<:Array{$ctyp}, false}, index, value::$ctyp)
                 valuebuf = $type_jtyp[$type_jtyp(value)]
-                @jnicall($(j("Set" * Typ * "ArrayRegion")), Nothing,
-                         (Ptr{Nothing}, Csize_t, Csize_t, Ptr{$(jtyp)}),
-                         pxyptr(pxy), index, 1, valuebuf)
+                #@jnicall($(j("Set" * Typ * "ArrayRegion")), Nothing,
+                #         (Ptr{Nothing}, Csize_t, Csize_t, Ptr{$(jtyp)}),
+                #         pxyptr(pxy), index, 1, valuebuf)
+                $(j("Set" * Typ * "ArrayRegion"))(  pxyptr(pxy), index, 1, valuebuf ) 
                 geterror()
             end
         end
@@ -741,9 +758,10 @@ function _typeInf(jclass, ctyp, sig, jtyp, Typ, object, accessor, boxType)
 end
 
 function arrayget(pxy::JProxy{<:Array, false}, index)
-    result = @jnicall(jnifunc.GetObjectArrayElement, Ptr{Nothing},
-                      (Ptr{Nothing}, Csize_t),
-                      pxyptr(pxy), index)
+    #result = @jnicall(jnifunc.GetObjectArrayElement, Ptr{Nothing},
+    #                  (Ptr{Nothing}, Csize_t),
+    #                  pxyptr(pxy), index)
+    JNI.GetObjectArrayElement( pxyptr(pxy), index)
     if result == C_NULL
         geterror()
     else
@@ -754,9 +772,10 @@ function arrayget(pxy::JProxy{<:Array, false}, index)
     result
 end
 function arrayset!(pxy::JProxy{<:Array, false}, index, value::JProxy)
-    @jnicall(jnifunc.SetObjectArrayElement, Nothing,
-             (Ptr{Nothing}, Csize_t, Ptr{Nothing}),
-             pxyptr(pxy), index, pxyptr(value))
+    #@jnicall(jnifunc.SetObjectArrayElement, Nothing,
+    #         (Ptr{Nothing}, Csize_t, Ptr{Nothing}),
+    #         pxyptr(pxy), index, pxyptr(value))
+    JNI.SetObjectArray( pxyptr(pxy), index, pxyptr(value) )
     geterror()
 end
 
@@ -795,7 +814,7 @@ function _defbox(primclass, boxtype, juliatype, javatype, boxclassname)
                 call(ptr, $boxVar.unboxer, $javatype, ())
             end
             function unbox(obj::JavaObject{Symbol($(classnamefor(boxtype)))})
-                call(obj.ptr, $boxVar.unboxer, $juliatype, ())
+                call(Ptr(obj), $boxVar.unboxer, $juliatype, ())
             end
         end
     end
@@ -803,9 +822,14 @@ function _defbox(primclass, boxtype, juliatype, javatype, boxclassname)
         const $boxVar = boxers[$primname] = Boxing(typeInfo[$primname])
         boxer(::Type{$juliatype}) = $boxVar
         function box(data::$juliatype)
-            result = ccall(jnifunc.NewObject, Ptr{Nothing},
-                           (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, $juliatype),
-                           penv, $boxVar.boxClass.ptr, $boxVar.boxer, data)
+            #result = ccall(jnifunc.NewObject, Ptr{Nothing},
+            #               (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, $juliatype),
+            #               penv, $boxVar.boxClass.ptr, $boxVar.boxer, data)
+            if isa(data,Array)
+                result = JNI.NewObjectA(Ptr($boxVar.boxClass), $boxVar.boxer, JNI.jvalue.(data))
+            else
+                result = JNI.NewObjectA(Ptr($boxVar.boxClass), $boxVar.boxer, JNI.jvalue.([data]))
+            end
             result == C_NULL && geterror()
             registerreturn(result)
         end
@@ -813,6 +837,10 @@ function _defbox(primclass, boxtype, juliatype, javatype, boxclassname)
     end
 end
 
+function init(args...)
+    JavaCall.isloaded() || JavaCall.init(args...)
+    initProxy()
+end
 function initProxy()
     push!(jnicalls,
           :boolean => (static=:CallStaticBooleanMethodA, instance=:CallBooleanMethodA),
@@ -862,6 +890,8 @@ function initProxy()
     @defbox(long, java_lang_Long, jlong, jlong, Long)
     @defbox(float, java_lang_Float, jfloat, jfloat, Float)
     @defbox(double, java_lang_Double, jdouble, jdouble, Double)
+    #JNI.PushLocalFrame(jint(5))
+    nothing
 end
 
 metaclass(class::AbstractString) = metaclass(Symbol(class))
@@ -882,7 +912,7 @@ isinterface(class::Ptr{Nothing}) = @message(class, jboolean, methodId_class_isIn
 return JClass objects for the declared and inherited interfaces of a class
 """
 function getinterfaces(class::JClass)
-    classesFor(@message(class.ptr, Ptr{Nothing}, methodId_class_getInterfaces))
+    classesFor(@message(Ptr(class), Ptr{Nothing}, methodId_class_getInterfaces))
 end
 
 function classesFor(array)
@@ -923,9 +953,14 @@ function getmethodid(static::Bool, clsname::AbstractString, name::AbstractString
     #        (Ptr{Nothing}, Ptr{UInt8}, Ptr{UInt8}),
     #        jclass, name, sig))
     try
-        @jnicall(static ? jnifunc.GetStaticMethodID : jnifunc.GetMethodID, Ptr{Nothing},
-                 (Ptr{Nothing}, Ptr{UInt8}, Ptr{UInt8}),
-                 jclass, name, sig)
+        if static
+            JNI.GetStaticMethodID( Ptr(jclass) , name, sig)
+        else
+            JNI.GetMethodID( Ptr(jclass) , name, sig)
+        end
+        #@jnicall(static ? jnifunc.GetStaticMethodID : jnifunc.GetMethodID, Ptr{Nothing},
+        #         (Ptr{Nothing}, Ptr{UInt8}, Ptr{UInt8}),
+        #         jclass, name, sig)
     catch err
         println("ERROR GETTING METHOD $clsname.$name($(join(argtypes, ",")))")
         throw(err)
@@ -933,9 +968,16 @@ function getmethodid(static::Bool, clsname::AbstractString, name::AbstractString
 end
 
 function fieldId(name, typ::Type{JavaObject{C}}, static, field, cls::JClass) where {C}
-    @jnicall(static ? jnifunc.GetStaticFieldID : jnifunc.GetFieldID, Ptr{Nothing},
-             (Ptr{Nothing}, Ptr{UInt8}, Ptr{UInt8}),
-             metaclass(legalClassName(cls)), name, proxyClassSignature(string(C)))
+    mc = metaclass(legalClassName(cls))
+    sig = proxyClassSignature(string(C))
+    if static
+        JNI.GetStaticFieldID(Ptr(mc), name, sig)
+    else
+        JNI.GetFieldID(Ptr(mc), name, sig)
+    end
+    #@jnicall(static ? jnifunc.GetStaticFieldID : jnifunc.GetFieldID, Ptr{Nothing},
+    #         (Ptr{Nothing}, Ptr{UInt8}, Ptr{UInt8}),
+    #         metaclass(legalClassName(cls)), name, proxyClassSignature(string(C)))
 end
 
 function infoSignature(cls::AbstractString)
@@ -1021,13 +1063,15 @@ function fielddict(class::JClass)
     end
 end
 
-arraylength(obj::JavaObject) = arraylength(obj.ptr)
-arraylength(obj::Ptr{Nothing}) = @jnicall(jnifunc.GetArrayLength, jint, (Ptr{Nothing},), obj)
+arraylength(obj::JavaObject) = JNI.GetArrayLength(obj)
+#arraylength(obj::Ptr{Nothing}) = @jnicall(jnifunc.GetArrayLength, jint, (Ptr{Nothing},), obj)
+arraylength(obj::Ptr{Nothing}) = JNI.GetArrayLength(obj)
 
 arrayat(obj::JavaObject, i) = arrayat(obj.ptr, i)
-arrayat(obj, i) = @jnicallregistered(jnifunc.GetObjectArrayElement, Ptr{Nothing},
-                                     (Ptr{Nothing}, jint),
-                                     obj, jint(i) - 1)
+#arrayat(obj, i) = @jnicallregistered(jnifunc.GetObjectArrayElement, Ptr{Nothing},
+#                                     (Ptr{Nothing}, jint),
+#                                     obj, jint(i) - 1)
+arrayat(obj, i) = JNI.GetObjectArrayElement(obj, jint(i) - 1)
 
 function methoddict(class)
     d = Dict()
@@ -1044,7 +1088,7 @@ javaType(::JavaObject{T}) where T = T
 javaType(::Type{JavaObject{T}}) where T = T
 javaType(::JavaMetaClass{T}) where T = T
 
-isNull(obj::JavaObject) = isNull(obj.ptr)
+isNull(obj::JavaObject) = isNull(Ptr(obj))
 isNull(ptr::Ptr{Nothing}) = Int64(ptr) == 0
 
 superclass(obj::JavaObject) = jcall(obj, "getSuperclass", @jimport(java.lang.Class), ())
@@ -1079,9 +1123,10 @@ function getproxyfield(p::JProxy, field::JFieldInfo)
 end
 macro defgetfield(juliat, javat = juliat)
     :(function _getproxyfield(p::Ptr{Nothing}, field::JFieldInfo{$juliat})
-            local result = ccall(getter(field), $javat,
-                                 (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}),
-                                 penv, p, field.id)
+            #local result = ccall(getter(field), $javat,
+            #                     (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}),
+            #                     penv, p, field.id)
+            local result = getter(field)(p, field.id)
             result == C_NULL && geterror()
             $(if juliat == Ptr{Nothing} || juliat == :(Ptr{Nothing})
                   :(registerreturn(result))
@@ -1102,10 +1147,10 @@ end
 
 setproxyfield(p::JProxy, field::JFieldInfo{T}, value) where T = primsetproxyfield(p, field, convert(T, value))
 setproxyfield(p::JProxy, field::JFieldInfo, value::JProxy) = primsetproxyfield(p, field, pxyptr(value))
-setproxyfield(p::JProxy, field::JFieldInfo, value::JavaObject) = primsetproxyfield(p, field, value.ptr)
+setproxyfield(p::JProxy, field::JFieldInfo, value::JavaObject) = primsetproxyfield(p, field, Ptr(value))
 function setproxyfield(p::JProxy, field::JFieldInfo{String}, value::AbstractString)
     str = JString(convert(String, value))
-    primsetproxyfield(p, field, str.ptr)
+    primsetproxyfield(p, field, Ptr(str))
 end
 
 function primsetproxyfield(p::JProxy{T,S}, field::JFieldInfo, value) where {T,S}
@@ -1117,16 +1162,18 @@ function _setproxyfield(p::Ptr{Nothing}, field::JFieldInfo, value::Ptr{Nothing})
     #@jnicall(setter(field), Nothing,
     #         (Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
     #         p, field.id, value)
-    ccall(setter(field), Nothing,
-          (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
-          penv, p, field.id, value)
+    setter(field)(p, field.id, value)
+    #ccall(setter(field), Nothing,
+    #      (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
+    #      penv, p, field.id, value)
 end
 
 macro defsetfield(juliat, javat = juliat)
     :(function _setproxyfield(p::Ptr{Nothing}, field::JFieldInfo{$juliat}, value::$javat)
-          ccall(setter(field), Nothing,
-              (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, $javat),
-              penv, p, field.id, value)
+          setter(field)(p, field.id, value)
+          #ccall(setter(field), Nothing,
+          #    (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, $javat),
+          #    penv, p, field.id, value)
       end)
 end
 @defsetfield(String, Ptr{Nothing})
@@ -1160,9 +1207,10 @@ function (pxy::JProxy{T, STATIC})(args...) where {T, STATIC}
             argTypes = typeof(args).parameters
             meth = reduce(((x, y)-> specificity(argTypes, x) > specificity(argTypes, y) ? x : y), targets)
             savedargs, convertedargs = convert_args(meth.argTypes, args...)
-            result = ccall(jnifunc.NewObjectA, Ptr{Nothing},
-                           (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
-                           penv, info.class.ptr, meth.id, convertedargs)
+            #result = ccall(jnifunc.NewObjectA, Ptr{Nothing},
+            #               (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
+            #               penv, info.class.ptr, meth.id, convertedargs)
+            result = JNI.NewObjectA(Ptr(info.class), meth.id, convertedargs)
             result == C_NULL && geterror()
             JProxy(result)
         else
@@ -1311,14 +1359,16 @@ function call(ptr::Ptr{Nothing}, mId::Ptr{Nothing}, rettype::Type{Ptr{Nothing}},
 end
 
 macro defcall(t, f, ft)
-    :(_call(::Type{$t}, obj, mId, args) = ccall(jnifunc.$(Symbol("Call" * string(f) * "MethodA")), $ft,
-                                               (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
-                                               penv, obj, mId, args))
+    #:(_call(::Type{$t}, obj, mId, args) = ccall(jnifunc.$(Symbol("Call" * string(f) * "MethodA")), $ft,
+    #                                           (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
+    #                                           penv, obj, mId, args))
+    :(_call(::Type{$t}, obj, mId, args) = JNI.$(Symbol("Call" * string(f) * "MethodA"))(obj, mId, JNI.jvalue.(args)))                                           
 end
 
-_call(::Type, obj, mId, args) = ccall(jnifunc.CallObjectMethodA, Ptr{Nothing},
-                                      (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
-                                      penv, obj, mId, args)
+#_call(::Type, obj, mId, args) = ccall(jnifunc.CallObjectMethodA, Ptr{Nothing},
+#                                      (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
+#                                      penv, obj, mId, args)
+_call(::Type, obj, mId, args) = JNI.CallObjectMethodA(obj, mId, JNI.jvalue.(args))
 @defcall(Bool, Boolean, jboolean)
 @defcall(jbyte, Byte, jbyte)
 @defcall(jchar, Char, jchar)
@@ -1331,7 +1381,7 @@ _call(::Type, obj, mId, args) = ccall(jnifunc.CallObjectMethodA, Ptr{Nothing},
 
 function staticcall(class, mId, rettype::Type{T}, argtypes::Tuple, args...) where T
     savedargs, convertedargs = convert_args(argtypes, args...)
-    result = _staticcall(T, class.ptr, mId, convertedargs)
+    result = _staticcall(T, Ptr(class), mId, convertedargs)
     result == C_NULL && geterror()
     if rettype <: JavaObject && result != C_NULL
         registerreturn(result)
@@ -1344,14 +1394,19 @@ function staticcall(class, mId, rettype::Type{T}, argtypes::Tuple, args...) wher
 end
 
 macro defstaticcall(t, f, ft)
-    :(_staticcall(::Type{$t}, class, mId, args) = ccall(jnifunc.$(Symbol("CallStatic" * string(f) * "MethodA")), $ft,
-                                                 (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
-                                                 penv, class, mId, args))
+    #:(_staticcall(::Type{$t}, class, mId, args) = ccall(jnifunc.$(Symbol("CallStatic" * string(f) * "MethodA")), $ft,
+    #                                             (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
+    #                                             penv, class, mId, args))
+    :(_staticcall(::Type{$t}, class, mId, args) = JNI.$(Symbol("CallStatic" * string(f) * "MethodA"))(class, mId, JNI.jvalue.([args])))
+    :(_staticcall(::Type{$t}, class, mId, args::Array) = JNI.$(Symbol("CallStatic" * string(f) * "MethodA"))(class, mId, JNI.jvalue.(args)))
 end
 
-_staticcall(::Type, class, mId, args) = ccall(jnifunc.CallStaticObjectMethodA, Ptr{Nothing},
-  (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
-  penv, class, mId, args)
+#_staticcall(::Type, class, mId, args) = ccall(jnifunc.CallStaticObjectMethodA, Ptr{Nothing},
+#  (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
+#  penv, class, mId, args)
+_staticcall(::Type, class, mId, args::Array) = JNI.CallStaticObjectMethodA(class, mId, JNI.jvalue.(args))
+_staticcall(::Type, class, mId, args) = JNI.CallStaticObjectMethodA(class, mId, JNI.jvalue.([args]))
+
 @defstaticcall(Bool, Boolean, jboolean)
 @defstaticcall(jbyte, Byte, jbyte)
 @defstaticcall(jchar, Char, jchar)
@@ -1377,38 +1432,46 @@ convert_arg(::Type{T}, x) where {T <: java_lang} = convert_arg(JavaObject{Symbol
 convert_arg(::Type{<:JProxy{<:Union{Array{A,N}, java_lang_Object}, false}}, array::JProxy{Array{<:A, N}, false}) where {A, N} = pxyptr(array)
 function convert_arg(::Type{<:JProxy{<:Union{Array{A, 1}, java_lang_Object}, false}}, array::Array{A, 1}) where {A <: JPrimitive}
     typ = juliatojava[A]
-    newarray = PtrBox(@jnicall(typ.newarray, Ptr{Nothing},
-                               (jint, Ptr{Nothing}),
-                               length(array), C_NULL))
-    @jnicall(typ.arrayregionsetter, Nothing,
-             (Ptr{Nothing}, Int32, Int32, Ptr{Nothing}),
-             newarray.ptr, 0, length(array), array)
+    #newarray = PtrBox(@jnicall(typ.newarray, Ptr{Nothing},
+    #                           (jint, Ptr{Nothing}),
+    #                           length(array), C_NULL))
+    newarray = PtrBox(typ.newarray(length(array)))
+    #@jnicall(typ.arrayregionsetter, Nothing,
+    #         (Ptr{Nothing}, Int32, Int32, Ptr{Nothing}),
+    #         Ptr(newarray), 0, length(array), array)
+    typ.arrayregionsetter(newarray.ptr, 0, length(array), array)
     newarray, newarray.ptr
 end
 function convert_arg(::Type{JProxy{<:Union{Array{String, 1}, java_lang_Object}, false}}, array::Array{String, 1})
-    newarray = PtrBox(@jnicall(jnifunc.NewObjectArray, Ptr{Nothing},
-                               (jint, Ptr{Nothing}, Ptr{Nothing}),
-                               length(array), stringClass, C_NULL))
+    #newarray = PtrBox(@jnicall(jnifunc.NewObjectArray, Ptr{Nothing},
+    #                           (jint, Ptr{Nothing}, Ptr{Nothing}),
+    #                           length(array), stringClass, C_NULL))
+    newarray = PtrBox(JNI.NewObjectArray( length(array), stringClass, C_NULL ))
     for i in 1:length(array)
-        @jnicall(jnifunc.SetObjectArrayElement, Nothing,
-                 (Ptr{Nothing}, Int32, Ptr{Nothing}),
-                 newarray.ptr, i - 1, @jnicall(jnifunc.NewStringUTF, Ptr{Nothing}, (Ptr{UInt8},), array[i]))
+        str = JNI.NewStringUTF(array[i])
+        JNI.SetObjectArrayElement( Ptr(newarray), i - 1, str)
+        #@jnicall(jnifunc.SetObjectArrayElement, Nothing,
+        #         (Ptr{Nothing}, Int32, Ptr{Nothing}),
+        #         newarray.ptr, i - 1, @jnicall(jnifunc.NewStringUTF, Ptr{Nothing}, (Ptr{UInt8},), array[i]))
     end
-    newarray, newarray.ptr
+    newarray, Ptr(newarray)
 end
 function convert_arg(::Type{JProxy{Array{java_lang_Object, 1}, false}}, array::Array{<:Union{JPrimitive, JProxy}, 1})
-    newarray = PtrBox(@jnicall(jnifunc.NewObjectArray, Ptr{Nothing},
-                               (jint, Ptr{Nothing}, Ptr{Nothing}),
-                               length(array), objectClass, C_NULL))
+    #newarray = PtrBox(@jnicall(jnifunc.NewObjectArray, Ptr{Nothing},
+    #                           (jint, Ptr{Nothing}, Ptr{Nothing}),
+    #                           length(array), objectClass, C_NULL))
+    newarray = PtrBox( JNI.NewObjectArray( length(array), objectClass, C_NULL ) )
     for i in 1:length(array)
-        @jnicall(jnifunc.SetObjectArrayElement, Nothing,
-                 (Ptr{Nothing}, Int32, Ptr{Nothing}),
-                 newarray.ptr, i - 1, box(array[i]))
+        JNI.SetObjectArrayElement( newarray.ptr, i - 1, box(array([i])) )
+        #@jnicall(jnifunc.SetObjectArrayElement, Nothing,
+        #         (Ptr{Nothing}, Int32, Ptr{Nothing}),
+        #         newarray.ptr, i - 1, box(array[i]))
     end
     newarray, newarray.ptr
 end
 function convert_arg(::Type{<:JProxy{<:Union{java_lang_Object, java_lang_String}, false}}, str::AbstractString)
-    str, @jnicall(jnifunc.NewStringUTF, Ptr{Nothing}, (Ptr{UInt8},), string(str))
+    #str, @jnicall(jnifunc.NewStringUTF, Ptr{Nothing}, (Ptr{UInt8},), string(str))
+    str, JNI.NewStringUTF( string(str) )
 end
 function convert_arg(int::Type{<:JProxy{I, false}}, pxy::JProxy{T, false}) where {I <: interface, T}
     if interfacehas(I, T)
@@ -1428,9 +1491,10 @@ Base.length(col::JProxy{T, false}) where T = interfacehas(java_util_Collection, 
 
 Base.getindex(pxy::JProxy{<:Array, false}, i) = arrayget(pxy, i - 1)
 function Base.getindex(pxy::JProxy{Array, false}, i::Integer)
-   JProxy(@jnicallregistered(jnifunc.GetObjectArrayElement, Ptr{Nothing},
-                             (Ptr{Nothing}, jint),
-                             pxyptr(pxy), jint(i) - 1))
+   #JProxy(@jnicallregistered(jnifunc.GetObjectArrayElement, Ptr{Nothing},
+   #                          (Ptr{Nothing}, jint),
+   #                          pxyptr(pxy), jint(i) - 1))
+   JProxy( JNI.GetObjectArrayElement( pxyptr(pxy), jint(i) - 1 ) )
 end
 function Base.getindex(pxy::JProxy{T, false}, i) where T
     if interfacehas(java_util_List, T) || interfacehas(java_util_Map, T)

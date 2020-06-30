@@ -1,105 +1,129 @@
-const allocatedrefs = Set()
+"""
+    JavaRef is abstract parent for JavaLocalRef, JavaGlobalRef, and JavaNullRef in the JavaCall Module
 
-# jni_md.h
-const jint = Cint
-#ifdef _LP64 /* 64-bit Solaris */
-# typedef long jlong;
-const jlong = Clonglong
-const jbyte = Cchar
+    It is distinct from its parent type, JavaCall.JNI.AbstractJavaRef, since its use is defined in 
+    JavaCall itself rather than the JNI submodule.
+"""
+abstract type JavaRef <: JNI.AbstractJavaRef end
 
-# jni.h
+"""
+    JavaLocalRef is a JavaRef that is meant to be used with local variables in a function call.
+    After the function call these references may be freed and garbage collected. See note about
+    JNI memory management below.
 
-const jboolean = Cuchar
-const jchar = Cushort
-const jshort = Cshort
-const jfloat = Cfloat
-const jdouble = Cdouble
-const jsize = jint
-jprimitive = Union{jboolean, jchar, jshort, jfloat, jdouble, jint, jlong}
+    This is the default reference type returned from the JNI.
 
-mutable struct JavaMetaClass{T}
+    Use this with JNI.PushLocalFrame / JNI.PopLocalFrame for memory management.
+    Also see JNI.EnsureLocalCapacity.
+
+    The internal pointer should be deleted using JNI.DeleteLocalRef
+"""
+struct JavaLocalRef <: JavaRef
     ptr::Ptr{Nothing}
+end
 
-    function JavaMetaClass{T}(ptr::Ptr{Nothing}) where T
-        #registerlocal(ptr)
-        cl = finalizer(deleteref, new{T}(newglobalref(ptr)))
-        #getreftype(ptr) == 1 && deletelocalref(ptr)
-        cl
-    end
+"""
+    JavaGlobalRef is a JavaRef that is meant to be used with global variables that live beyond 
+    a single function call.
+"""
+struct JavaGlobalRef <: JavaRef
+    ptr::Ptr{Nothing}
+end
+
+"""
+    JavaNullRef is a JavaRef that serves as a placeholder to mark where references have already been deleted.
+
+    See J_NULL
+"""
+struct JavaNullRef <: JavaRef
+    ptr::Ptr{Nothing}
+    JavaNullRef() = new(C_NULL)
+end
+
+""" Constant JavaNullRef """
+const J_NULL = JavaNullRef()
+
+Ptr(ref::JavaRef) = ref.ptr
+Ptr{Nothing}(ref::JavaRef) = ref.ptr
+
+JavaLocalRef(ref::JavaRef) = JavaLocalRef(JNI.NewLocalRef(Ptr(ref)))
+JavaGlobalRef(ref::JavaRef) = JavaGlobalRef(JNI.NewGlobalRef(Ptr(ref)))
+
+# _deleteref does local/global reference deletion without null or state checking
+_deleteref(ref::JavaLocalRef ) = JNI.DeleteLocalRef( Ptr(ref))
+_deleteref(ref::JavaGlobalRef) = JNI.DeleteGlobalRef(Ptr(ref))
+
+"""
+    deleteref deletes a JavaRef using either JNI.DeleteLocalRef or JNI.DeleteGlobalRef
+"""
+function deleteref(x::JavaRef)
+    if x.ptr == C_NULL; return; end
+    if !JNI.is_env_loaded(); return; end;
+    _deleteref(x)
+    return
+end
+
+"""
+    JavaMetaClass represents meta information about a Java class
+
+    These are usually cached in _jmc_cache and are meant to live
+    as long as the cache is valid.
+"""
+struct JavaMetaClass{T} <: JNI.AbstractJavaRef
+    ref::JavaRef
 end
 
 #The metaclass, sort of equivalent to a the
-JavaMetaClass(T, ptr) = JavaMetaClass{T}(ptr)
+JavaMetaClass(T, ref::JavaRef) = JavaMetaClass{T}(ref)
+JavaMetaClass(T, ptr::Ptr{Nothing}) = JavaMetaClass{T}(JavaGlobalRef(ptr))
 
-mutable struct JavaObject{T}
-    ptr::Ptr{Nothing}
+ref(mc::JavaMetaClass{T}) where T = mc.ref
+Ptr(mc::JavaMetaClass{T}) where T = Ptr(mc.ref)
+Ptr{Nothing}(mc::JavaMetaClass{T}) where T = Ptr(mc.ref)
+
+"""
+    JavaObject{T} is the main JavaCall type representing either an instance
+    or a static class
+
+    T is usually a symbol referring a Java class name
+"""
+mutable struct JavaObject{T} <: JNI.AbstractJavaRef
+    ref::JavaRef
 
     #This below is ugly. Once we stop supporting 0.5, this can be replaced by
     # function JavaObject{T}(ptr) where T
-    function JavaObject{T}(ptr) where T
-        if ptr == C_NULL
-            new{T}(ptr)
-        else
-            #registerlocal(ptr)
-            obj = finalizer(deleteref, new{T}(newglobalref(ptr)))
-            #getreftype(ptr) == 1 && deletelocalref(ptr)
-            obj
-        end
+    function JavaObject{T}(ref) where T
+        j = new{T}(ref)
+        finalizer(deleteref, j)
+        return j
     end
 
     #replace with: JavaObject{T}(argtypes::Tuple, args...) where T
     JavaObject{T}(argtypes::Tuple, args...) where {T} = jnew(T, argtypes, args...)
-    JavaObject{T}() where {T} = jnew(T, ())
-    JavaObject(::Nothing) = new{Symbol("java.lang.Object")}(C_NULL)
-    JavaObject(T, ptr) = JavaObject{T}(ptr)
 end
 
-getreftype(ptr::Ptr{Nothing}) = ccall(jnifunc.GetObjectRefType, Int32, (Ptr{JNIEnv}, Ptr{Nothing}), penv, ptr)
-
-function newglobalref(ptr::Ptr{Nothing})
-    ccall(jnifunc.NewGlobalRef, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing}), penv, ptr)
-end
-
-deleteglobalref(ptr::Ptr{Nothing}) = ccall(jnifunc.DeleteGlobalRef, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}), penv, ptr)
-
-newlocalref(ptr::Ptr{Nothing}) = ccall(jnifunc.NewLocalRef, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing}), penv, ptr)
-
-deletelocalref(ptr::Ptr{Nothing}) = ccall(jnifunc.DeleteLocalRef, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}), penv, ptr)
-
-function registerlocal(ptr::Ptr{Nothing})
-    if ptr != C_NULL
-        reftype = getreftype(ptr)
-        #reftype == 0 && geterror()
-        reftype == 1 && push!(allocatedrefs, ptr)
-    end
-    ptr
-end
-
-function deletelocals()
-    while !isempty(allocatedrefs)
-        deletelocalref(pop!(allocatedrefs))
-    end
-end
-
+# JavaObject Construction
 JavaObject(T, ptr) = JavaObject{T}(ptr)
 JavaObject{T}() where {T} = JavaObject{T}((),)
+JavaObject{T}(ptr::Ptr{Nothing}) where {T} = JavaObject{T}(JavaLocalRef(ptr))
 
-function deleteref(x::JavaMetaClass)
-    deleteref(x.ptr)
-    x.ptr=C_NULL #Safety in case this function is called direcly, rather than at finalize
-end
-function deleteref(x::JavaObject)
-    deleteref(x.ptr)
-    x.ptr=C_NULL #Safety in case this function is called direcly, rather than at finalize
-end
-function deleteref(ptr::Ptr{Nothing})
-    if ptr != C_NULL && penv != C_NULL
-        #ccall(:jl_,Nothing,(Any,),x)
-        #ccall(jnifunc.DeleteLocalRef, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}), penv, x.ptr)
-        deleteglobalref(ptr)
-    end
-end
+# JavaObject Reference Management
+ref(x::JavaObject{T}) where T = x.ref
+copyref(x::JavaObject{T}) where T = JavaObject{T}(JavaLocalRef(x.ref))
+deleteref(x::JavaObject{T}) where T = ( deleteref(x.ref); x.ref = J_NULL )
 
+# Obtain the underlying pointer for a JavaObject
+Ptr(x::JavaObject{T}) where T = Ptr(x.ref)
+Ptr{Nothing}(x::JavaObject{T}) where T = Ptr(x.ref)
+
+"""
+   jglobal(x::JavaObject) creates a new JavaGlobalRef and deletes the prior JavaRef
+"""
+function jglobal(x::JavaObject)
+    gref = JavaGlobalRef(JNI.NewGlobalRef(Ptr(x)))
+    deleteref(x.ref)
+    x.ref = gref
+end
 
 """
 ```
@@ -113,7 +137,8 @@ Checks if the passed JavaObject is null or not
 ### Returns
 true if the passed object is null else false
 """
-isnull(obj::JavaObject) = obj.ptr == C_NULL
+isnull(obj::JavaObject) = Ptr(obj) == C_NULL
+isnull(obj::Ptr{Nothing}) = obj == C_NULL
 
 """
 ```
@@ -127,35 +152,34 @@ Checks if the passed JavaMetaClass is null or not
 ### Returns
 true if the passed object is null else false
 """
-isnull(obj::JavaMetaClass) = obj.ptr == C_NULL
+isnull(obj::JavaMetaClass) = Ptr(obj) == C_NULL
 
 const JClass = JavaObject{Symbol("java.lang.Class")}
 const JObject = JavaObject{Symbol("java.lang.Object")}
 const JMethod = JavaObject{Symbol("java.lang.reflect.Method")}
 const JConstructor = JavaObject{Symbol("java.lang.reflect.Constructor")}
+const JField = JavaObject{Symbol("java.lang.reflect.Field")}
 const JThread = JavaObject{Symbol("java.lang.Thread")}
 const JClassLoader = JavaObject{Symbol("java.lang.ClassLoader")}
 const JString = JavaObject{Symbol("java.lang.String")}
-const jnull = JavaObject(nothing)
 
-JavaObject(ptr::Ptr{Nothing}) = ptr == C_NULL ? JavaObject(ptr) : JavaObject{Symbol(getclassname(getclass(ptr)))}(ptr)
+#JavaObject(ptr::Ptr{Nothing}) = ptr == C_NULL ? JavaObject(ptr) : JavaObject{Symbol(getclassname(getclass(ptr)))}(ptr)
 
 function JString(str::AbstractString)
-    jstring = ccall(jnifunc.NewStringUTF, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{UInt8}), penv, String(str))
+    jstring = JNI.NewStringUTF(String(str))
     if jstring == C_NULL
         geterror()
     else
-        str = JString(jstring)
-        deletelocalref(jstring)
-        str
+        return JString(jstring)
     end
 end
 
 # jvalue(v::Integer) = int64(v) << (64-8*sizeof(v))
-jvalue(v::Integer) = Int64(v)
+jvalue(v::Integer)::JNI.jvalue = JNI.jvalue(v)
 jvalue(v::Float32) = jvalue(reinterpret(Int32, v))
 jvalue(v::Float64) = jvalue(reinterpret(Int64, v))
 jvalue(v::Ptr) = jvalue(Int(v))
+jvalue(v::JavaObject) = jvalue(Ptr(v))
 
 
 function _jimport(juliaclass)
@@ -181,15 +205,11 @@ end
 function jnew(T::Symbol, argtypes::Tuple, args...)
     assertroottask_or_goodenv()
     sig = method_signature(Nothing, argtypes...)
-    jmethodId = ccall(jnifunc.GetMethodID, Ptr{Nothing},
-                      (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{UInt8}, Ptr{UInt8}), penv, metaclass(T),
-                      String("<init>"), sig)
+    jmethodId = JNI.GetMethodID(Ptr(metaclass(T)), String("<init>"), sig)
     if jmethodId == C_NULL
         throw(JavaCallError("No constructor for $T with signature $sig"))
     end
-    result = _jcall(metaclass(T), jmethodId, jnifunc.NewObjectA, JavaObject{T}, argtypes, args...)
-    deletelocals()
-    result
+    return  _jcall(metaclass(T), jmethodId, JNI.NewObjectA, JavaObject{T}, argtypes, args...)
 end
 
 # Call static methods
@@ -197,60 +217,47 @@ function jcall(typ::Type{JavaObject{T}}, method::AbstractString, rettype::Type, 
                args... ) where T
     assertroottask_or_goodenv()
     sig = method_signature(rettype, argtypes...)
-    jmethodId = ccall(jnifunc.GetStaticMethodID, Ptr{Nothing},
-                      (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{UInt8}, Ptr{UInt8}), penv, metaclass(T),
-                      String(method), sig)
+    jmethodId = JNI.GetStaticMethodID(Ptr(metaclass(T)), String(method), sig)
     jmethodId==C_NULL && geterror(true)
-    result = _jcall(metaclass(T), jmethodId, C_NULL, rettype, argtypes, args...)
-    deletelocals()
-    result
+    _jcall(metaclass(T), jmethodId, C_NULL, rettype, argtypes, args...)
 end
 
 # Call instance methods
 function jcall(obj::JavaObject, method::AbstractString, rettype::Type, argtypes::Tuple, args... )
     assertroottask_or_goodenv()
     sig = method_signature(rettype, argtypes...)
-    jmethodId = ccall(jnifunc.GetMethodID, Ptr{Nothing},
-                      (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{UInt8}, Ptr{UInt8}), penv, metaclass(obj),
-                      String(method), sig)
+    jmethodId = JNI.GetMethodID(Ptr(metaclass(obj)), String(method), sig)
     jmethodId==C_NULL && geterror(true)
-    result = _jcall(obj, jmethodId, C_NULL, rettype,  argtypes, args...)
-    deletelocals()
-    result
+    _jcall(obj, jmethodId, C_NULL, rettype,  argtypes, args...)
 end
 
 function jfield(typ::Type{JavaObject{T}}, field::AbstractString, fieldType::Type) where T
     assertroottask_or_goodenv()
-    jfieldID  = ccall(jnifunc.GetStaticFieldID, Ptr{Nothing},
-                      (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{UInt8}, Ptr{UInt8}), penv, metaclass(T),
-                      String(field), signature(fieldType))
+    jfieldID  = JNI.GetStaticFieldID(Ptr(metaclass(T)), String(field), signature(fieldType))
     jfieldID==C_NULL && geterror(true)
     _jfield(metaclass(T), jfieldID, fieldType)
 end
 
 function jfield(obj::JavaObject, field::AbstractString, fieldType::Type)
     assertroottask_or_goodenv()
-    jfieldID  = ccall(jnifunc.GetFieldID, Ptr{Nothing},
-                      (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{UInt8}, Ptr{UInt8}), penv, metaclass(obj),
-                      String(field), signature(fieldType))
+    jfieldID  = JNI.GetFieldID(Ptr(metaclass(obj)), String(field), signature(fieldType))
     jfieldID==C_NULL && geterror(true)
     _jfield(obj, jfieldID, fieldType)
 end
 
-for (x, y, z) in [(:jboolean, :(jnifunc.GetBooleanField), :(jnifunc.GetStaticBooleanField)),
-                  (:jchar, :(jnifunc.GetCharField), :(jnifunc.GetStaticCharField)),
-                  (:jbyte, :(jnifunc.GetByteField), :(jnifunc.GetStaticBypeField)),
-                  (:jshort, :(jnifunc.GetShortField), :(jnifunc.GetStaticShortField)),
-                  (:jint, :(jnifunc.GetIntField), :(jnifunc.GetStaticIntField)),
-                  (:jlong, :(jnifunc.GetLongField), :(jnifunc.GetStaticLongField)),
-                  (:jfloat, :(jnifunc.GetFloatField), :(jnifunc.GetStaticFloatField)),
-                  (:jdouble, :(jnifunc.GetDoubleField), :(jnifunc.GetStaticDoubleField)) ]
+for (x, y, z) in [(:jboolean, :(JNI.GetBooleanField), :(JNI.GetStaticBooleanField)),
+                  (:jchar,    :(JNI.GetCharField),    :(JNI.GetStaticCharField))   ,
+                  (:jbyte,    :(JNI.GetByteField),    :(JNI.GetStaticBypeField))   ,
+                  (:jshort,   :(JNI.GetShortField),   :(JNI.GetStaticShortField))  ,
+                  (:jint,     :(JNI.GetIntField),     :(JNI.GetStaticIntField))    ,
+                  (:jlong,    :(JNI.GetLongField),    :(JNI.GetStaticLongField))   ,
+                  (:jfloat,   :(JNI.GetFloatField),   :(JNI.GetStaticFloatField))  ,
+                  (:jdouble,  :(JNI.GetDoubleField),  :(JNI.GetStaticDoubleField)) ]
 
     m = quote
         function _jfield(obj, jfieldID::Ptr{Nothing}, fieldType::Type{$(x)})
             callmethod = ifelse( typeof(obj)<:JavaObject, $y , $z )
-            result = ccall(callmethod, $x, (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}), penv, obj.ptr,
-                           jfieldID)
+            result = callmethod(Ptr(obj), jfieldID)
             result==C_NULL && geterror()
             return convert_result(fieldType, result)
         end
@@ -259,28 +266,23 @@ for (x, y, z) in [(:jboolean, :(jnifunc.GetBooleanField), :(jnifunc.GetStaticBoo
 end
 
 function _jfield(obj, jfieldID::Ptr{Nothing}, fieldType::Type)
-    callmethod = ifelse( typeof(obj)<:JavaObject, jnifunc.GetObjectField , jnifunc.GetStaticObjectField )
-    result = ccall(callmethod, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}), penv, obj.ptr,
-                   jfieldID)
+    callmethod = ifelse( typeof(obj)<:JavaObject, JNI.GetObjectField , JNI.GetStaticObjectField )
+    result = callmethod(Ptr(obj), jfieldID)
     result==C_NULL && geterror()
-    #result != C_NULL && registerlocal(result)
-    finalresult = convert_result(fieldType, result)
-    #deletelocals()
-    deletelocalref(result)
-    finalresult
+    return convert_result(fieldType, result)
 end
 
 #Generate these methods to satisfy ccall's compile time constant requirement
 #_jcall for primitive and Nothing return types
-for (x, y, z) in [ (:jboolean, :(jnifunc.CallBooleanMethodA), :(jnifunc.CallStaticBooleanMethodA)),
-                  (:jchar, :(jnifunc.CallCharMethodA), :(jnifunc.CallStaticCharMethodA)),
-                  (:jbyte, :(jnifunc.CallByteMethodA), :(jnifunc.CallStaticByteMethodA)),
-                  (:jshort, :(jnifunc.CallShortMethodA), :(jnifunc.CallStaticShortMethodA)),
-                  (:jint, :(jnifunc.CallIntMethodA), :(jnifunc.CallStaticIntMethodA)),
-                  (:jlong, :(jnifunc.CallLongMethodA), :(jnifunc.CallStaticLongMethodA)),
-                  (:jfloat, :(jnifunc.CallFloatMethodA), :(jnifunc.CallStaticFloatMethodA)),
-                  (:jdouble, :(jnifunc.CallDoubleMethodA), :(jnifunc.CallStaticDoubleMethodA)),
-                  (:Nothing, :(jnifunc.CallVoidMethodA), :(jnifunc.CallStaticVoidMethodA)) ]
+for (x, y, z) in [(:jboolean, :(JNI.CallBooleanMethodA), :(JNI.CallStaticBooleanMethodA)),
+                  (:jchar,    :(JNI.CallCharMethodA),    :(JNI.CallStaticCharMethodA))   ,
+                  (:jbyte,    :(JNI.CallByteMethodA),    :(JNI.CallStaticByteMethodA))   ,
+                  (:jshort,   :(JNI.CallShortMethodA),   :(JNI.CallStaticShortMethodA))  ,
+                  (:jint,     :(JNI.CallIntMethodA),     :(JNI.CallStaticIntMethodA))    ,
+                  (:jlong,    :(JNI.CallLongMethodA),    :(JNI.CallStaticLongMethodA))   ,
+                  (:jfloat,   :(JNI.CallFloatMethodA),   :(JNI.CallStaticFloatMethodA))  ,
+                  (:jdouble,  :(JNI.CallDoubleMethodA),  :(JNI.CallStaticDoubleMethodA)) ,
+                  (:Nothing,  :(JNI.CallVoidMethodA),    :(JNI.CallStaticVoidMethodA))   ]
     m = quote
         function _jcall(obj, jmethodId::Ptr{Nothing}, callmethod::Ptr{Nothing}, rettype::Type{$(x)},
                         argtypes::Tuple, args...)
@@ -291,7 +293,10 @@ for (x, y, z) in [ (:jboolean, :(jnifunc.CallBooleanMethodA), :(jnifunc.CallStat
             @assert jmethodId != C_NULL
             isnull(obj) && throw(JavaCallError("Attempt to call method on Java NULL"))
             savedArgs, convertedArgs = convert_args(argtypes, args...)
-            result = ccall(callmethod, $x , (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}), penv, obj.ptr, jmethodId, convertedArgs)
+            GC.@preserve savedArgs begin
+                result = callmethod(Ptr(obj), jmethodId, Array{JNI.jvalue}(jvalue.(convertedArgs)))
+            end
+            deleteref.(filter(x->isa(x,JavaObject),convertedArgs))
             result==C_NULL && geterror()
             result == nothing && (return)
             return convert_result(rettype, result)
@@ -304,24 +309,23 @@ end
 #obj -- receiver - Class pointer or object prointer
 #jmethodId -- Java method ID
 #callmethod -- the C method pointer to call
-function _jcall(obj, jmethodId::Ptr{Nothing}, callmethod::Ptr{Nothing}, rettype::Type, argtypes::Tuple,
+function _jcall(obj, jmethodId::Ptr{Nothing}, callmethod::Union{Function,Ptr{Nothing}}, rettype::Type, argtypes::Tuple,
                 args...)
     if callmethod == C_NULL
-        callmethod = ifelse(typeof(obj)<:JavaObject, jnifunc.CallObjectMethodA ,
-                            jnifunc.CallStaticObjectMethodA)
+        callmethod = ifelse(typeof(obj)<:JavaObject,
+                            JNI.CallObjectMethodA  ,
+                            JNI.CallStaticObjectMethodA)
     end
     @assert callmethod != C_NULL
     @assert jmethodId != C_NULL
     isnull(obj) && error("Attempt to call method on Java NULL")
     savedArgs, convertedArgs = convert_args(argtypes, args...)
-    result = ccall(callmethod, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
-                   penv, obj.ptr, jmethodId, convertedArgs)
+    GC.@preserve savedArgs begin
+        result = callmethod(Ptr(obj), jmethodId, Array{JNI.jvalue}(jvalue.(convertedArgs)))
+    end
+    deleteref.(filter(x->isa(x,JavaObject),convertedArgs))
     result==C_NULL && geterror()
-    registerlocal(result)
-    finalresult = convert_result(rettype, result)
-    #deletelocals()
-    #deletelocalref(result)
-    finalresult
+    return convert_result(rettype, result)
 end
 
 
@@ -329,13 +333,9 @@ global const _jmc_cache = Dict{Symbol, JavaMetaClass}()
 
 function _metaclass(class::Symbol)
     jclass=javaclassname(class)
-    jclassptr = ccall(jnifunc.FindClass, Ptr{Nothing}, (Ptr{JNIEnv}, Ptr{UInt8}), penv, jclass)
+    jclassptr = JNI.FindClass(jclass)
     jclassptr == C_NULL && throw(JavaCallError("Class Not Found $jclass"))
-    #registerlocal(jclassptr)
-    finalresult = JavaMetaClass(class, jclassptr)
-    #deletelocals()
-    deletelocalref(jclassptr)
-    finalresult
+    return JavaMetaClass(class, jclassptr)
 end
 
 function metaclass(class::Symbol)
@@ -352,26 +352,21 @@ javaclassname(class::Symbol) = replace(string(class), "."=>"/")
 javaclassname(class::AbstractString) = replace(class, "."=>"/")
 
 function geterror(allow=false)
-    isexception = ccall(jnifunc.ExceptionCheck, jboolean, (Ptr{JNIEnv},), penv )
+    isexception = JNI.ExceptionCheck()
 
     if isexception == JNI_TRUE
-        jthrow = ccall(jnifunc.ExceptionOccurred, Ptr{Nothing}, (Ptr{JNIEnv},), penv)
+        jthrow = JNI.ExceptionOccurred()
         jthrow==C_NULL && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
-        ccall(jnifunc.ExceptionDescribe, Nothing, (Ptr{JNIEnv},), penv ) #Print java stackstrace to stdout
-        ccall(jnifunc.ExceptionClear, Nothing, (Ptr{JNIEnv},), penv )
-        jclass = ccall(jnifunc.FindClass, Ptr{Nothing}, (Ptr{JNIEnv},Ptr{UInt8}), penv,
-                       "java/lang/Throwable")
+        JNI.ExceptionDescribe() #Print java stackstrace to stdout
+        JNI.ExceptionClear()
+        jclass = JNI.FindClass("java/lang/Throwable")
         jclass==C_NULL && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
-        jmethodId=ccall(jnifunc.GetMethodID, Ptr{Nothing},
-                        (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{UInt8}, Ptr{UInt8}), penv, jclass, "toString",
-                        "()Ljava/lang/String;")
+        jmethodId=JNI.GetMethodID(jclass, "toString", "()Ljava/lang/String;")
         jmethodId==C_NULL && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
-        res = ccall(jnifunc.CallObjectMethodA, Ptr{Nothing},
-                    (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}), penv, jthrow, jmethodId,
-                    C_NULL)
+        res = JNI.CallObjectMethodA(jthrow, jmethodId, Int[])
         res==C_NULL && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
         msg = unsafe_string(JString(res))
-        ccall(jnifunc.DeleteLocalRef, Nothing, (Ptr{JNIEnv}, Ptr{Nothing}), penv, jthrow)
+        JNI.DeleteLocalRef(jthrow)
         throw(JavaCallError(string("Error calling Java: ",msg)))
     else
         if allow==false

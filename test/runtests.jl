@@ -4,7 +4,6 @@ using JavaCall
 import Dates
 using Base.GC: gc
 
-const pxyptr = JavaCall.pxyptr
 
 macro testasync(x)
     :( @test (@sync @async eval($x)).result ) |> esc
@@ -33,14 +32,11 @@ end
 System = @jimport java.lang.System
 @info "Java Version: ", jcall(System, "getProperty", JString, (JString,), "java.version")
 
-
 @testset "unsafe_strings_1" begin
     a=JString("how are you")
-    @test a.ptr != C_NULL
-    @test 11 == ccall(JavaCall.jnifunc.GetStringUTFLength, jint, (Ptr{JavaCall.JNIEnv}, Ptr{Nothing}),
-                      JavaCall.penv, a.ptr)
-    b = ccall(JavaCall.jnifunc.GetStringUTFChars, Ptr{UInt8},
-              (Ptr{JavaCall.JNIEnv}, Ptr{Nothing}, Ptr{Nothing}), JavaCall.penv, a.ptr, C_NULL)
+    @test Ptr(a) != C_NULL
+    @test 11 == JavaCall.JNI.GetStringUTFLength(Ptr(a))
+    b = JavaCall.JNI.GetStringUTFChars(Ptr(a),Ref{JavaCall.JNI.jboolean}())
     @test unsafe_string(b) == "how are you"
 end
 
@@ -60,6 +56,10 @@ T = @jimport Test
     c=JString(C_NULL)
     @test isnull(c)
     @test "" == jcall(T, "testString", JString, (JString,), c)
+    a = rand(10^7)
+    @test [jcall(T, "testDoubleArray", jdouble, (Array{jdouble,1},),a)
+           for i in 1:10][1] ≈ sum(a)
+    a = nothing
 end
 
 @testset "static_method_call_1" begin
@@ -173,6 +173,9 @@ end
 end
 
 # Test Memory allocation and de-allocatios
+# the following loop fails with an OutOfMemoryException in the absence of de-allocation
+# However, since Java and Julia memory are not linked, and manual gc() is required.
+gc()
 for i in 1:100000
     a=JString("A"^10000); #deleteref(a);
     if (i%10000 == 0); gc(); end
@@ -275,61 +278,19 @@ end
     end
 end
 
-@testset "proxy_array_list" begin
-    JAL = @jimport java.util.ArrayList
-    @test JProxy(JavaCall.jnew(Symbol("java.lang.Integer"), (jint,), 3)).toString() == "3"
-    @test JProxy(@jimport(java.lang.Integer)).valueOf(3) == 3
-    a = JProxy(JAL(()))
-    @test a.size() == 0
-    a.add("one")
-    @test a.size() == 1
-    @test a.toString() == "[one]"
-    removed = a.remove(0)
-    @test typeof(removed) == String
-    @test removed == "one"
-    a.add(1)
-    @test a.get(0) == 1
-    @test a.toString() == "[1]"
-    b = JProxy(JAL(()))
-    b.addAll(a)
-    @test a.toString() == b.toString()
-    a.add("two")
-    @test collect(a) == [1, "two"]
-end
+# Test downstream dependencies
+try
+    using Pkg
+    Pkg.add("Taro")
 
-@testset "proxy_test_class" begin
-    T = @jimport(Test)
-    t = JProxy(T(()))
-    t.integerField = 3
-    @test(t.integerField == 3)
-    t.stringField = "hello"
-    @test(t.stringField == "hello")
-    @test(t.toString() == "Test(3, hello)")
-    t.objectField = t
-    @test(t.objectField == t)
-    @test(t.objectField.stringField == "hello")
-    @test(t.objectField.getInt() == 3)
-    @test(t.objectField.getString() == "hello")
-end
+    using Taro
+    chmod(joinpath(dirname(dirname(pathof(Taro))),"test","df-test.xlsx"),0o600)
 
-@testset "proxy_meta" begin
-    @test(JProxy(@jimport(java.lang.Integer)).MAX_VALUE == 2147483647)
-    @test(JProxy(@jimport(java.lang.Long)).MAX_VALUE == 9223372036854775807)
-    @test(JProxy(@jimport(java.lang.Double)).MAX_VALUE == 1.7976931348623157e308)
-    @test("class java.lang.Object" == JProxy(JavaCall.metaclass("java.lang.Class")).forName("java.lang.Object").toString())
-    @test("class java.io.PrintStream" == JProxy(JavaObject{Symbol("java.lang.System")}).out.getClass().toString())
-    @test("static class java.util.Arrays" == string(JProxy(@jimport(java.util.Arrays))))
-end
-
-@testset "proxy_array" begin
-    s,ptr=JavaCall.convert_arg(JProxy{Array{Int,1}, false}, [1,2]) # convert Julia array to an unwrapped java array
-    p=JProxy(ptr) # wrap it
-    @test(length(p) == 2)
-    @test(p[1] == 1)
-    @test(p[2] == 2)
-    @test(collect(p) == [1, 2])
-    p[1] = 3
-    @test(p[1] == 3)
+    Pkg.test("Taro")
+    #include(joinpath(dirname(dirname(pathof(Taro))),"test","runtests.jl"))
+catch err
+    @warn "Taro.jl testing failed"
+    sprint(showerror, err, backtrace())
 end
 
 # At the end, unload the JVM before exiting
