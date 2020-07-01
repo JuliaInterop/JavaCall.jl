@@ -34,9 +34,9 @@ System = @jimport java.lang.System
 
 @testset "unsafe_strings_1" begin
     a=JString("how are you")
-    @test a.ptr != C_NULL
-    @test 11 == JavaCall.JNI.GetStringUTFLength(a.ptr)
-    b = JavaCall.JNI.GetStringUTFChars(a.ptr,Ref{JavaCall.JNI.jboolean}())
+    @test Ptr(a) != C_NULL
+    @test 11 == JavaCall.JNI.GetStringUTFLength(Ptr(a))
+    b = JavaCall.JNI.GetStringUTFChars(Ptr(a),Ref{JavaCall.JNI.jboolean}())
     @test unsafe_string(b) == "how are you"
 end
 
@@ -276,6 +276,21 @@ end
             " on non-Windows systems."
             " Set JULIA_COPY_STACKS=1 in the environment to test @async function."
     end
+end
+
+# Test downstream dependencies
+try
+    using Pkg
+    Pkg.add("Taro")
+
+    using Taro
+    chmod(joinpath(dirname(dirname(pathof(Taro))),"test","df-test.xlsx"),0o600)
+
+    Pkg.test("Taro")
+    #include(joinpath(dirname(dirname(pathof(Taro))),"test","runtests.jl"))
+catch err
+    @warn "Taro.jl testing failed"
+    sprint(showerror, err, backtrace())
 end
 
 # At the end, unload the JVM before exiting

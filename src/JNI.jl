@@ -25,6 +25,7 @@ const ppenv = Ref(Ptr{JNIEnv}(C_NULL))
 const ppjvm = Ref(Ptr{JavaVM}(C_NULL))
 const jvmfunc = Ref{JNIInvokeInterface}()
 
+
 # jni_md.h
 const jint = Cint
 #ifdef _LP64 /* 64-bit Solaris */
@@ -69,6 +70,15 @@ jvalue = Int64
     JNIWeakGlobalRefType = 3
 end
 
+"""
+    AbstractJavaRef
+
+    Abstract type for jobject in jni.h
+    Must be convertible to a `Ptr{Nothing}` by `ccall` usually by overriding unsafe_convert.
+"""
+abstract type AbstractJavaRef end
+
+
 const JNI_VERSION_1_1 = convert(Cint, 0x00010001)
 const JNI_VERSION_1_2 = convert(Cint, 0x00010002)
 const JNI_VERSION_1_4 = convert(Cint, 0x00010004)
@@ -92,6 +102,8 @@ const JNI_EINVAL       = convert(Cint, -6)              #/* invalid arguments */
 # There is likely over specification here
 PtrIsCopy = Union{Ptr{jboolean},Ref{jboolean},Array{jboolean,}}
 AnyString = Union{AbstractString,Cstring,Ptr{UInt8}}
+jobject_arg = Union{jobject,AbstractJavaRef}
+jobjectArray_arg = Union{jobjectArray,AbstractJavaRef}
 
 struct JNIError <: Exception
     msg::String
@@ -183,16 +195,16 @@ end
 GetVersion(penv=ppenv[]) =
   ccall(jniref[].GetVersion, jint, (Ptr{JNIEnv},), penv)
 
-DefineClass(name::AnyString, loader::jobject, buf::Array{jbyte,1}, len::Integer, penv=ppenv[]) =
+DefineClass(name::AnyString, loader::jobject_arg, buf::Array{jbyte,1}, len::Integer, penv=ppenv[]) =
   ccall(jniref[].DefineClass, jclass, (Ptr{JNIEnv}, Cstring, jobject, Ptr{jbyte}, jsize,), penv, name, loader, buf, len)
 
 FindClass(name::AnyString, penv=ppenv[]) =
   ccall(jniref[].FindClass, jclass, (Ptr{JNIEnv}, Cstring,), penv, name)
 
-FromReflectedMethod(method::jobject, penv=ppenv[]) =
+FromReflectedMethod(method::jobject_arg, penv=ppenv[]) =
   ccall(jniref[].FromReflectedMethod, jmethodID, (Ptr{JNIEnv}, jobject,), penv, method)
 
-FromReflectedField(field::jobject, penv=ppenv[]) =
+FromReflectedField(field::jobject_arg, penv=ppenv[]) =
   ccall(jniref[].FromReflectedField, jfieldID, (Ptr{JNIEnv}, jobject,), penv, field)
 
 ToReflectedMethod(cls::jclass, methodID::jmethodID, isStatic::jboolean, penv=ppenv[]) =
@@ -228,22 +240,22 @@ FatalError(msg::AnyString, penv=ppenv[]) =
 PushLocalFrame(capacity::jint, penv=ppenv[]) =
   ccall(jniref[].PushLocalFrame, jint, (Ptr{JNIEnv}, jint,), penv, capacity)
 
-PopLocalFrame(result::jobject, penv=ppenv[]) =
+PopLocalFrame(result::jobject_arg, penv=ppenv[]) =
   ccall(jniref[].PopLocalFrame, jobject, (Ptr{JNIEnv}, jobject,), penv, result)
 
-NewGlobalRef(lobj::jobject, penv=ppenv[]) =
+NewGlobalRef(lobj::jobject_arg, penv=ppenv[]) =
   ccall(jniref[].NewGlobalRef, jobject, (Ptr{JNIEnv}, jobject,), penv, lobj)
 
-DeleteGlobalRef(gref::jobject, penv=ppenv[]) =
+DeleteGlobalRef(gref::jobject_arg, penv=ppenv[]) =
   ccall(jniref[].DeleteGlobalRef, Nothing, (Ptr{JNIEnv}, jobject,), penv, gref)
 
-DeleteLocalRef(obj::jobject, penv=ppenv[]) =
+DeleteLocalRef(obj::jobject_arg, penv=ppenv[]) =
   ccall(jniref[].DeleteLocalRef, Nothing, (Ptr{JNIEnv}, jobject,), penv, obj)
 
-IsSameObject(obj1::jobject, obj2::jobject, penv=ppenv[]) =
+IsSameObject(obj1::jobject_arg, obj2::jobject_arg, penv=ppenv[]) =
   ccall(jniref[].IsSameObject, jboolean, (Ptr{JNIEnv}, jobject, jobject,), penv, obj1, obj2)
 
-NewLocalRef(ref::jobject, penv=ppenv[]) =
+NewLocalRef(ref::jobject_arg, penv=ppenv[]) =
   ccall(jniref[].NewLocalRef, jobject, (Ptr{JNIEnv}, jobject,), penv, ref)
 
 EnsureLocalCapacity(capacity::jint, penv=ppenv[]) =
@@ -255,130 +267,130 @@ AllocObject(clazz::jclass, penv=ppenv[]) =
 NewObjectA(clazz::jclass, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
   ccall(jniref[].NewObjectA, jobject, (Ptr{JNIEnv}, jclass, jmethodID, Ptr{jvalue},), penv, clazz, methodID, args)
 
-GetObjectClass(obj::jobject, penv=ppenv[]) =
+GetObjectClass(obj::jobject_arg, penv=ppenv[]) =
   ccall(jniref[].GetObjectClass, jclass, (Ptr{JNIEnv}, jobject,), penv, obj)
 
-IsInstanceOf(obj::jobject, clazz::jclass, penv=ppenv[]) =
+IsInstanceOf(obj::jobject_arg, clazz::jclass, penv=ppenv[]) =
   ccall(jniref[].IsInstanceOf, jboolean, (Ptr{JNIEnv}, jobject, jclass,), penv, obj, clazz)
 
 GetMethodID(clazz::jclass, name::AnyString, sig::AnyString, penv=ppenv[]) =
   ccall(jniref[].GetMethodID, jmethodID, (Ptr{JNIEnv}, jclass, Cstring, Cstring,), penv, clazz, name, sig)
 
-CallObjectMethodA(obj::jobject, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
+CallObjectMethodA(obj::jobject_arg, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
   ccall(jniref[].CallObjectMethodA, jobject, (Ptr{JNIEnv}, jobject, jmethodID, Ptr{jvalue},), penv, obj, methodID, args)
 
-CallBooleanMethodA(obj::jobject, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
+CallBooleanMethodA(obj::jobject_arg, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
   ccall(jniref[].CallBooleanMethodA, jboolean, (Ptr{JNIEnv}, jobject, jmethodID, Ptr{jvalue},), penv, obj, methodID, args)
 
-CallByteMethodA(obj::jobject, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
+CallByteMethodA(obj::jobject_arg, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
   ccall(jniref[].CallByteMethodA, jbyte, (Ptr{JNIEnv}, jobject, jmethodID, Ptr{jvalue},), penv, obj, methodID, args)
 
-CallCharMethodA(obj::jobject, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
+CallCharMethodA(obj::jobject_arg, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
   ccall(jniref[].CallCharMethodA, jchar, (Ptr{JNIEnv}, jobject, jmethodID, Ptr{jvalue},), penv, obj, methodID, args)
 
-CallShortMethodA(obj::jobject, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
+CallShortMethodA(obj::jobject_arg, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
   ccall(jniref[].CallShortMethodA, jshort, (Ptr{JNIEnv}, jobject, jmethodID, Ptr{jvalue},), penv, obj, methodID, args)
 
-CallIntMethodA(obj::jobject, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
+CallIntMethodA(obj::jobject_arg, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
   ccall(jniref[].CallIntMethodA, jint, (Ptr{JNIEnv}, jobject, jmethodID, Ptr{jvalue},), penv, obj, methodID, args)
 
-CallLongMethodA(obj::jobject, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
+CallLongMethodA(obj::jobject_arg, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
   ccall(jniref[].CallLongMethodA, jlong, (Ptr{JNIEnv}, jobject, jmethodID, Ptr{jvalue},), penv, obj, methodID, args)
 
-CallFloatMethodA(obj::jobject, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
+CallFloatMethodA(obj::jobject_arg, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
   ccall(jniref[].CallFloatMethodA, jfloat, (Ptr{JNIEnv}, jobject, jmethodID, Ptr{jvalue},), penv, obj, methodID, args)
 
-CallDoubleMethodA(obj::jobject, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
+CallDoubleMethodA(obj::jobject_arg, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
   ccall(jniref[].CallDoubleMethodA, jdouble, (Ptr{JNIEnv}, jobject, jmethodID, Ptr{jvalue},), penv, obj, methodID, args)
 
-CallVoidMethodA(obj::jobject, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
+CallVoidMethodA(obj::jobject_arg, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
   ccall(jniref[].CallVoidMethodA, Nothing, (Ptr{JNIEnv}, jobject, jmethodID, Ptr{jvalue},), penv, obj, methodID, args)
 
-CallNonvirtualObjectMethodA(obj::jobject, clazz::jclass, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
+CallNonvirtualObjectMethodA(obj::jobject_arg, clazz::jclass, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
   ccall(jniref[].CallNonvirtualObjectMethodA, jobject, (Ptr{JNIEnv}, jobject, jclass, jmethodID, Ptr{jvalue},), penv, obj, clazz, methodID, args)
 
-CallNonvirtualBooleanMethodA(obj::jobject, clazz::jclass, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
+CallNonvirtualBooleanMethodA(obj::jobject_arg, clazz::jclass, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
   ccall(jniref[].CallNonvirtualBooleanMethodA, jboolean, (Ptr{JNIEnv}, jobject, jclass, jmethodID, Ptr{jvalue},), penv, obj, clazz, methodID, args)
 
-CallNonvirtualByteMethodA(obj::jobject, clazz::jclass, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
+CallNonvirtualByteMethodA(obj::jobject_arg, clazz::jclass, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
   ccall(jniref[].CallNonvirtualByteMethodA, jbyte, (Ptr{JNIEnv}, jobject, jclass, jmethodID, Ptr{jvalue},), penv, obj, clazz, methodID, args)
 
-CallNonvirtualCharMethodA(obj::jobject, clazz::jclass, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
+CallNonvirtualCharMethodA(obj::jobject_arg, clazz::jclass, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
   ccall(jniref[].CallNonvirtualCharMethodA, jchar, (Ptr{JNIEnv}, jobject, jclass, jmethodID, Ptr{jvalue},), penv, obj, clazz, methodID, args)
 
-CallNonvirtualShortMethodA(obj::jobject, clazz::jclass, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
+CallNonvirtualShortMethodA(obj::jobject_arg, clazz::jclass, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
   ccall(jniref[].CallNonvirtualShortMethodA, jshort, (Ptr{JNIEnv}, jobject, jclass, jmethodID, Ptr{jvalue},), penv, obj, clazz, methodID, args)
 
-CallNonvirtualIntMethodA(obj::jobject, clazz::jclass, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
+CallNonvirtualIntMethodA(obj::jobject_arg, clazz::jclass, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
   ccall(jniref[].CallNonvirtualIntMethodA, jint, (Ptr{JNIEnv}, jobject, jclass, jmethodID, Ptr{jvalue},), penv, obj, clazz, methodID, args)
 
-CallNonvirtualLongMethodA(obj::jobject, clazz::jclass, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
+CallNonvirtualLongMethodA(obj::jobject_arg, clazz::jclass, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
   ccall(jniref[].CallNonvirtualLongMethodA, jlong, (Ptr{JNIEnv}, jobject, jclass, jmethodID, Ptr{jvalue},), penv, obj, clazz, methodID, args)
 
-CallNonvirtualFloatMethodA(obj::jobject, clazz::jclass, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
+CallNonvirtualFloatMethodA(obj::jobject_arg, clazz::jclass, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
   ccall(jniref[].CallNonvirtualFloatMethodA, jfloat, (Ptr{JNIEnv}, jobject, jclass, jmethodID, Ptr{jvalue},), penv, obj, clazz, methodID, args)
 
-CallNonvirtualDoubleMethodA(obj::jobject, clazz::jclass, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
+CallNonvirtualDoubleMethodA(obj::jobject_arg, clazz::jclass, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
   ccall(jniref[].CallNonvirtualDoubleMethodA, jdouble, (Ptr{JNIEnv}, jobject, jclass, jmethodID, Ptr{jvalue},), penv, obj, clazz, methodID, args)
 
-CallNonvirtualVoidMethodA(obj::jobject, clazz::jclass, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
+CallNonvirtualVoidMethodA(obj::jobject_arg, clazz::jclass, methodID::jmethodID, args::Array{jvalue,1}, penv=ppenv[]) =
   ccall(jniref[].CallNonvirtualVoidMethodA, Nothing, (Ptr{JNIEnv}, jobject, jclass, jmethodID, Ptr{jvalue},), penv, obj, clazz, methodID, args)
 
 GetFieldID(clazz::jclass, name::AnyString, sig::AnyString, penv=ppenv[]) =
   ccall(jniref[].GetFieldID, jfieldID, (Ptr{JNIEnv}, jclass, Cstring, Cstring,), penv, clazz, name, sig)
 
-GetObjectField(obj::jobject, fieldID::jfieldID, penv=ppenv[]) =
+GetObjectField(obj::jobject_arg, fieldID::jfieldID, penv=ppenv[]) =
   ccall(jniref[].GetObjectField, jobject, (Ptr{JNIEnv}, jobject, jfieldID,), penv, obj, fieldID)
 
-GetBooleanField(obj::jobject, fieldID::jfieldID, penv=ppenv[]) =
+GetBooleanField(obj::jobject_arg, fieldID::jfieldID, penv=ppenv[]) =
   ccall(jniref[].GetBooleanField, jboolean, (Ptr{JNIEnv}, jobject, jfieldID,), penv, obj, fieldID)
 
-GetByteField(obj::jobject, fieldID::jfieldID, penv=ppenv[]) =
+GetByteField(obj::jobject_arg, fieldID::jfieldID, penv=ppenv[]) =
   ccall(jniref[].GetByteField, jbyte, (Ptr{JNIEnv}, jobject, jfieldID,), penv, obj, fieldID)
 
-GetCharField(obj::jobject, fieldID::jfieldID, penv=ppenv[]) =
+GetCharField(obj::jobject_arg, fieldID::jfieldID, penv=ppenv[]) =
   ccall(jniref[].GetCharField, jchar, (Ptr{JNIEnv}, jobject, jfieldID,), penv, obj, fieldID)
 
-GetShortField(obj::jobject, fieldID::jfieldID, penv=ppenv[]) =
+GetShortField(obj::jobject_arg, fieldID::jfieldID, penv=ppenv[]) =
   ccall(jniref[].GetShortField, jshort, (Ptr{JNIEnv}, jobject, jfieldID,), penv, obj, fieldID)
 
-GetIntField(obj::jobject, fieldID::jfieldID, penv=ppenv[]) =
+GetIntField(obj::jobject_arg, fieldID::jfieldID, penv=ppenv[]) =
   ccall(jniref[].GetIntField, jint, (Ptr{JNIEnv}, jobject, jfieldID,), penv, obj, fieldID)
 
-GetLongField(obj::jobject, fieldID::jfieldID, penv=ppenv[]) =
+GetLongField(obj::jobject_arg, fieldID::jfieldID, penv=ppenv[]) =
   ccall(jniref[].GetLongField, jlong, (Ptr{JNIEnv}, jobject, jfieldID,), penv, obj, fieldID)
 
-GetFloatField(obj::jobject, fieldID::jfieldID, penv=ppenv[]) =
+GetFloatField(obj::jobject_arg, fieldID::jfieldID, penv=ppenv[]) =
   ccall(jniref[].GetFloatField, jfloat, (Ptr{JNIEnv}, jobject, jfieldID,), penv, obj, fieldID)
 
-GetDoubleField(obj::jobject, fieldID::jfieldID, penv=ppenv[]) =
+GetDoubleField(obj::jobject_arg, fieldID::jfieldID, penv=ppenv[]) =
   ccall(jniref[].GetDoubleField, jdouble, (Ptr{JNIEnv}, jobject, jfieldID,), penv, obj, fieldID)
 
-SetObjectField(obj::jobject, fieldID::jfieldID, val::jobject, penv=ppenv[]) =
+SetObjectField(obj::jobject_arg, fieldID::jfieldID, val::jobject_arg, penv=ppenv[]) =
   ccall(jniref[].SetObjectField, Nothing, (Ptr{JNIEnv}, jobject, jfieldID, jobject,), penv, obj, fieldID, val)
 
-SetBooleanField(obj::jobject, fieldID::jfieldID, val::jboolean, penv=ppenv[]) =
+SetBooleanField(obj::jobject_arg, fieldID::jfieldID, val::jboolean, penv=ppenv[]) =
   ccall(jniref[].SetBooleanField, Nothing, (Ptr{JNIEnv}, jobject, jfieldID, jboolean,), penv, obj, fieldID, val)
 
-SetByteField(obj::jobject, fieldID::jfieldID, val::jbyte, penv=ppenv[]) =
+SetByteField(obj::jobject_arg, fieldID::jfieldID, val::jbyte, penv=ppenv[]) =
   ccall(jniref[].SetByteField, Nothing, (Ptr{JNIEnv}, jobject, jfieldID, jbyte,), penv, obj, fieldID, val)
 
-SetCharField(obj::jobject, fieldID::jfieldID, val::jchar, penv=ppenv[]) =
+SetCharField(obj::jobject_arg, fieldID::jfieldID, val::jchar, penv=ppenv[]) =
   ccall(jniref[].SetCharField, Nothing, (Ptr{JNIEnv}, jobject, jfieldID, jchar,), penv, obj, fieldID, val)
 
-SetShortField(obj::jobject, fieldID::jfieldID, val::jshort, penv=ppenv[]) =
+SetShortField(obj::jobject_arg, fieldID::jfieldID, val::jshort, penv=ppenv[]) =
   ccall(jniref[].SetShortField, Nothing, (Ptr{JNIEnv}, jobject, jfieldID, jshort,), penv, obj, fieldID, val)
 
-SetIntField(obj::jobject, fieldID::jfieldID, val::jint, penv=ppenv[]) =
+SetIntField(obj::jobject_arg, fieldID::jfieldID, val::jint, penv=ppenv[]) =
   ccall(jniref[].SetIntField, Nothing, (Ptr{JNIEnv}, jobject, jfieldID, jint,), penv, obj, fieldID, val)
 
-SetLongField(obj::jobject, fieldID::jfieldID, val::jlong, penv=ppenv[]) =
+SetLongField(obj::jobject_arg, fieldID::jfieldID, val::jlong, penv=ppenv[]) =
   ccall(jniref[].SetLongField, Nothing, (Ptr{JNIEnv}, jobject, jfieldID, jlong,), penv, obj, fieldID, val)
 
-SetFloatField(obj::jobject, fieldID::jfieldID, val::jfloat, penv=ppenv[]) =
+SetFloatField(obj::jobject_arg, fieldID::jfieldID, val::jfloat, penv=ppenv[]) =
   ccall(jniref[].SetFloatField, Nothing, (Ptr{JNIEnv}, jobject, jfieldID, jfloat,), penv, obj, fieldID, val)
 
-SetDoubleField(obj::jobject, fieldID::jfieldID, val::jdouble, penv=ppenv[]) =
+SetDoubleField(obj::jobject_arg, fieldID::jfieldID, val::jdouble, penv=ppenv[]) =
   ccall(jniref[].SetDoubleField, Nothing, (Ptr{JNIEnv}, jobject, jfieldID, jdouble,), penv, obj, fieldID, val)
 
 GetStaticMethodID(clazz::jclass, name::AnyString, sig::AnyString, penv=ppenv[]) =
@@ -444,7 +456,7 @@ GetStaticFloatField(clazz::jclass, fieldID::jfieldID, penv=ppenv[]) =
 GetStaticDoubleField(clazz::jclass, fieldID::jfieldID, penv=ppenv[]) =
   ccall(jniref[].GetStaticDoubleField, jdouble, (Ptr{JNIEnv}, jclass, jfieldID,), penv, clazz, fieldID)
 
-SetStaticObjectField(clazz::jclass, fieldID::jfieldID, value::jobject, penv=ppenv[]) =
+SetStaticObjectField(clazz::jclass, fieldID::jfieldID, value::jobject_arg, penv=ppenv[]) =
   ccall(jniref[].SetStaticObjectField, Nothing, (Ptr{JNIEnv}, jclass, jfieldID, jobject,), penv, clazz, fieldID, value)
 
 SetStaticBooleanField(clazz::jclass, fieldID::jfieldID, value::jboolean, penv=ppenv[]) =
@@ -501,13 +513,13 @@ ReleaseStringUTFChars(str::jstring, chars::AnyString, penv=ppenv[]) =
 GetArrayLength(array::jarray, penv=ppenv[]) =
   ccall(jniref[].GetArrayLength, jsize, (Ptr{JNIEnv}, jarray,), penv, array)
 
-NewObjectArray(len::Integer, clazz::jclass, init::jobject, penv=ppenv[]) =
+NewObjectArray(len::Integer, clazz::jclass, init::jobject_arg, penv=ppenv[]) =
   ccall(jniref[].NewObjectArray, jobjectArray, (Ptr{JNIEnv}, jsize, jclass, jobject,), penv, len, clazz, init)
 
-GetObjectArrayElement(array::jobjectArray, index::Integer, penv=ppenv[]) =
+GetObjectArrayElement(array::jobjectArray_arg, index::Integer, penv=ppenv[]) =
   ccall(jniref[].GetObjectArrayElement, jobject, (Ptr{JNIEnv}, jobjectArray, jsize,), penv, array, index)
 
-SetObjectArrayElement(array::jobjectArray, index::Integer, val::jobject, penv=ppenv[]) =
+SetObjectArrayElement(array::jobjectArray_arg, index::Integer, val::jobject_arg, penv=ppenv[]) =
   ccall(jniref[].SetObjectArrayElement, Nothing, (Ptr{JNIEnv}, jobjectArray, jsize, jobject,), penv, array, index, val)
 
 NewBooleanArray(len::Integer, penv=ppenv[]) =
@@ -636,10 +648,10 @@ RegisterNatives(clazz::jclass, methods::Array{JNINativeMethod,1}, nMethods::jint
 UnregisterNatives(clazz::jclass, penv=ppenv[]) =
   ccall(jniref[].UnregisterNatives, jint, (Ptr{JNIEnv}, jclass,), penv, clazz)
 
-MonitorEnter(obj::jobject, penv=ppenv[]) =
+MonitorEnter(obj::jobject_arg, penv=ppenv[]) =
   ccall(jniref[].MonitorEnter, jint, (Ptr{JNIEnv}, jobject,), penv, obj)
 
-MonitorExit(obj::jobject, penv=ppenv[]) =
+MonitorExit(obj::jobject_arg, penv=ppenv[]) =
   ccall(jniref[].MonitorExit, jint, (Ptr{JNIEnv}, jobject,), penv, obj)
 
 GetJavaVM(vm::Array{JavaVM,1}, penv=ppenv[]) =
@@ -663,7 +675,7 @@ GetStringCritical(string::jstring, isCopy::PtrIsCopy, penv=ppenv[]) =
 ReleaseStringCritical(string::jstring, cstring::Array{jchar,1}, penv=ppenv[]) =
   ccall(jniref[].ReleaseStringCritical, Nothing, (Ptr{JNIEnv}, jstring, Ptr{jchar},), penv, string, cstring)
 
-NewWeakGlobalRef(obj::jobject, penv=ppenv[]) =
+NewWeakGlobalRef(obj::jobject_arg, penv=ppenv[]) =
   ccall(jniref[].NewWeakGlobalRef, jweak, (Ptr{JNIEnv}, jobject,), penv, obj)
 
 DeleteWeakGlobalRef(ref::jweak, penv=ppenv[]) =
@@ -675,13 +687,13 @@ ExceptionCheck(penv=ppenv[]) =
 NewDirectByteBuffer(address::Ptr{Nothing}, capacity::jlong, penv=ppenv[]) =
   ccall(jniref[].NewDirectByteBuffer, jobject, (Ptr{JNIEnv}, Ptr{Nothing}, jlong,), penv, address, capacity)
 
-GetDirectBufferAddress(buf::jobject, penv=ppenv[]) =
+GetDirectBufferAddress(buf::jobject_arg, penv=ppenv[]) =
   ccall(jniref[].GetDirectBufferAddress, Ptr{Nothing}, (Ptr{JNIEnv}, jobject,), penv, buf)
 
-GetDirectBufferCapacity(buf::jobject, penv=ppenv[]) =
+GetDirectBufferCapacity(buf::jobject_arg, penv=ppenv[]) =
   ccall(jniref[].GetDirectBufferCapacity, jlong, (Ptr{JNIEnv}, jobject,), penv, buf)
 
-GetObjectRefType(obj::jobject, penv=ppenv[]) =
+GetObjectRefType(obj::jobject_arg, penv=ppenv[]) =
   ccall(jniref[].GetObjectRefType, jobjectRefType, (Ptr{JNIEnv}, jobject,), penv, obj)
 
 

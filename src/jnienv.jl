@@ -15,7 +15,7 @@ struct JNINativeInterface #struct JNINativeInterface_ {
     FromReflectedField::Ptr{Nothing} #jfieldID ( *FromReflectedField)(JNIEnv *env, jobject field);
     ToReflectedMethod::Ptr{Nothing} #jobject ( *ToReflectedMethod) (JNIEnv *env, jclass cls, jmethodID methodID, jboolean isStatic);
 
-    GetSuperClass::Ptr{Nothing}  #jclass ( *GetSuperclass) (JNIEnv *env, jclass sub);
+    GetSuperclass::Ptr{Nothing}  #jclass ( *GetSuperclass) (JNIEnv *env, jclass sub);
     IsAssignableFrom::Ptr{Nothing} #jboolean ( *IsAssignableFrom) (JNIEnv *env, jclass sub, jclass sup);
 
     ToReflectedField::Ptr{Nothing} #jobject ( *ToReflectedField)(JNIEnv *env, jclass cls, jfieldID fieldID, jboolean isStatic);

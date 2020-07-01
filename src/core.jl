@@ -1,17 +1,99 @@
-struct JavaMetaClass{T}
+"""
+    JavaRef is abstract parent for JavaLocalRef, JavaGlobalRef, and JavaNullRef in the JavaCall Module
+
+    It is distinct from its parent type, JavaCall.JNI.AbstractJavaRef, since its use is defined in 
+    JavaCall itself rather than the JNI submodule.
+"""
+abstract type JavaRef <: JNI.AbstractJavaRef end
+
+"""
+    JavaLocalRef is a JavaRef that is meant to be used with local variables in a function call.
+    After the function call these references may be freed and garbage collected. See note about
+    JNI memory management below.
+
+    This is the default reference type returned from the JNI.
+
+    Use this with JNI.PushLocalFrame / JNI.PopLocalFrame for memory management.
+    Also see JNI.EnsureLocalCapacity.
+
+    The internal pointer should be deleted using JNI.DeleteLocalRef
+"""
+struct JavaLocalRef <: JavaRef
     ptr::Ptr{Nothing}
 end
 
-#The metaclass, sort of equivalent to a the
-JavaMetaClass(T, ptr) = JavaMetaClass{T}(ptr)
-
-mutable struct JavaObject{T}
+"""
+    JavaGlobalRef is a JavaRef that is meant to be used with global variables that live beyond 
+    a single function call.
+"""
+struct JavaGlobalRef <: JavaRef
     ptr::Ptr{Nothing}
+end
+
+"""
+    JavaNullRef is a JavaRef that serves as a placeholder to mark where references have already been deleted.
+
+    See J_NULL
+"""
+struct JavaNullRef <: JavaRef
+    ptr::Ptr{Nothing}
+    JavaNullRef() = new(C_NULL)
+end
+
+""" Constant JavaNullRef """
+const J_NULL = JavaNullRef()
+
+Ptr(ref::JavaRef) = ref.ptr
+Ptr{Nothing}(ref::JavaRef) = ref.ptr
+
+JavaLocalRef(ref::JavaRef) = JavaLocalRef(JNI.NewLocalRef(Ptr(ref)))
+JavaGlobalRef(ref::JavaRef) = JavaGlobalRef(JNI.NewGlobalRef(Ptr(ref)))
+
+# _deleteref does local/global reference deletion without null or state checking
+_deleteref(ref::JavaLocalRef ) = JNI.DeleteLocalRef( Ptr(ref))
+_deleteref(ref::JavaGlobalRef) = JNI.DeleteGlobalRef(Ptr(ref))
+
+"""
+    deleteref deletes a JavaRef using either JNI.DeleteLocalRef or JNI.DeleteGlobalRef
+"""
+function deleteref(x::JavaRef)
+    if x.ptr == C_NULL; return; end
+    if !JNI.is_env_loaded(); return; end;
+    _deleteref(x)
+    return
+end
+
+"""
+    JavaMetaClass represents meta information about a Java class
+
+    These are usually cached in _jmc_cache and are meant to live
+    as long as the cache is valid.
+"""
+struct JavaMetaClass{T} <: JNI.AbstractJavaRef
+    ref::JavaRef
+end
+
+#The metaclass, sort of equivalent to a the
+JavaMetaClass(T, ref::JavaRef) = JavaMetaClass{T}(ref)
+JavaMetaClass(T, ptr::Ptr{Nothing}) = JavaMetaClass{T}(JavaGlobalRef(ptr))
+
+ref(mc::JavaMetaClass{T}) where T = mc.ref
+Ptr(mc::JavaMetaClass{T}) where T = Ptr(mc.ref)
+Ptr{Nothing}(mc::JavaMetaClass{T}) where T = Ptr(mc.ref)
+
+"""
+    JavaObject{T} is the main JavaCall type representing either an instance
+    or a static class
+
+    T is usually a symbol referring a Java class name
+"""
+mutable struct JavaObject{T} <: JNI.AbstractJavaRef
+    ref::JavaRef
 
     #This below is ugly. Once we stop supporting 0.5, this can be replaced by
     # function JavaObject{T}(ptr) where T
-    function JavaObject{T}(ptr) where T
-        j = new{T}(ptr)
+    function JavaObject{T}(ref) where T
+        j = new{T}(ref)
         finalizer(deleteref, j)
         return j
     end
@@ -20,17 +102,28 @@ mutable struct JavaObject{T}
     JavaObject{T}(argtypes::Tuple, args...) where {T} = jnew(T, argtypes, args...)
 end
 
+# JavaObject Construction
 JavaObject(T, ptr) = JavaObject{T}(ptr)
 JavaObject{T}() where {T} = JavaObject{T}((),)
+JavaObject{T}(ptr::Ptr{Nothing}) where {T} = JavaObject{T}(JavaLocalRef(ptr))
 
-function deleteref(x::JavaObject)
-    if x.ptr == C_NULL; return; end
-    if !JNI.is_env_loaded(); return; end;
-    JNI.DeleteLocalRef(x.ptr)
-    x.ptr=C_NULL #Safety in case this function is called direcly, rather than at finalize
-    return
+# JavaObject Reference Management
+ref(x::JavaObject{T}) where T = x.ref
+copyref(x::JavaObject{T}) where T = JavaObject{T}(JavaLocalRef(x.ref))
+deleteref(x::JavaObject{T}) where T = ( deleteref(x.ref); x.ref = J_NULL )
+
+# Obtain the underlying pointer for a JavaObject
+Ptr(x::JavaObject{T}) where T = Ptr(x.ref)
+Ptr{Nothing}(x::JavaObject{T}) where T = Ptr(x.ref)
+
+"""
+   jglobal(x::JavaObject) creates a new JavaGlobalRef and deletes the prior JavaRef
+"""
+function jglobal(x::JavaObject)
+    gref = JavaGlobalRef(JNI.NewGlobalRef(Ptr(x)))
+    deleteref(x.ref)
+    x.ref = gref
 end
-
 
 """
 ```
@@ -44,7 +137,7 @@ Checks if the passed JavaObject is null or not
 ### Returns
 true if the passed object is null else false
 """
-isnull(obj::JavaObject) = obj.ptr == C_NULL
+isnull(obj::JavaObject) = Ptr(obj) == C_NULL
 isnull(obj::Ptr{Nothing}) = obj == C_NULL
 
 """
@@ -59,7 +152,7 @@ Checks if the passed JavaMetaClass is null or not
 ### Returns
 true if the passed object is null else false
 """
-isnull(obj::JavaMetaClass) = obj.ptr == C_NULL
+isnull(obj::JavaMetaClass) = Ptr(obj) == C_NULL
 
 const JClass = JavaObject{Symbol("java.lang.Class")}
 const JObject = JavaObject{Symbol("java.lang.Object")}
@@ -82,7 +175,7 @@ jvalue(v::Integer)::JNI.jvalue = JNI.jvalue(v)
 jvalue(v::Float32) = jvalue(reinterpret(Int32, v))
 jvalue(v::Float64) = jvalue(reinterpret(Int64, v))
 jvalue(v::Ptr) = jvalue(Int(v))
-jvalue(v::JavaObject) = jvalue(v.ptr)
+jvalue(v::JavaObject) = jvalue(Ptr(v))
 
 
 function _jimport(juliaclass)
@@ -108,7 +201,7 @@ end
 function jnew(T::Symbol, argtypes::Tuple, args...)
     assertroottask_or_goodenv()
     sig = method_signature(Nothing, argtypes...)
-    jmethodId = JNI.GetMethodID(metaclass(T).ptr, String("<init>"), sig)
+    jmethodId = JNI.GetMethodID(Ptr(metaclass(T)), String("<init>"), sig)
     if jmethodId == C_NULL
         throw(JavaCallError("No constructor for $T with signature $sig"))
     end
@@ -120,7 +213,7 @@ function jcall(typ::Type{JavaObject{T}}, method::AbstractString, rettype::Type, 
                args... ) where T
     assertroottask_or_goodenv()
     sig = method_signature(rettype, argtypes...)
-    jmethodId = JNI.GetStaticMethodID(metaclass(T).ptr, String(method), sig)
+    jmethodId = JNI.GetStaticMethodID(Ptr(metaclass(T)), String(method), sig)
     jmethodId==C_NULL && geterror(true)
     _jcall(metaclass(T), jmethodId, C_NULL, rettype, argtypes, args...)
 end
@@ -129,21 +222,21 @@ end
 function jcall(obj::JavaObject, method::AbstractString, rettype::Type, argtypes::Tuple, args... )
     assertroottask_or_goodenv()
     sig = method_signature(rettype, argtypes...)
-    jmethodId = JNI.GetMethodID(metaclass(obj).ptr, String(method), sig)
+    jmethodId = JNI.GetMethodID(Ptr(metaclass(obj)), String(method), sig)
     jmethodId==C_NULL && geterror(true)
     _jcall(obj, jmethodId, C_NULL, rettype,  argtypes, args...)
 end
 
 function jfield(typ::Type{JavaObject{T}}, field::AbstractString, fieldType::Type) where T
     assertroottask_or_goodenv()
-    jfieldID  = JNI.GetStaticFieldID(metaclass(T).ptr, String(field), signature(fieldType))
+    jfieldID  = JNI.GetStaticFieldID(Ptr(metaclass(T)), String(field), signature(fieldType))
     jfieldID==C_NULL && geterror(true)
     _jfield(metaclass(T), jfieldID, fieldType)
 end
 
 function jfield(obj::JavaObject, field::AbstractString, fieldType::Type)
     assertroottask_or_goodenv()
-    jfieldID  = JNI.GetFieldID(metaclass(obj).ptr, String(field), signature(fieldType))
+    jfieldID  = JNI.GetFieldID(Ptr(metaclass(obj)), String(field), signature(fieldType))
     jfieldID==C_NULL && geterror(true)
     _jfield(obj, jfieldID, fieldType)
 end
@@ -160,7 +253,7 @@ for (x, y, z) in [(:jboolean, :(JNI.GetBooleanField), :(JNI.GetStaticBooleanFiel
     m = quote
         function _jfield(obj, jfieldID::Ptr{Nothing}, fieldType::Type{$(x)})
             callmethod = ifelse( typeof(obj)<:JavaObject, $y , $z )
-            result = callmethod(obj.ptr, jfieldID)
+            result = callmethod(Ptr(obj), jfieldID)
             result==C_NULL && geterror()
             return convert_result(fieldType, result)
         end
@@ -170,7 +263,7 @@ end
 
 function _jfield(obj, jfieldID::Ptr{Nothing}, fieldType::Type)
     callmethod = ifelse( typeof(obj)<:JavaObject, JNI.GetObjectField , JNI.GetStaticObjectField )
-    result = callmethod(obj.ptr, jfieldID)
+    result = callmethod(Ptr(obj), jfieldID)
     result==C_NULL && geterror()
     return convert_result(fieldType, result)
 end
@@ -197,7 +290,7 @@ for (x, y, z) in [(:jboolean, :(JNI.CallBooleanMethodA), :(JNI.CallStaticBoolean
             isnull(obj) && throw(JavaCallError("Attempt to call method on Java NULL"))
             savedArgs, convertedArgs = convert_args(argtypes, args...)
             GC.@preserve savedArgs begin
-                result = callmethod(obj.ptr, jmethodId, Array{JNI.jvalue}(jvalue.(convertedArgs)))
+                result = callmethod(Ptr(obj), jmethodId, Array{JNI.jvalue}(jvalue.(convertedArgs)))
             end
             deleteref.(filter(x->isa(x,JavaObject),convertedArgs))
             result==C_NULL && geterror()
@@ -224,7 +317,7 @@ function _jcall(obj, jmethodId::Ptr{Nothing}, callmethod::Union{Function,Ptr{Not
     isnull(obj) && error("Attempt to call method on Java NULL")
     savedArgs, convertedArgs = convert_args(argtypes, args...)
     GC.@preserve savedArgs begin
-        result = callmethod(obj.ptr, jmethodId, Array{JNI.jvalue}(jvalue.(convertedArgs)))
+        result = callmethod(Ptr(obj), jmethodId, Array{JNI.jvalue}(jvalue.(convertedArgs)))
     end
     deleteref.(filter(x->isa(x,JavaObject),convertedArgs))
     result==C_NULL && geterror()

@@ -26,7 +26,7 @@ using Dates
 end
 
 
-import Base: convert, unsafe_convert, unsafe_string
+import Base: convert, unsafe_convert, unsafe_string, Ptr
 
 JULIA_COPY_STACKS = false
 

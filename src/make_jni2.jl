@@ -41,6 +41,10 @@ function decl_arg_type(t, s)
     end
   elseif t == "jsize" #|| t == "jint" || t == "jlong" || t == "jshort" || t == "jbyte"
     return Integer
+  elseif t == "jobject"
+    return "jobject_arg"
+  elseif t == "jobjectArray"
+    return "jobjectArray_arg"
   end
 
   if t == "void"
