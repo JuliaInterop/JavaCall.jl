@@ -1210,7 +1210,7 @@ function (pxy::JProxy{T, STATIC})(args...) where {T, STATIC}
             #result = ccall(jnifunc.NewObjectA, Ptr{Nothing},
             #               (Ptr{JNIEnv}, Ptr{Nothing}, Ptr{Nothing}, Ptr{Nothing}),
             #               penv, info.class.ptr, meth.id, convertedargs)
-            result = JNI.NewObjectA(Ptr(info.class), meth.id, convertedargs)
+            result = JNI.NewObjectA(Ptr(info.class), meth.id, JNI.jvalue.(convertedargs))
             result == C_NULL && geterror()
             JProxy(result)
         else

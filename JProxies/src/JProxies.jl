@@ -11,7 +11,7 @@ module JProxies
 
     import Base: convert
 
-    export JProxy, @class, interfacehas, staticproxy
+    export JProxy, @class, interfacehas, staticproxy, @jimport
 
     include("proxy.jl")
 end

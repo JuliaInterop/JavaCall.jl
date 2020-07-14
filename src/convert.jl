@@ -4,7 +4,7 @@ convert(::Type{JString}, str::AbstractString) = JString(str)
 convert(::Type{JObject}, str::AbstractString) = convert(JObject, JString(str))
 
 # From JProxy
-convert(::AbstractString, str::Type{JString}) = unsafe_string(str)
+convert(::Type{AbstractString}, str::JString) = unsafe_string(str)
 convert(::Type{JavaObject{Symbol("java.lang.Double")}}, n::Real) = jnew(Symbol("java.lang.Double"), (jdouble,), Float64(n))
 convert(::Type{JavaObject{Symbol("java.lang.Float")}}, n::Real) = jnew(Symbol("java.lang.Float"), (jfloat,), Float32(n))
 convert(::Type{JavaObject{Symbol("java.lang.Long")}}, n::Real) = jnew(Symbol("java.lang.Long"), (jlong,), Int64(n))
