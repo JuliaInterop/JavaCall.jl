@@ -12,6 +12,7 @@ export JavaObject, JavaMetaClass,
        JObject, JClass, JMethod, JConstructor, JField, JString,
        @jimport, jcall, jfield, isnull,
        getname, getclass, listmethods, getreturntype, getparametertypes, classforname,
+       listfields, gettype,
        narrow
 
 # using Compat, Compat.Dates

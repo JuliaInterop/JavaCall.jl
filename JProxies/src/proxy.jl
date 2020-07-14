@@ -1051,10 +1051,6 @@ end
 classfortype(t::Type{JavaObject{T}}) where T = classforname(string(T))
 classfortype(t::Type{T}) where {T <: java_lang} = classforname(classnamefor(nameof(T)))
 
-listfields(cls::AbstractString) = listfields(classforname(cls))
-listfields(cls::Type{JavaObject{C}}) where C = listfields(classforname(string(C)))
-listfields(cls::JClass) = jcall(cls, "getFields", Vector{JField}, ())
-
 function fielddict(class::JClass)
     if isArray(class)
         Dict([:length => JReadonlyField((ptr)->arraylength(ptr))])

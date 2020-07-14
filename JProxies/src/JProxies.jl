@@ -6,6 +6,7 @@ module JProxies
             JObject, JClass, JMethod, JConstructor, JField, JString,
             @jimport, jcall, jfield, isnull,
             getname, getclass, listmethods, getreturntype, getparametertypes, classforname,
+            listfields, gettype,
             narrow
 
 

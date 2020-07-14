@@ -63,6 +63,10 @@ function getname(method::JMethod)
 end
 
 """
+"""
+getname(field::JField) = jcall(field, "getName", JString, ())
+
+"""
 ```
 listmethods(obj::JavaObject)
 ```
@@ -124,6 +128,29 @@ function getreturntype(method::JMethod)
 end
 
 """
+gettype(field::JField)
+
+Get type of field
+"""
+gettype(field::JField) = jcall(field, "getType", JClass, ())
+
+"""
+```
+listfields(obj::JavaObject)
+```
+List the fields that are available on the java object passed.
+"""
+listfields(cls::AbstractString) = listfields(classforname(cls))
+listfields(cls::Type{JavaObject{C}}) where C = listfields(classforname(string(C)))
+listfields(cls::JClass) = jcall(cls, "getFields", Vector{JField}, ())
+listfields(obj::JavaObject) = listfields(getclass(obj))
+
+function listfields(cls::Union{JavaObject{C}, Type{JavaObject{C}}}, name::AbstractString) where C
+    allfields = listfields(cls)
+    filter(f -> getname(f) == name, allfields)
+end
+
+"""
 ```
 getparametertypes(method::JMethod)
 ```
@@ -145,6 +172,12 @@ function Base.show(io::IO, method::JMethod)
     argtypes = [getname(c) for c in getparametertypes(method)]
     argtypestr = join(argtypes, ", ")
     print(io, "$rettype $name($argtypestr)")
+end
+
+function Base.show(io::IO, field::JField)
+    name = getname(field)
+    fieldtype = getname(gettype(field))
+    print(io, "$fieldtype $name")
 end
 
 
