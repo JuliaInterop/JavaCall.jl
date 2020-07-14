@@ -230,16 +230,16 @@ const JULIA_COPY_STACKS_ON_WINDOWS_ERROR = JavaCallError(
 isroottask() = Base.roottask === Base.current_task()
 @static if Sys.iswindows()
     isgoodenv() = ! JULIA_COPY_STACKS
-    assertroottask_or_goodenv() = isgoodenv() ? nothing : throw(JULIA_COPY_STACKS_ON_WINDOWS_ERROR)
+    assertroottask_or_goodenv() = isgoodenv() ? true : throw(JULIA_COPY_STACKS_ON_WINDOWS_ERROR)
 else
     isgoodenv() = JULIA_COPY_STACKS || isroottask()
-    assertroottask_or_goodenv() = isgoodenv() ? nothing : throw(ROOT_TASK_ERROR)
+    assertroottask_or_goodenv() = isgoodenv() ? true : throw(ROOT_TASK_ERROR)
 end
 
 isloaded() = JNI.is_jni_loaded() && JNI.is_env_loaded()
 
-assertloaded() = isloaded() ? nothing : throw(JavaCallError("JVM not initialised. Please run init()"))
-assertnotloaded() = isloaded() ? throw(JavaCallError("JVM already initialised")) : nothing
+assertloaded() = isloaded() ? true : throw(JavaCallError("JVM not initialised. Please run init()"))
+assertnotloaded() = isloaded() ? throw(JavaCallError("JVM already initialised")) : true
 
 """
     JavaCall.init(opts::Array{String,1})
