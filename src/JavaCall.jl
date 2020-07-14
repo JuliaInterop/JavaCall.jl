@@ -9,9 +9,10 @@ end
 
 export JavaObject, JavaMetaClass,
        jint, jlong, jbyte, jboolean, jchar, jshort, jfloat, jdouble,
-       JObject, JClass, JMethod, JString,
+       JObject, JClass, JMethod, JConstructor, JField, JString,
        @jimport, jcall, jfield, isnull,
        getname, getclass, listmethods, getreturntype, getparametertypes, classforname,
+       listfields, gettype,
        narrow
 
 # using Compat, Compat.Dates

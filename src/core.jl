@@ -157,9 +157,13 @@ isnull(obj::JavaMetaClass) = Ptr(obj) == C_NULL
 const JClass = JavaObject{Symbol("java.lang.Class")}
 const JObject = JavaObject{Symbol("java.lang.Object")}
 const JMethod = JavaObject{Symbol("java.lang.reflect.Method")}
+const JConstructor = JavaObject{Symbol("java.lang.reflect.Constructor")}
+const JField = JavaObject{Symbol("java.lang.reflect.Field")}
 const JThread = JavaObject{Symbol("java.lang.Thread")}
 const JClassLoader = JavaObject{Symbol("java.lang.ClassLoader")}
 const JString = JavaObject{Symbol("java.lang.String")}
+
+#JavaObject(ptr::Ptr{Nothing}) = ptr == C_NULL ? JavaObject(ptr) : JavaObject{Symbol(getclassname(getclass(ptr)))}(ptr)
 
 function JString(str::AbstractString)
     jstring = JNI.NewStringUTF(String(str))
@@ -345,6 +349,7 @@ metaclass(::Type{JavaObject{T}}) where {T} = metaclass(T)
 metaclass(::JavaObject{T}) where {T} = metaclass(T)
 
 javaclassname(class::Symbol) = replace(string(class), "."=>"/")
+javaclassname(class::AbstractString) = replace(class, "."=>"/")
 
 function geterror(allow=false)
     isexception = JNI.ExceptionCheck()

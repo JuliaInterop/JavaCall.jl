@@ -3,6 +3,26 @@ convert(::Type{Ptr{Nothing}}, obj::JavaObject{T}) where T = Ptr(obj)
 convert(::Type{JString}, str::AbstractString) = JString(str)
 convert(::Type{JObject}, str::AbstractString) = convert(JObject, JString(str))
 
+# From JProxy
+convert(::Type{AbstractString}, str::JString) = unsafe_string(str)
+convert(::Type{JavaObject{Symbol("java.lang.Double")}}, n::Real) = jnew(Symbol("java.lang.Double"), (jdouble,), Float64(n))
+convert(::Type{JavaObject{Symbol("java.lang.Float")}}, n::Real) = jnew(Symbol("java.lang.Float"), (jfloat,), Float32(n))
+convert(::Type{JavaObject{Symbol("java.lang.Long")}}, n::Real) = jnew(Symbol("java.lang.Long"), (jlong,), Int64(n))
+convert(::Type{JavaObject{Symbol("java.lang.Integer")}}, n::Real) = jnew(Symbol("java.lang.Integer"), (jint,), Int32(n))
+convert(::Type{JavaObject{Symbol("java.lang.Short")}}, n::Real) = jnew(Symbol("java.lang.Short"), (jshort,), Int16(n))
+convert(::Type{JavaObject{Symbol("java.lang.Byte")}}, n::Real) = jnew(Symbol("java.lang.Byte"), (jbyte,), Int8(n))
+convert(::Type{JavaObject{Symbol("java.lang.Character")}}, n::Real) = jnew(Symbol("java.lang.Character"), (jchar,), Char(n))
+convert(::Type{JavaObject{:int}}, n) = convert(jint, n)
+convert(::Type{JavaObject{:long}}, n) = convert(jlong, n)
+convert(::Type{JavaObject{:byte}}, n) = convert(jbyte, n)
+convert(::Type{JavaObject{:boolean}}, n) = convert(jboolean, n)
+convert(::Type{JavaObject{:char}}, n) = convert(jchar, n)
+convert(::Type{JavaObject{:short}}, n) = convert(jshort, n)
+convert(::Type{JavaObject{:float}}, n) = convert(jfloat, n)
+convert(::Type{JavaObject{:double}}, n) = convert(jdouble, n)
+convert(::Type{JavaObject{:void}}, n) = convert(jvoid, n)
+convert(::Type{JavaObject{T}}, ::Nothing) where T = jnull
+
 #Cast java object from S to T . Needed for polymorphic calls
 function convert(::Type{JavaObject{T}}, obj::JavaObject{S}) where {T,S}
     if isConvertible(T, S)   #Safe static cast
@@ -91,8 +111,8 @@ end
 function convert_arg(argtype::Type{Array{T,1}}, arg) where T<:JavaObject
     carg = convert(argtype, arg)
     sz = length(carg)
-    init = carg[1]
-    arrayptr = JNI.NewObjectArray(sz, Ptr(metaclass(T)), Ptr(init))
+    init = sz == 0 ? C_NULL : Ptr(carg[1]) 
+    arrayptr = JNI.NewObjectArray(sz, Ptr(metaclass(T)), init)
     arrayptr === C_NULL && geterror()
     for i=2:sz
         JNI.SetObjectArrayElement(arrayptr, i-1, Ptr(carg[i]))
@@ -259,13 +279,15 @@ function convert(::Type{@jimport(java.util.List)}, x::Vector, V::Type{JavaObject
 end
 
 # Convert a reference to a java.lang.String into a Julia string. Copies the underlying byte buffer
-function unsafe_string(jstr::JString)  #jstr must be a jstring obtained via a JNI call
-    if isnull(jstr); return ""; end #Return empty string to keep type stability. But this is questionable
+unsafe_string(jstr::JString) = unsafe_string(Ptr(jstr))  #jstr must be a jstring obtained via a JNI call
+
+function unsafe_string(jstr::Ptr{Nothing})  #jstr must be a jstring obtained via a JNI call
+    if jstr == C_NULL; return ""; end #Return empty string to keep type stability. But this is questionable
     pIsCopy = Array{jboolean}(undef, 1)
     #buf::Ptr{UInt8} = JNI.GetStringUTFChars(Ptr(jstr), pIsCopy)
-    buf = JNI.GetStringUTFChars(Ptr(jstr), pIsCopy)
+    buf = JNI.GetStringUTFChars(jstr, pIsCopy)
     s = unsafe_string(buf)
-    JNI.ReleaseStringUTFChars(Ptr(jstr), buf)
+    JNI.ReleaseStringUTFChars(jstr, buf)
     return s
 end
 
