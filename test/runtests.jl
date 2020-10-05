@@ -30,6 +30,7 @@ JAVACALL_FORCE_ASYNC_TEST = get(ENV,"JAVACALL_FORCE_ASYNC_TEST","") ∈ ("1","ye
 end
 
 System = @jimport java.lang.System
+System_out = jfield(System, "out", @jimport java.io.PrintStream )
 @info "Java Version: ", jcall(System, "getProperty", JString, (JString,), "java.version")
 
 @testset "unsafe_strings_1" begin
@@ -96,6 +97,17 @@ end
     H=@jimport java.util.HashMap
     a=jcall(T, "testNull", H, ())
     @test_throws ErrorException jcall(a, "toString", JString, ())
+
+    jlist = @jimport java.util.ArrayList
+    @test jcall( jlist(), "add", jboolean, (JObject,), JObject(C_NULL)) === 0x01
+    @test jcall( jlist(), "add", jboolean, (JObject,), JObject(JavaCall.J_NULL)) === 0x01
+    @test jcall( jlist(), "add", jboolean, (JObject,), nothing) === 0x01
+    @test jcall( System_out , "print", Nothing , (JObject,), JObject(C_NULL)) === nothing
+    @test jcall( System_out , "print", Nothing , (JObject,), JObject(JavaCall.J_NULL)) === nothing
+    @test jcall( System_out , "print", Nothing , (JObject,), nothing) === nothing
+    @test jcall( System_out , "print", Nothing , (JString,), JString(C_NULL)) === nothing
+    @test jcall( System_out , "print", Nothing , (JString,), JString(JavaCall.J_NULL)) === nothing
+    @test jcall( System_out , "print", Nothing , (JString,), nothing) === nothing
 end
 
 @testset "arrays_1" begin

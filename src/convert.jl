@@ -21,7 +21,7 @@ convert(::Type{JavaObject{:short}}, n) = convert(jshort, n)
 convert(::Type{JavaObject{:float}}, n) = convert(jfloat, n)
 convert(::Type{JavaObject{:double}}, n) = convert(jdouble, n)
 convert(::Type{JavaObject{:void}}, n) = convert(jvoid, n)
-convert(::Type{JavaObject{T}}, ::Nothing) where T = jnull
+convert(o::Type{JavaObject{T}}, ::Nothing) where T = o(J_NULL)
 
 #Cast java object from S to T . Needed for polymorphic calls
 function convert(::Type{JavaObject{T}}, obj::JavaObject{S}) where {T,S}
