@@ -1,12 +1,20 @@
 # JavaCall
 
-[![Build Status](https://travis-ci.org/JuliaInterop/JavaCall.jl.png)](https://travis-ci.org/JuliaInterop/JavaCall.jl)
+[![Build Statusi v0.7](https://travis-ci.com/JuliaInterop/JavaCall.jl.png?branch=v0.7)](https://travis-ci.com/github/JuliaInterop/JavaCall.jl)
+[![Build Status master](https://travis-ci.com/JuliaInterop/JavaCall.jl.svg)](https://travis-ci.com/github/JuliaInterop/JavaCall.jl)
 [![Build status](https://ci.appveyor.com/api/projects/status/qeu6ul9o9s6t5tiw?svg=true)](https://ci.appveyor.com/project/aviks/javacall-jl-6c24s)
 
 
 Call Java programs from Julia.
 
+## Documentation
+
 Documentation is available at http://juliainterop.github.io/JavaCall.jl
+
+## Versions
+
+* 0.7 branch is currently being maintained for bug fixes only
+* master branch is currently proposed to be v0.8.0
 
 ## Non-Windows Operating Systems
 
