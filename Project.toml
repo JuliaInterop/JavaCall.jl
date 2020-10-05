@@ -1,6 +1,6 @@
 name = "JavaCall"
 uuid = "494afd89-becb-516b-aafa-70d2670c0337"
-version = "0.7.5"
+version = "0.7.6"
 
 [deps]
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"

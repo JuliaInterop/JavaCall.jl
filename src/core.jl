@@ -52,6 +52,7 @@ JavaGlobalRef(ref::JavaRef) = JavaGlobalRef(JNI.NewGlobalRef(Ptr(ref)))
 # _deleteref does local/global reference deletion without null or state checking
 _deleteref(ref::JavaLocalRef ) = JNI.DeleteLocalRef( Ptr(ref))
 _deleteref(ref::JavaGlobalRef) = JNI.DeleteGlobalRef(Ptr(ref))
+_deleteref(ref::JavaNullRef) = nothing
 
 """
     deleteref deletes a JavaRef using either JNI.DeleteLocalRef or JNI.DeleteGlobalRef
