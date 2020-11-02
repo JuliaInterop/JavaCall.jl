@@ -45,6 +45,7 @@ branches:
   only:
     - master
     - zot
+    - v0.7
     - /release-.*/
 
 notifications:

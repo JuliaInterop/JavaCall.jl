@@ -52,6 +52,7 @@ JavaGlobalRef(ref::JavaRef) = JavaGlobalRef(JNI.NewGlobalRef(Ptr(ref)))
 # _deleteref does local/global reference deletion without null or state checking
 _deleteref(ref::JavaLocalRef ) = JNI.DeleteLocalRef( Ptr(ref))
 _deleteref(ref::JavaGlobalRef) = JNI.DeleteGlobalRef(Ptr(ref))
+_deleteref(ref::JavaNullRef) = nothing
 
 """
     deleteref deletes a JavaRef using either JNI.DeleteLocalRef or JNI.DeleteGlobalRef
@@ -201,9 +202,13 @@ macro jimport(class::AbstractString)
     _jimport(class)
 end
 
+jimport(juliaclass::Symbol) = juliaclass == :void ? Nothing : JavaObject{juliaclass}
+jimport(juliaclass::String) = jimport(Symbol(juliaclass))
+jimport(juliaclass::JClass) = jimport(getname(juliaclass))
+
 
 function jnew(T::Symbol, argtypes::Tuple, args...)
-    assertroottask_or_goodenv()
+    assertroottask_or_goodenv() && assertloaded()
     sig = method_signature(Nothing, argtypes...)
     jmethodId = JNI.GetMethodID(Ptr(metaclass(T)), String("<init>"), sig)
     if jmethodId == C_NULL
@@ -215,35 +220,76 @@ end
 # Call static methods
 function jcall(typ::Type{JavaObject{T}}, method::AbstractString, rettype::Type, argtypes::Tuple,
                args... ) where T
-    assertroottask_or_goodenv()
+    assertroottask_or_goodenv() && assertloaded()
     sig = method_signature(rettype, argtypes...)
     jmethodId = JNI.GetStaticMethodID(Ptr(metaclass(T)), String(method), sig)
     jmethodId==C_NULL && geterror(true)
     _jcall(metaclass(T), jmethodId, C_NULL, rettype, argtypes, args...)
 end
 
+function jcall(typ::Type{JavaObject{T}}, method::JMethod, args...) where T
+    assertroottask_or_goodenv() && assertloaded()
+    jmethodId = JNI.FromReflectedMethod(method)
+    rettype = jimport(getreturntype(method))
+    argtypes = Tuple(jimport.(getparametertypes(method)))
+    jmethodId==C_NULL && geterror(true)
+    _jcall(metaclass(T), jmethodId, C_NULL, rettype, argtypes, args...)
+end
+
 # Call instance methods
 function jcall(obj::JavaObject, method::AbstractString, rettype::Type, argtypes::Tuple, args... )
-    assertroottask_or_goodenv()
+    assertroottask_or_goodenv() && assertloaded()
     sig = method_signature(rettype, argtypes...)
     jmethodId = JNI.GetMethodID(Ptr(metaclass(obj)), String(method), sig)
     jmethodId==C_NULL && geterror(true)
     _jcall(obj, jmethodId, C_NULL, rettype,  argtypes, args...)
 end
 
+function jcall(obj::JavaObject, method::JMethod, args... )
+    assertroottask_or_goodenv() && assertloaded()
+    jmethodId = JNI.FromReflectedMethod(method)
+    rettype = jimport(getreturntype(method))
+    argtypes = Tuple(jimport.(getparametertypes(method)))
+    jmethodId==C_NULL && geterror(true)
+    _jcall(obj, jmethodId, C_NULL, rettype,  argtypes, args...)
+end
+
+# JMethod invoke
+(m::JMethod)(obj, args...) = jcall(obj, m, args...)
+
+
 function jfield(typ::Type{JavaObject{T}}, field::AbstractString, fieldType::Type) where T
-    assertroottask_or_goodenv()
+    assertroottask_or_goodenv() && assertloaded()
     jfieldID  = JNI.GetStaticFieldID(Ptr(metaclass(T)), String(field), signature(fieldType))
     jfieldID==C_NULL && geterror(true)
     _jfield(metaclass(T), jfieldID, fieldType)
 end
 
+function jfield(obj::Type{JavaObject{T}}, field::JField) where T
+    assertroottask_or_goodenv() && assertloaded()
+    fieldType = jimport(gettype(field))
+    jfieldID = JNI.FromReflectedField(field)
+    jfieldID==C_NULL && geterror(true)
+    _jfield(metaclass(T), jfieldID, fieldType)
+end
+
 function jfield(obj::JavaObject, field::AbstractString, fieldType::Type)
-    assertroottask_or_goodenv()
+    assertroottask_or_goodenv() && assertloaded()
     jfieldID  = JNI.GetFieldID(Ptr(metaclass(obj)), String(field), signature(fieldType))
     jfieldID==C_NULL && geterror(true)
     _jfield(obj, jfieldID, fieldType)
 end
+
+function jfield(obj::JavaObject, field::JField)
+    assertroottask_or_goodenv() && assertloaded()
+    fieldType = jimport(gettype(field))
+    jfieldID = JNI.FromReflectedField(field)
+    jfieldID==C_NULL && geterror(true)
+    _jfield(obj, jfieldID, fieldType)
+end
+
+# JField invoke
+(f::JField)(obj) = jfield(obj, f)
 
 for (x, y, z) in [(:jboolean, :(JNI.GetBooleanField), :(JNI.GetStaticBooleanField)),
                   (:jchar,    :(JNI.GetCharField),    :(JNI.GetStaticCharField))   ,
