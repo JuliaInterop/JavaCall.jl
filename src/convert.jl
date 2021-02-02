@@ -139,6 +139,7 @@ for (x, y, z) in [(:jboolean, :(JNI.GetBooleanArrayElements), :(JNI.ReleaseBoole
             jl_arr::Array = unsafe_wrap(Array, arr, Int(sz))
             jl_arr = deepcopy(jl_arr)
             $z(result, arr, Int32(0))
+            JNI.DeleteLocalRef(result)
             return jl_arr
         end
     end
