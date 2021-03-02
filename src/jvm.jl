@@ -6,7 +6,7 @@ struct JavaCallError <: Exception
 end
 
 function javahome_winreg()
-    keys = ["SOFTWARE\\JavaSoft\\Java Runtime Environment", "SOFTWARE\\JavaSoft\\Java Development Kit", "SOFTWARE\\JavaSoft\\JDK"]
+    keys = ["SOFTWARE\\JavaSoft\\Java Runtime Environment", "SOFTWARE\\JavaSoft\\Java Development Kit", "SOFTWARE\\JavaSoft\\JRE", "SOFTWARE\\JavaSoft\\JDK"]
 
     for key in keys
         try
