@@ -202,12 +202,38 @@ macro jimport(class::AbstractString)
     _jimport(class)
 end
 
-jimport(juliaclass::Symbol) = juliaclass == :void ? Nothing : JavaObject{juliaclass}
-jimport(juliaclass::String) = jimport(Symbol(juliaclass))
-jimport(juliaclass::JClass) = jimport(getname(juliaclass))
+const primitive_names_to_types = Dict(
+    :boolean => jboolean,
+    :byte    => jbyte,
+    :char    => jchar,
+    :short   => jshort,
+    :int     => jint,
+    :long    => jlong,
+    :float   => jfloat,
+    :double  => jdouble,
+    :void    => jvoid
+)
+jimport(juliaclass::Symbol) = juliaclass == :void ? Nothing :
+    haskey(primitive_names_to_types, juliaclass) ? jimport(juliaclass, Val(true), Val(false)) : JavaObject{juliaclass}
+jimport(juliaclass::Symbol, isprimitive::Val{false}, isarray::Val{false}) = jimport(juliaclass)
+jimport(juliaclass::Symbol, isprimitive::Val{true},  isarray::Val{false}) = primitive_names_to_types[juliaclass]
 
+jimport(juliaclass::String, args...) = isarray(juliaclass) ? Vector{ jimport(Symbol(juliaclass[1:end-2])) } : jimport(Symbol(juliaclass), args...)
 
-function jnew(T::Symbol, argtypes::Tuple, args...)
+function jimport(juliaclass::JClass)
+    jimport(juliaclass, Val(isprimitive(juliaclass)), Val(isarray(juliaclass)))
+end
+function jimport(juliaclass::JClass, isprimitive, isarray::Val{true})
+    elementType = jimport( jcall(juliaclass, "getComponentType", JClass) )
+    Vector{elementType}
+end
+jimport(juliaclass::JClass, isprimitive, isarray::Val{false}) = jimport(getname(juliaclass), isprimitive, isarray)
+
+isprimitive(juliaclass::JClass) = jcall(juliaclass, "isPrimitive", jboolean, ()) == 0x01
+isarray(juliaclass::JClass) = jcall(juliaclass, "isArray", jboolean, ()) == 0x01
+isarray(juliaclass::String) = endswith(juliaclass, "[]")
+
+function jnew(T::Symbol, argtypes::Tuple = () , args...)
     assertroottask_or_goodenv() && assertloaded()
     sig = method_signature(Nothing, argtypes...)
     jmethodId = JNI.GetMethodID(Ptr(metaclass(T)), String("<init>"), sig)
@@ -218,7 +244,7 @@ function jnew(T::Symbol, argtypes::Tuple, args...)
 end
 
 # Call static methods
-function jcall(typ::Type{JavaObject{T}}, method::AbstractString, rettype::Type, argtypes::Tuple,
+function jcall(typ::Type{JavaObject{T}}, method::AbstractString, rettype::Type, argtypes::Tuple = (),
                args... ) where T
     assertroottask_or_goodenv() && assertloaded()
     sig = method_signature(rettype, argtypes...)
@@ -237,7 +263,7 @@ function jcall(typ::Type{JavaObject{T}}, method::JMethod, args...) where T
 end
 
 # Call instance methods
-function jcall(obj::JavaObject, method::AbstractString, rettype::Type, argtypes::Tuple, args... )
+function jcall(obj::JavaObject, method::AbstractString, rettype::Type, argtypes::Tuple = (), args... )
     assertroottask_or_goodenv() && assertloaded()
     sig = method_signature(rettype, argtypes...)
     jmethodId = JNI.GetMethodID(Ptr(metaclass(obj)), String(method), sig)
@@ -328,7 +354,7 @@ for (x, y, z) in [(:jboolean, :(JNI.CallBooleanMethodA), :(JNI.CallStaticBoolean
                   (:jlong,    :(JNI.CallLongMethodA),    :(JNI.CallStaticLongMethodA))   ,
                   (:jfloat,   :(JNI.CallFloatMethodA),   :(JNI.CallStaticFloatMethodA))  ,
                   (:jdouble,  :(JNI.CallDoubleMethodA),  :(JNI.CallStaticDoubleMethodA)) ,
-                  (:Nothing,  :(JNI.CallVoidMethodA),    :(JNI.CallStaticVoidMethodA))   ]
+                  (:jvoid,    :(JNI.CallVoidMethodA),    :(JNI.CallStaticVoidMethodA))   ]
     m = quote
         function _jcall(obj, jmethodId::Ptr{Nothing}, callmethod::Ptr{Nothing}, rettype::Type{$(x)},
                         argtypes::Tuple, args...)
@@ -375,7 +401,7 @@ function _jcall(obj, jmethodId::Ptr{Nothing}, callmethod::Union{Function,Ptr{Not
 end
 
 
-global const _jmc_cache = Dict{Symbol, JavaMetaClass}()
+global const _jmc_cache = [ Dict{Symbol, JavaMetaClass}() ]
 
 function _metaclass(class::Symbol)
     jclass=javaclassname(class)
@@ -385,10 +411,11 @@ function _metaclass(class::Symbol)
 end
 
 function metaclass(class::Symbol)
-    if !haskey(_jmc_cache, class)
-        _jmc_cache[class] = _metaclass(class)
+    return _metaclass(class)
+    if !haskey(_jmc_cache[ Threads.threadid() ], class)
+        _jmc_cache[ Threads.threadid() ][class] = _metaclass(class)
     end
-    return _jmc_cache[class]
+    return _jmc_cache[ Threads.threadid() ][class]
 end
 
 metaclass(::Type{JavaObject{T}}) where {T} = metaclass(T)
@@ -455,7 +482,7 @@ function signature(arg::Type)
         return "F"
     elseif arg === jdouble
         return "D"
-    elseif arg === Nothing
+    elseif arg === jvoid
         return "V"
     elseif arg <: Array
         dims = "[" ^ ndims(arg)
