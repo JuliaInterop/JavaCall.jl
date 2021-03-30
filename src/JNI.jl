@@ -8,6 +8,7 @@ export JNINativeInterface, JNIEnv, JNIInvokeInterface, JavaVM
 export jint, jlong, jbyte
 # jni.h exports
 export jboolean, jchar, jshort, jfloat, jdouble, jsize, jprimitive
+export jvoid
 # constant export
 export JNI_TRUE, JNI_FALSE
 export JNI_VERSION_1_1, JNI_VERSION_1_2, JNI_VERSION_1_4, JNI_VERSION_1_6, JNI_VERSION_1_8
@@ -42,6 +43,8 @@ const jfloat = Cfloat
 const jdouble = Cdouble
 const jsize = jint
 jprimitive = Union{jboolean, jchar, jshort, jfloat, jdouble, jint, jlong}
+
+const jvoid = Nothing
 
 jobject = Ptr{Nothing}
 jclass = Ptr{Nothing}
