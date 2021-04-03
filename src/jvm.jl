@@ -42,10 +42,10 @@ function findjvm()
                     javapath = readlink(javapath)
                 end
                 javapath = dirname(javapath)
-                javapath = match(r"(.*)(/jre)+(/bin)+",javapath)[1]
+                javapath = match(r"(.*)((/jre/bin)|(/bin))+",javapath)[1]
                 push!(javahomes,javapath)
             catch err
-                @info "JavaCall could not determine javapath from `which java`"
+                @debug "JavaCall could not determine javapath from `which java`" err
             end
         end
     end
