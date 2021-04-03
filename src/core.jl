@@ -393,9 +393,11 @@ end
 
 metaclass(::Type{JavaObject{T}}) where {T} = metaclass(T)
 metaclass(::JavaObject{T}) where {T} = metaclass(T)
+metaclass(::Type{T}) where T <: AbstractVector = metaclass( Symbol( JavaCall.signature(T) ) )
 
 javaclassname(class::Symbol) = replace(string(class), "."=>"/")
 javaclassname(class::AbstractString) = replace(class, "."=>"/")
+javaclassname(::Type{T}) where T <: AbstractVector = JavaCall.signature(T)
 
 function geterror(allow=false)
     isexception = JNI.ExceptionCheck()
@@ -464,3 +466,5 @@ function signature(arg::Type)
 end
 
 signature(arg::Type{JavaObject{T}}) where {T} = string("L", javaclassname(T), ";")
+signature(arg::Type{JavaObject{T}}) where {T <: AbstractVector} = JavaCall.javaclassname(T)
+
