@@ -8,7 +8,7 @@ module JavaCall
 end
 
 export JavaObject, JavaMetaClass,
-       jint, jlong, jbyte, jboolean, jchar, jshort, jfloat, jdouble,
+       jint, jlong, jbyte, jboolean, jchar, jshort, jfloat, jdouble, jvoid,
        JObject, JClass, JMethod, JConstructor, JField, JString,
        @jimport, jcall, jfield, isnull,
        getname, getclass, listmethods, getreturntype, getparametertypes, classforname,
@@ -33,6 +33,7 @@ JULIA_COPY_STACKS = false
 
 include("JNI.jl")
 using .JNI
+import .JNI.Threads
 include("jvm.jl")
 include("core.jl")
 include("convert.jl")
@@ -54,6 +55,7 @@ function __init__()
                   "Calling the JVM may result in undefined behavior.")
         end
     end
+    Threads.resize_nthreads!(_jmc_cache)
 end
 
 
