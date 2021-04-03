@@ -33,6 +33,7 @@ JULIA_COPY_STACKS = false
 
 include("JNI.jl")
 using .JNI
+import .JNI.Threads
 include("jvm.jl")
 include("core.jl")
 include("convert.jl")

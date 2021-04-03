@@ -226,11 +226,16 @@ const ROOT_TASK_ERROR = JavaCallError(
 const JULIA_COPY_STACKS_ON_WINDOWS_ERROR = JavaCallError(
     "JULIA_COPY_STACKS should not be set on Windows.")
 
+const THREADID_NOT_ONE_WINDOWS_ERROR = JavaCallError(
+    "JavaCall must be used on Thread 1 only in Windows. Multithreading JavaCall is not supported on Windows."
+)
+
 # JavaCall must run on the root Task or JULIA_COPY_STACKS is enabled
 isroottask() = Base.roottask === Base.current_task()
 @static if Sys.iswindows()
-    isgoodenv() = ! JULIA_COPY_STACKS
-    assertroottask_or_goodenv() = isgoodenv() ? true : throw(JULIA_COPY_STACKS_ON_WINDOWS_ERROR)
+    isgoodenv() = ( ! JULIA_COPY_STACKS ) && Base.Threads.threadid() == 1
+    assertroottask_or_goodenv() = isgoodenv() ? true : Base.Threads.threadid() == 1 ?
+        throw(JULIA_COPY_STACKS_ON_WINDOWS_ERROR) : throw(THREADID_NOT_ONE_WINDOWS_ERROR)
 else
     isgoodenv() = JULIA_COPY_STACKS || isroottask()
     assertroottask_or_goodenv() = isgoodenv() ? true : throw(ROOT_TASK_ERROR)

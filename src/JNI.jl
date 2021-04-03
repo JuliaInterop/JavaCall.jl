@@ -16,6 +16,7 @@ export JNI_VERSION_1_1, JNI_VERSION_1_2, JNI_VERSION_1_4, JNI_VERSION_1_6, JNI_V
 export JNI_OK, JNI_ERR, JNI_EDETACHED, JNI_EVERSION, JNI_ENOMEM, JNI_EEXIST, JNI_EINV
 #export jnifunc
 
+include("Threads.jl")
 include("jnienv.jl")
 
 const jniref = Ref(JNINativeInterface())
