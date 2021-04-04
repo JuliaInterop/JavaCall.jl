@@ -65,6 +65,97 @@ function deleteref(x::JavaRef)
 end
 
 """
+    jlocalframe(f, [returntype]; [capacity = 16])
+    
+    Manages java local references by using JNI's PushLocalFrame and PopLocalFrame.
+    Only the local reference returned by f will be valid. Other local references
+    will be freed and available for garbage collection.
+
+    Specifying a `returntype` will allow for type stability. If `returntype` is
+    specified and is not `Nothing` or `Any`, it will also be passed to the function.
+
+    Capacity specifies the minimum number of local references that can be
+    created. See the [JNI documentation](
+    https://docs.oracle.com/en/java/javase/15/docs/specs/jni/functions.html#pushlocalframe
+    )
+    for further information.
+
+    # Example
+    ```
+    julia> jlocalframe() do
+               a = JObject() # Local reference created, will be GCed
+               println(a)
+               b = JObject() # Local reference returned
+               println(b)
+               b
+           end
+
+    julia> jlocalframe(JObject) do T # Specify returntype for type stability
+               a = T()
+               println(a)
+               b = T()
+               println(b)
+               b
+           end
+    
+    julia> jlocalframe(Nothing) do # Specify Nothing if you do want to return anything
+               a = JObject()
+               println(a)
+           end
+    ```
+"""
+function jlocalframe(f::Function, returntype::Type = Any; capacity = 16)
+    JNI.PushLocalFrame(jint(capacity))
+    result_ref = C_NULL
+    return_ref = JavaLocalRef(result_ref)
+    result = nothing
+    try
+        if returntype == Any
+            result = f()
+        else
+            result = f(returntype)
+        end
+        if isa(result, JavaObject)
+            result = Ptr{Nothing}(result)
+        end
+        if isa(result, Ptr{Nothing}) &&
+           JNI.GetObjectRefType(result) == JNI.JNILocalRefType
+            result_ref = result
+        end
+    catch err
+        rethrow(err)
+    finally
+        return_ref = JavaLocalRef( JNI.PopLocalFrame(result_ref) )
+    end
+
+    # Return
+    if returntype == Any # Not Type Stable
+        if !isnull(return_ref.ptr)
+            return narrow( JObject(return_ref) )
+        else
+            return result
+        end
+    elseif returntype <: JavaObject
+        return returntype(return_ref)
+    else
+        return result::returntype
+    end
+end
+
+# Closer to https://github.com/ahnlabb/BioformatsLoader.jl/commit/4d4e2d5decd87c8bfd2bfca2fdfbc4214b120977
+function jlocalframe(f::Function, returntype::Type{Nothing}; capacity = 16)
+    JNI.PushLocalFrame(jint(capacity))
+    try
+        f()
+    catch err
+        rethrow(err)
+    finally
+        JNI.PopLocalFrame(C_NULL)
+    end
+    return nothing
+end
+
+"""
     JavaMetaClass represents meta information about a Java class
 
     These are usually cached in _jmc_cache and are meant to live
@@ -104,6 +195,7 @@ mutable struct JavaObject{T} <: JNI.AbstractJavaRef
 end
 
 # JavaObject Construction
+JavaObject(ptr) = JObject(ptr)
 JavaObject(T, ptr) = JavaObject{T}(ptr)
 JavaObject{T}() where {T} = JavaObject{T}((),)
 JavaObject{T}(ptr::Ptr{Nothing}) where {T} = JavaObject{T}(JavaLocalRef(ptr))

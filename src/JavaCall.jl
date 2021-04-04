@@ -10,7 +10,8 @@ end
 export JavaObject, JavaMetaClass,
        jint, jlong, jbyte, jboolean, jchar, jshort, jfloat, jdouble, jvoid,
        JObject, JClass, JMethod, JConstructor, JField, JString,
-       @jimport, jcall, jfield, isnull,
+       JavaRef, JavaLocalRef, JavaGlobalRef, JavaNullRef,
+       @jimport, jcall, jfield, jlocalframe, isnull,
        getname, getclass, listmethods, getreturntype, getparametertypes, classforname,
        listfields, gettype,
        narrow

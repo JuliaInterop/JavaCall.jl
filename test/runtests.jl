@@ -290,6 +290,35 @@ end
     end
 end
 
+@testset "jlocalframe" begin
+    @test jlocalframe() do
+        JObject()
+    end isa JObject
+    @test jlocalframe() do 
+        5
+    end isa Int64
+    @test_throws ErrorException jlocalframe() do 
+        error("Error within jlocalframe f")
+    end
+
+    @test jlocalframe(JObject) do T
+        T()
+    end isa JObject
+    @test jlocalframe(UInt64) do T
+        T(6)
+    end isa UInt64
+    @test_throws ErrorException jlocalframe(JObject) do T
+        error("Error within jlocalframe f")
+    end
+
+    @test jlocalframe(Nothing) do 
+        JObject() 
+    end === nothing
+    @test_throws ErrorException jlocalframe(Nothing) do 
+        error("Error within jlocalframe f")
+    end
+end
+
 # Test downstream dependencies
 try
     using Pkg
