@@ -39,6 +39,7 @@ include("jvm.jl")
 include("core.jl")
 include("convert.jl")
 include("reflect.jl")
+include("jniarray.jl")
 
 Base.@deprecate_binding jnifunc JavaCall.JNI.jniref[]
 
