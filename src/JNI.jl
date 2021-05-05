@@ -154,9 +154,6 @@ function init_new_vm(libpath,opts)
     libjvm = load_libjvm(libpath)
     create = Libdl.dlsym(libjvm, :JNI_CreateJavaVM)
 	num_opts = length(opts)
-	for x in opts
-		println(typeof(x))
-	end
 	jopts = [JavaVMOption(pointer(x)) for x in opts]
     Threads.resize_nthreads!(ppenv)
     GC.@preserve jopts begin
