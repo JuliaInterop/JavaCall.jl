@@ -6,6 +6,7 @@ version = "0.8.0"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
+Taro = "61d0e4fa-4e73-5030-88a9-ae4c27b203dd"
 WinReg = "1b915085-20d7-51cf-bf83-8f477d6f5128"
 
 [compat]

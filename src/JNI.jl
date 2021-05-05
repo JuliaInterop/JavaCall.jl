@@ -113,10 +113,14 @@ struct JNIError <: Exception
     msg::String
 end
 
+Char=UInt8
+
 struct JavaVMOption
-    optionString::Ptr{UInt8}
+    optionString::Ptr{Char}
     extraInfo::Ptr{Nothing}
 end
+
+JavaVMOption(optionString::Ptr{Char}) = JavaVMOption(optionString, C_NULL)
 
 struct JavaVMInitArgs
     version::Cint
@@ -149,13 +153,16 @@ Initialize a new Java virtual machine.
 function init_new_vm(libpath,opts)
     libjvm = load_libjvm(libpath)
     create = Libdl.dlsym(libjvm, :JNI_CreateJavaVM)
-    opt = [JavaVMOption(pointer(x), C_NULL) for x in opts]
+	num_opts = length(opts)
+	for x in opts
+		println(typeof(x))
+	end
+	jopts = [JavaVMOption(pointer(x)) for x in opts]
     Threads.resize_nthreads!(ppenv)
-    GC.@preserve opt begin
-        vm_args = JavaVMInitArgs(JNI_VERSION_1_8, convert(Cint, length(opts)),
-                                 convert(Ptr{JavaVMOption}, pointer(opt)), JNI_TRUE)
-        res = ccall(create, Cint, (Ptr{Ptr{JavaVM}}, Ptr{Ptr{JNIEnv}}, Ptr{JavaVMInitArgs}), ppjvm, ppenv,
-                    Ref(vm_args))
+    GC.@preserve jopts begin
+        vm_args = JavaVMInitArgs(JNI_VERSION_1_8, convert(Cint, num_opts),
+                                 convert(Ptr{JavaVMOption}, pointer(jopts)), JNI_TRUE)
+        res = ccall(create, Cint, (Ptr{Ptr{JavaVM}}, Ptr{Ptr{JNIEnv}}, Ptr{JavaVMInitArgs}), ppjvm, ppenv, Ref(vm_args))
         res < 0 && throw(JNIError("Unable to initialise Java VM: $(res)"))
     end
     jvm = unsafe_load(ppjvm[])
