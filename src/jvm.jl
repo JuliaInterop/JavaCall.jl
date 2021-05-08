@@ -38,6 +38,8 @@ end
     end
 
     @static if Sys.isapple()
+        libfile = "libjvm.dylib"
+
         function libpathdirectories(java_home::AbstractString)::Vector{AbstractString}
             [
                 joinpath(java_home, "jre", "lib", "server"),
@@ -46,10 +48,12 @@ end
         end
 
         function libpathfromdirectory(directory::AbstractString)::Vector{AbstractString}
-            libpath = joinpath(directory,"libjvm.dylib")
+            libpath = joinpath(directory, libfile)
             return (isfile(libpath) ? [libpath] : [])
         end
     else
+        libfile = "libjvm.so"
+
         function libpathdirectories(java_home::AbstractString)::Vector{AbstractString}
             libpaths = []
             if Sys.WORD_SIZE==64
@@ -66,11 +70,13 @@ end
         end
 
         function libpathfromdirectory(directory::AbstractString)::Vector{AbstractString}
-            libpath = joinpath(directory,"libjvm.so")
+            libpath = joinpath(directory,libfile)
             return (isfile(libpath) ? [libpath] : [])
         end
     end
 else
+    libfile = "jvm.dll"
+
     function javahome_winreg()
         keys = ["SOFTWARE\\JavaSoft\\Java Runtime Environment", "SOFTWARE\\JavaSoft\\Java Development Kit", "SOFTWARE\\JavaSoft\\JRE", "SOFTWARE\\JavaSoft\\JDK"]
     
@@ -114,12 +120,7 @@ else
     end
 
     function libpathfromdirectory(directory::AbstractString)::Vector{AbstractString}
-        libpath = joinpath(directory,"libjvm.dylib")
-        return (isfile(libpath) ? [libpath] : [])
-    end
-
-    function libpathfromdirectory(directory::AbstractString)::Vector{AbstractString}
-        libpath = joinpath(directory,"jvm.dll")
+        libpath = joinpath(directory, libfile)
         if isfile(libpath)
             bindir = dirname(dirname(libpath))
             m = filter(x -> occursin(r"msvcr(?:.*).dll",x), readdir(bindir))
@@ -141,15 +142,15 @@ function findjvm()
             # Return only first path
             first
     catch err
-        errorMsg =
+        errormsg =
             [
-            "Cannot find java library libjvm.dylib\n",
+            "Cannot find java library "*libfile*"\n",
             "Search Path:"
             ];
         for path in possible_javahomes() |> l -> flatmap(libpathdirectories, l) |> l -> chain((pwd(),), l)
-            push!(errorMsg,"\n   $path")
+            push!(errormsg,"\n   $path")
         end
-        throw(JavaCallError(reduce(*,errorMsg)))
+        throw(JavaCallError(reduce(*,errormsg)))
     end
 end
 
