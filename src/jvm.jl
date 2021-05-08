@@ -1,3 +1,8 @@
+include("IteratorUtils.jl")
+
+using Base.Iterators
+using .IteratorUtils
+
 const JAVA_HOME_CANDIDATES = ["/usr/lib/jvm/default-java/",
                               "/usr/lib/jvm/default/"]
 
@@ -5,36 +10,12 @@ struct JavaCallError <: Exception
     msg::String
 end
 
-function javahome_winreg()
-    keys = ["SOFTWARE\\JavaSoft\\Java Runtime Environment", "SOFTWARE\\JavaSoft\\Java Development Kit", "SOFTWARE\\JavaSoft\\JRE", "SOFTWARE\\JavaSoft\\JDK"]
-
-    for key in keys
-        try
-            value = querykey(WinReg.HKEY_LOCAL_MACHINE, key, "CurrentVersion")
-            key *= "\\" * value
-            return querykey(WinReg.HKEY_LOCAL_MACHINE, key, "JavaHome")
-        catch
-            # Try the next value in the loop.
-        end
-    end
-
-    error("Cannot find an installation of Java in the Windows Registry. Please install a JRE/JDK, or set the JAVA_HOME environment variable if one is already installed.")
-end
-
-@static Sys.isunix() ? (global const libname = "libjvm") : (global const libname = "jvm")
-
-function findjvm()
-    javahomes = Any[]
-    libpaths = Any[]
-
-    if haskey(ENV, "JAVA_HOME")
-        push!(javahomes, ENV["JAVA_HOME"])
-    else
-        @static if Sys.iswindows()
-            ENV["JAVA_HOME"] = javahome_winreg()
+@static if Sys.isunix()
+    function possible_javahomes()
+        javahomes = Any[]
+        if haskey(ENV, "JAVA_HOME")
             push!(javahomes, ENV["JAVA_HOME"])
-        end
-        @static if Sys.isunix()
+        else
             # Find default javahome by checking location of the java command
             try
                 javapath = chomp(read(`which java`,String))
@@ -48,71 +29,130 @@ function findjvm()
                 @debug "JavaCall could not determine javapath from `which java`" err
             end
         end
-    end
-    isfile("/usr/libexec/java_home") && push!(javahomes, chomp(read(`/usr/libexec/java_home`, String)))
-
-    for fname ∈ JAVA_HOME_CANDIDATES
-        isdir(fname) && push!(javahomes, fname)
-    end
-
-    push!(libpaths, pwd())
-    for n in javahomes
-        @static if Sys.iswindows()
-            push!(libpaths, joinpath(n, "bin", "server"))
-            push!(libpaths, joinpath(n, "jre", "bin", "server"))
-            push!(libpaths, joinpath(n, "bin", "client"))
+        isfile("/usr/libexec/java_home") && push!(javahomes, chomp(read(`/usr/libexec/java_home`, String)))
+    
+        for fname ∈ JAVA_HOME_CANDIDATES
+            isdir(fname) && push!(javahomes, fname)
         end
-        @static if Sys.islinux()
+        javahomes
+    end
+
+    @static if Sys.isapple()
+        libfile = "libjvm.dylib"
+
+        function libpathdirectories(java_home::AbstractString)::Vector{AbstractString}
+            [
+                joinpath(java_home, "jre", "lib", "server"),
+                joinpath(java_home, "lib", "server")
+            ]
+        end
+
+        function libpathfromdirectory(directory::AbstractString)::Vector{AbstractString}
+            libpath = joinpath(directory, libfile)
+            return (isfile(libpath) ? [libpath] : [])
+        end
+    else
+        libfile = "libjvm.so"
+
+        function libpathdirectories(java_home::AbstractString)::Vector{AbstractString}
+            libpaths = []
             if Sys.WORD_SIZE==64
-                push!(libpaths, joinpath(n, "jre", "lib", "amd64", "server"))
-                push!(libpaths, joinpath(n, "lib", "amd64", "server"))
+                push!(libpaths, joinpath(java_home, "jre", "lib", "amd64", "server"))
+                push!(libpaths, joinpath(java_home, "lib", "amd64", "server"))
             elseif Sys.WORD_SIZE==32
-                push!(libpaths, joinpath(n, "jre", "lib", "i386", "server"))
+                push!(libpaths, joinpath(java_home, "jre", "lib", "i386", "server"))
 
-                push!(libpaths, joinpath(n, "lib", "i386", "server"))
+                push!(libpaths, joinpath(java_home, "lib", "i386", "server"))
+            end
+            push!(libpaths, joinpath(java_home, "jre", "lib", "server"))
+            push!(libpaths, joinpath(java_home, "lib", "server"))
+            libpaths
+        end
+
+        function libpathfromdirectory(directory::AbstractString)::Vector{AbstractString}
+            libpath = joinpath(directory,libfile)
+            return (isfile(libpath) ? [libpath] : [])
+        end
+    end
+else
+    libfile = "jvm.dll"
+
+    function javahome_winreg()
+        keys = ["SOFTWARE\\JavaSoft\\Java Runtime Environment", "SOFTWARE\\JavaSoft\\Java Development Kit", "SOFTWARE\\JavaSoft\\JRE", "SOFTWARE\\JavaSoft\\JDK"]
+    
+        for key in keys
+            try
+                value = querykey(WinReg.HKEY_LOCAL_MACHINE, key, "CurrentVersion")
+                key *= "\\" * value
+                return querykey(WinReg.HKEY_LOCAL_MACHINE, key, "JavaHome")
+            catch
+                # Try the next value in the loop.
             end
         end
-        push!(libpaths, joinpath(n, "jre", "lib", "server"))
-        push!(libpaths, joinpath(n, "lib", "server"))
+    
+        error("Cannot find an installation of Java in the Windows Registry. Please install a JRE/JDK, or set the JAVA_HOME environment variable if one is already installed.")
     end
 
-    ext = @static Sys.iswindows() ? "dll" : (@static Sys.isapple() ? "dylib" : "so")
-    ext = "."*ext
-
-    try
-        for n in libpaths
-            libpath = joinpath(n,libname*ext);
-            if isfile(libpath)
-                if Sys.iswindows()
-                    bindir = dirname(dirname(libpath))
-                    m = filter(x -> occursin(r"msvcr(?:.*).dll",x), readdir(bindir))
-                    if !isempty(m)
-                        return (joinpath(bindir,m[1]),libpath)
-                    end
-                end
-                return (libpath,)
-            end
+    function possible_javahomes()
+        javahomes = Any[]
+        if haskey(ENV, "JAVA_HOME")
+            push!(javahomes, ENV["JAVA_HOME"])
+        else
+            ENV["JAVA_HOME"] = javahome_winreg()
+            push!(javahomes, ENV["JAVA_HOME"])
         end
-    catch err
-        throw(err)
+        isfile("/usr/libexec/java_home") && push!(javahomes, chomp(read(`/usr/libexec/java_home`, String)))
+    
+        for fname ∈ JAVA_HOME_CANDIDATES
+            isdir(fname) && push!(javahomes, fname)
+        end
+        javahomes
     end
 
-    errorMsg =
+    function libpathdirectories(java_home::AbstractString)::Vector{AbstractString}
         [
-         "Cannot find java library $libname$ext\n",
-         "Search Path:"
-         ];
-    for path in libpaths
-        push!(errorMsg,"\n   $path")
+            push!(libpaths, joinpath(java_home, "bin", "server")),
+            push!(libpaths, joinpath(java_home, "jre", "bin", "server")),
+            push!(libpaths, joinpath(java_home, "bin", "client")),
+            push!(libpaths, joinpath(java_home, "jre", "lib", "server")),
+            push!(libpaths, joinpath(java_home, "lib", "server"))
+        ]
     end
-    throw(JavaCallError(reduce(*,errorMsg)))
+
+    function libpathfromdirectory(directory::AbstractString)::Vector{AbstractString}
+        libpath = joinpath(directory, libfile)
+        if isfile(libpath)
+            bindir = dirname(dirname(libpath))
+            m = filter(x -> occursin(r"msvcr(?:.*).dll",x), readdir(bindir))
+            if !isempty(m)
+                return [joinpath(bindir,m[1]),libpath]
+            end
+        end
+        return []
+    end
 end
 
-
-
-
-
-
+function findjvm()
+    try
+        return possible_javahomes() |> 
+            l -> flatmap(libpathdirectories, l) |> 
+            # Include pwd in directories to search for libpath
+            l -> chain((pwd(),), l) |>
+            l -> flatmap(libpathfromdirectory, l)  |>
+            # Return only first path
+            first
+    catch err
+        errormsg =
+            [
+            "Cannot find java library $(libfile)\n",
+            "Search Path:"
+            ];
+        for path in possible_javahomes() |> l -> flatmap(libpathdirectories, l) |> l -> chain((pwd(),), l)
+            push!(errormsg,"\n   $path")
+        end
+        throw(JavaCallError(reduce(*,errormsg)))
+    end
+end
 
 @static Sys.isunix() ? (const sep = ":") : nothing
 @static Sys.iswindows() ? (const sep = ";") : nothing
