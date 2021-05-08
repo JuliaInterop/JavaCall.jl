@@ -32,6 +32,12 @@ import Base: convert, unsafe_convert, unsafe_string, Ptr
 
 JULIA_COPY_STACKS = false
 
+include("initopts.jl")
+using .InitOptions
+
+export defaultopts, fromcurrentvm, forjavahome, setfromcurrentvm!, unsetfromcurrentvm!,
+       setjavahome!, unsetjavahome!, pushclasspath!, pushoptions!
+
 include("JNI.jl")
 using .JNI
 import .JNI.Threads
