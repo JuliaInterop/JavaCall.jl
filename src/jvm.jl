@@ -144,7 +144,7 @@ function findjvm()
     catch err
         errormsg =
             [
-            "Cannot find java library "*libfile*"\n",
+            "Cannot find java library $(libfile)\n",
             "Search Path:"
             ];
         for path in possible_javahomes() |> l -> flatmap(libpathdirectories, l) |> l -> chain((pwd(),), l)
