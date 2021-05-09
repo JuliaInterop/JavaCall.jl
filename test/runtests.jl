@@ -15,6 +15,10 @@ end
 JAVACALL_FORCE_ASYNC_INIT = get(ENV,"JAVACALL_FORCE_ASYNC_INIT","") ∈ ("1","yes")
 JAVACALL_FORCE_ASYNC_TEST = get(ENV,"JAVACALL_FORCE_ASYNC_TEST","") ∈ ("1","yes")
 
+include("setup.jl")
+
+include("initopts.jl")
+
 @testset "initialization" begin
     JavaCall.addClassPath("foo")
     JavaCall.addOpts("-Djava.class.path=bar")
