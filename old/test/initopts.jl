@@ -1,6 +1,4 @@
 @testset verbose = true "Test Init Opts" begin
-    using JavaCall
-    
     @testset "init defaultopts" begin
         opts = defaultopts()
         @test_false opts.fromcurrentvm

@@ -3,3 +3,4 @@
 .DS_Store
 Manifest.toml
 .jekyll-cache
+test/config.jl
