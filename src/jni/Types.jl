@@ -3,8 +3,7 @@ module Types
 export jint, jlong, jbyte, jboolean, jchar, jshort, jfloat, jdouble, jsize, jprimitive,
     jvoid, jobject, jclass, jthrowable, jweak, jmethodID, jfieldID, jstring, jarray,
     JNINativeMethod, jobjectArray, jbooleanArray, jbyteArray, jshortArray, jintArray,
-    jlongArray, jfloatArray, jdoubleArray, jcharArray, jvalue, jobjectRefType, 
-    AbstractJavaRef, PtrIsCopy, AnyString, jobject_arg, jobjectArray_arg
+    jlongArray, jfloatArray, jdoubleArray, jcharArray, jvalue, jobjectRefType
 
 # jni_md.h
 const jint = Cint
@@ -52,17 +51,4 @@ const jvalue = Int64
     JNIWeakGlobalRefType = 3
 end
 
-"""
-    AbstractJavaRef
-
-    Abstract type for jobject in jni.h
-    Must be convertible to a `Ptr{Nothing}` by `ccall` usually by overriding unsafe_convert.
-"""
-abstract type AbstractJavaRef end
-
-const PtrIsCopy = Union{Ptr{jboolean},Ref{jboolean},Array{jboolean,}}
-const AnyString = Union{AbstractString,Cstring,Ptr{UInt8}}
-const jobject_arg = Union{jobject,AbstractJavaRef}
-const jobjectArray_arg = Union{jobjectArray,AbstractJavaRef}
-    
 end
