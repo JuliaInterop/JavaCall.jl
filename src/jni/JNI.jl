@@ -61,7 +61,7 @@ function init_new_vm(libpath,opts)
     Threads.resize_nthreads!(jnienvptrs)
     GC.@preserve jvmptrref jnienvptrs jopts begin
         vm_args = JavaVMInitArgs(JNI_VERSION_1_8, jopts, JNI_TRUE)
-        res = @ccall $create(jvmptrref::Ptr{Ptr{JavaVM}}, jnienvptrs::Ptr{Ptr{JNIEnv}}, Ref(vm_args)::Ptr{JavaVMInitArgs})::Cint
+        res = @ccall $create(jvmptrref::Ref{Ptr{JavaVM}}, jnienvptrs::Ref{Ptr{JNIEnv}}, Ref(vm_args)::Ptr{JavaVMInitArgs})::Cint
         res < 0 && throw(JNIError("Unable to initialise Java VM: $(res)"))
     end
     jvm = unsafe_load(jvmptrref[])
