@@ -29,7 +29,7 @@ struct _jobject end             # struct _jobject;
 const jobject = Ptr{_jobject}   # typedef struct _jobject *jobject;
 const jclass = jobject          # typedef jobject jclass;
 const jthrowable = jobject      # typedef jobject jthrowable;
-const jstring = jobject         #  typedef jobject jstring;
+const jstring = jobject         # typedef jobject jstring;
 const jarray = jobject          # typedef jobject jarray;
 
 const jbooleanArray = jarray    # typedef jarray jbooleanArray;
