@@ -8,6 +8,7 @@ include("exports.jl")
 include("IteratorUtils.jl")
 include("InitOptions.jl")
 include("jni/JNI.jl")
+include("Signatures.jl")
 
 using .InitOptions
 end

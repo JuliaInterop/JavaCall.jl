@@ -1,6 +1,11 @@
 module JNI
 
-export init_new_vm, destroy_vm, is_jni_loaded, is_env_loaded, jclass
+export init_new_vm, destroy_vm, is_jni_loaded, is_env_loaded,
+    # Types.jl    
+    jint, jlong, jbyte, jboolean, jchar, jshort, jfloat, jdouble, jsize,
+    jvoid, jobject, jclass, jthrowable, jweak, jmethodID, jfieldID, jstring, jarray,
+    JNINativeMethod, jobjectArray, jbooleanArray, jbyteArray, jshortArray, jintArray,
+    jlongArray, jfloatArray, jdoubleArray, jcharArray, jvalue, jobjectRefType
 
 include("Threads.jl")
 include("Constants.jl")
