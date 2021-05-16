@@ -37,19 +37,7 @@
     end
 
     function newstring(vector::Vector{Char})
-        class = findclass("java/lang/String")
-
-        strlength = length(vector)
-        if strlength > 0
-            constructor = getmethodid(class, "<init>", "([C)V")
-            array = emptyarray(JNI.jchar, length(vector))
-            JNI.set_char_array_region(array, 0, length(vector), map(JNI.jchar, vector))
-            args = JNI.jvalue[array]
-        else
-            constructor = getmethodid(class, "<init>", "()V")
-            args = JNI.jvalue[]
-        end
-        newobject(class, constructor, args)
+        JNI.new_string(map(JNI.jchar, vector), length(vector))
     end
 
     @testset "Class operations" begin
