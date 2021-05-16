@@ -4,3 +4,8 @@
 Manifest.toml
 .jekyll-cache
 test/config.jl
+
+# Vagrant config file for the linux vm
+Vagrantfile
+/.vagrant
+provision_vm.sh

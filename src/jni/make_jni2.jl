@@ -20,7 +20,7 @@ ccall_arg_type(m; r=false) = ccall_arg_type(m.captures[1], m.captures[2], r=r)
 function decl_arg_type(t, s)
   if s == "*"
     if t == "char"
-      return "AnyString"
+      return "AbstractString"
     elseif t == "void"
       return "Ptr{Nothing}"
     elseif t == "JNIEnv"
@@ -32,9 +32,9 @@ function decl_arg_type(t, s)
   elseif t == "jsize" #|| t == "jint" || t == "jlong" || t == "jshort" || t == "jbyte"
     return Integer
   elseif t == "jobject"
-    return "jobject_arg"
+    return "jobject"
   elseif t == "jobjectArray"
-    return "jobjectArray_arg"
+    return "jobjectArray"
   end
 
   if t == "void"
@@ -71,7 +71,7 @@ end
 # julia_arg(m) = string(arg_name(m), "::", decl_arg_type(m))
 function julia_arg(m)
     if arg_name(m) == "isCopy"
-        "isCopy::PtrIsCopy"
+        "isCopy::Ptr{jboolean}"
     elseif arg_name(m) == "elems"
         string(arg_name(m), "::", "Ptr{$(m.captures[1])}") 
     else
@@ -130,7 +130,7 @@ for line in open(readlines, "Interfaces.jl", "r")
 
   # Commented out export command
   # print("#export $fname\n")
-  print("$(julia_fnname)($julia_args) =\n  ccall(jniinvokeinterfaceref[].$(fname), $rtype, ($arg_types,), $arg_names)\n\n")
+  print("$(julia_fnname)($julia_args) =\n  ccall(jninativeinterfaceref[].$(fname), $rtype, ($arg_types,), $arg_names)\n\n")
 end
 
 # println("end")

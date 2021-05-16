@@ -260,7 +260,7 @@ struct JNINativeInterface #struct JNINativeInterface_ {
 
     GetBooleanArrayRegion::Ptr{Nothing} # void ( *GetBooleanArrayRegion ) (JNIEnv *env, jbooleanArray array, jsize start, jsize l, jboolean *buf);
     GetByteArrayRegion::Ptr{Nothing} # void ( *GetByteArrayRegion) (JNIEnv *env, jbyteArray array, jsize start, jsize len, jbyte *buf);
-    vGetCharArrayRegion::Ptr{Nothing} # void ( *GetCharArrayRegion) (JNIEnv *env, jcharArray array, jsize start, jsize len, jchar *buf);
+    GetCharArrayRegion::Ptr{Nothing} # void ( *GetCharArrayRegion) (JNIEnv *env, jcharArray array, jsize start, jsize len, jchar *buf);
     GetShortArrayRegion::Ptr{Nothing} # void ( *GetShortArrayRegion ) (JNIEnv *env, jshortArray array, jsize start, jsize len, jshort *buf);
     GetIntArrayRegion::Ptr{Nothing} # void ( *GetIntArrayRegion ) (JNIEnv *env, jintArray array, jsize start, jsize len, jint *buf);
     GetLongArrayRegion::Ptr{Nothing} # void ( *GetLongArrayRegion) (JNIEnv *env, jlongArray array, jsize start, jsize len, jlong *buf);
