@@ -4,6 +4,42 @@
     @test JNI.is_jni_loaded()
     @test JNI.is_env_loaded()
 
+    function findclass(name::String)
+        class = JNI.find_class(name)
+        @test_not_cnull class
+        @test_isa class JNI.jclass
+        class
+    end
+    
+    function getmethodid(class::JNI.jclass, name::String, signature::String)::JNI.jmethodID
+        method = JNI.get_method_i_d(class, name, signature)
+        @test_not_cnull method
+        @test_isa method JNI.jmethodID
+        method
+    end
+
+    function emptyarray(::Type{JNI.jchar}, length::Int64)
+        array = JNI.new_char_array(length)
+        @test_not_cnull array
+        @test_isa array JNI.jcharArray
+        @test JNI.get_array_length(array) == length
+        array
+    end
+    
+    function newobject(
+            class::JNI.jclass, 
+            constructor::JNI.jmethodID,
+            args::Vector{JNI.jvalue})::JNI.jobject
+        object = JNI.new_object_a(class, constructor, args)
+        @test_not_cnull object
+        @test_isa object JNI.jobject
+        object
+    end
+
+    function newstring(vector::Vector{Char})
+        JNI.new_string(map(JNI.jchar, vector), length(vector))
+    end
+
     @testset "Class operations" begin
         @testset "Find class by name" begin
             for classname in ["java/lang/System", "[Ljava/lang/Object;", "Test", "Test\$TestInner"]
@@ -174,6 +210,54 @@
             object = JNI.new_object_a(clazz, constructor, JNI.jvalue[args])
             @test_not_cnull object
             @test_isa object JNI.jobject
+        end
+    end
+
+    @testset "Method call operations" begin
+        @testset "Call no parameters method" begin
+            class = findclass("java/lang/String")
+
+            constructor = getmethodid(class, "<init>", "()V")
+            
+            object = newobject(class, constructor, JNI.jvalue[])
+
+            method = getmethodid(class, "isEmpty", "()Z")
+            
+            ret = JNI.call_boolean_method_a(object, method, JNI.jvalue[])
+            @test_isa ret JNI.jboolean
+            @test ret == true
+        end
+
+        @testset "Call single parameter method" begin
+            hellostr = newstring(['h', 'e', 'l', 'l', 'o'])
+            substr = newstring(['l', 'l', 'o'])
+            
+            class = findclass("java/lang/String")
+            method = getmethodid(class, "endsWith", "(Ljava/lang/String;)Z")
+            
+            ret = JNI.call_boolean_method_a(hellostr, method, JNI.jvalue[substr])
+            @test_isa ret JNI.jboolean
+            @test ret == true
+        end
+
+        @testset "Call multiple parameters method" begin
+            original = newstring(['t', 'e', 's', 't', ' ', 'o', 'l', 'd'])
+            final = newstring(['t', 'e', 's', 't', ' ', 'n', 'e', 'w'])
+
+            target = newstring(['o', 'l', 'd'])
+            replacement = newstring(['n', 'e', 'w'])
+
+            strclass = findclass("java/lang/String")
+            replacemethod = getmethodid(strclass, "replace", "(Ljava/lang/CharSequence;Ljava/lang/CharSequence;)Ljava/lang/String;")
+        
+            replacedstr = JNI.call_object_method_a(original, replacemethod, JNI.jvalue[target, replacement])
+
+            objclass = findclass("java/lang/Object")
+            equalsmethod = getmethodid(objclass, "equals", "(Ljava/lang/Object;)Z")
+
+            ret = JNI.call_boolean_method_a(final, equalsmethod, JNI.jvalue[replacedstr])
+            @test_isa ret JNI.jboolean
+            @test ret == true
         end
     end
 
