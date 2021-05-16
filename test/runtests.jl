@@ -12,4 +12,8 @@ include("config.jl")
     # Test jni api
     @info "Testing JNI API"
     include("jni.jl")
+
+    # Test signatures
+    @info "Test signatures"
+    include("signatures.jl")
 end
