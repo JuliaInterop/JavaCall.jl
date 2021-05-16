@@ -2,8 +2,8 @@
     using JavaCall.Signatures
     using JavaCall.JNI
 
-    OBJECT_SYM = Symbol(:java, :., :lang, :., :Object)
-    STRING_SYM = Symbol(:java, :., :lang, :., :String)
+    OBJECT_SYM = Symbol("java.lang.Object")
+    STRING_SYM = Symbol("java.lang.String")
 
     @testset "Primitive from Types" begin
         @test signature(jboolean) == "Z"
