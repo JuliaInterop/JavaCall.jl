@@ -6,6 +6,7 @@ include("exports.jl")
 # Include Submodules
 # ------------------
 include("IteratorUtils.jl")
+include("CodeGeneration.jl")
 include("InitOptions.jl")
 include("jni/JNI.jl")
 include("Signatures.jl")

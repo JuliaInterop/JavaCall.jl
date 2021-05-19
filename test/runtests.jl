@@ -16,4 +16,8 @@ include("config.jl")
     # Test signatures
     @info "Test signatures"
     include("signatures.jl")
+
+    # Test code generation
+    @info "Test Code Generation"
+    include("codegeneration.jl")
 end
