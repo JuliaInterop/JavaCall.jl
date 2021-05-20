@@ -1,9 +1,4 @@
 @testset verbose = true "Test JNI API" begin
-    import JavaCall: JNI
-    JNI.init_new_vm(JAVA_LIBPATH, ["-Djava.class.path=$(@__DIR__)/java"])
-    @test JNI.is_jni_loaded()
-    @test JNI.is_env_loaded()
-
     function findclass(name::String)
         class = JNI.find_class(name)
         @test_not_cnull class
@@ -12,7 +7,7 @@
     end
     
     function getmethodid(class::JNI.jclass, name::String, signature::String)::JNI.jmethodID
-        method = JNI.get_method_i_d(class, name, signature)
+        method = JNI.get_method_id(class, name, signature)
         @test_not_cnull method
         @test_isa method JNI.jmethodID
         method
@@ -65,7 +60,7 @@
             jobjectclass = JNI.find_class("java/lang/Object")
             @test_not_cnull jobjectclass
             @test_isa jobjectclass JNI.jclass
-            jhashmethodid = JNI.get_method_i_d(jobjectclass, "hashCode", "()I")
+            jhashmethodid = JNI.get_method_id(jobjectclass, "hashCode", "()I")
             @test_not_cnull jhashmethodid
             @test_isa jhashmethodid JNI.jmethodID
         end
@@ -74,7 +69,7 @@
             jobjectclass = JNI.find_class("java/lang/Object")
             @test_not_cnull jobjectclass
             @test_isa jobjectclass JNI.jclass
-            jequalsmethodid = JNI.get_method_i_d(jobjectclass, "equals", "(Ljava/lang/Object;)Z")
+            jequalsmethodid = JNI.get_method_id(jobjectclass, "equals", "(Ljava/lang/Object;)Z")
             @test_not_cnull jequalsmethodid
             @test_isa jequalsmethodid JNI.jmethodID
         end
@@ -83,7 +78,7 @@
             jstringclass = JNI.find_class("java/lang/String")
             @test_not_cnull jstringclass
             @test_isa jstringclass JNI.jclass
-            jvalueofmethodid = JNI.get_method_i_d(jstringclass, "replace", "(Ljava/lang/CharSequence;Ljava/lang/CharSequence;)Ljava/lang/String;")
+            jvalueofmethodid = JNI.get_method_id(jstringclass, "replace", "(Ljava/lang/CharSequence;Ljava/lang/CharSequence;)Ljava/lang/String;")
             @test_not_cnull jvalueofmethodid
             @test_isa jvalueofmethodid JNI.jmethodID
         end
@@ -92,7 +87,7 @@
             jstringclass = JNI.find_class("java/lang/String")
             @test_not_cnull jstringclass
             @test_isa jstringclass JNI.jclass
-            jvalueofmethodid = JNI.get_static_method_i_d(jstringclass, "valueOf", "(F)Ljava/lang/String;")
+            jvalueofmethodid = JNI.get_static_method_id(jstringclass, "valueOf", "(F)Ljava/lang/String;")
             @test_not_cnull jvalueofmethodid
             @test_isa jvalueofmethodid JNI.jmethodID
         end
@@ -101,7 +96,7 @@
             jstringclass = JNI.find_class("java/lang/String")
             @test_not_cnull jstringclass
             @test_isa jstringclass JNI.jclass
-            jvalueofmethodid = JNI.get_static_method_i_d(jstringclass, "join", "(Ljava/lang/CharSequence;[Ljava/lang/CharSequence;)Ljava/lang/String;")
+            jvalueofmethodid = JNI.get_static_method_id(jstringclass, "join", "(Ljava/lang/CharSequence;[Ljava/lang/CharSequence;)Ljava/lang/String;")
             @test_not_cnull jvalueofmethodid
             @test_isa jvalueofmethodid JNI.jmethodID
         end
@@ -131,7 +126,7 @@
             @test_isa array JNI.jobjectArray
             @test JNI.get_array_length(array) == 4
 
-            constructor = JNI.get_method_i_d(clazz, "<init>", "()V")
+            constructor = JNI.get_method_id(clazz, "<init>", "()V")
             @test_not_cnull constructor
             @test_isa constructor JNI.jmethodID
 
@@ -161,7 +156,7 @@
             jstringclass = JNI.find_class("java/lang/String")
             @test_not_cnull jstringclass
             @test_isa jstringclass JNI.jclass
-            jconstructormethodid = JNI.get_method_i_d(jstringclass, "<init>", "()V")
+            jconstructormethodid = JNI.get_method_id(jstringclass, "<init>", "()V")
             @test_not_cnull jconstructormethodid
             @test_isa jconstructormethodid JNI.jmethodID
             jstringobject = JNI.new_object_a(jstringclass, jconstructormethodid, JNI.jvalue[])
@@ -173,7 +168,7 @@
             jintegerclass = JNI.find_class("java/lang/Integer")
             @test_not_cnull jintegerclass
             @test_isa jintegerclass JNI.jclass
-            jconstructormethodid = JNI.get_method_i_d(jintegerclass, "<init>", "(I)V")
+            jconstructormethodid = JNI.get_method_id(jintegerclass, "<init>", "(I)V")
             @test_not_cnull jconstructormethodid
             @test_isa jconstructormethodid JNI.jmethodID
             jintegerobject = JNI.new_object_a(jintegerclass, jconstructormethodid, JNI.jvalue[1])
@@ -185,7 +180,7 @@
             clazz = JNI.find_class("Constructors")
             @test_not_cnull clazz
             @test_isa clazz JNI.jclass
-            constructor = JNI.get_method_i_d(clazz, "<init>", "(III)V")
+            constructor = JNI.get_method_id(clazz, "<init>", "(III)V")
             @test_not_cnull constructor
             @test_isa constructor JNI.jmethodID
             object = JNI.new_object_a(clazz, constructor, JNI.jvalue[1, 2, 3])
@@ -198,7 +193,7 @@
             @test_not_cnull clazz
             @test_isa clazz JNI.jclass
 
-            constructor = JNI.get_method_i_d(clazz, "<init>", "([I)V")
+            constructor = JNI.get_method_id(clazz, "<init>", "([I)V")
             @test_not_cnull constructor
             @test_isa constructor JNI.jmethodID
 
@@ -260,8 +255,4 @@
             @test ret == true
         end
     end
-
-    JNI.destroy_vm()
-    @test_false JNI.is_jni_loaded()
-    @test_false JNI.is_env_loaded()
 end

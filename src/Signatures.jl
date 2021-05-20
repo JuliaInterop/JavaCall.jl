@@ -1,6 +1,6 @@
 module Signatures
 
-export signature, MethodSignature
+export searchname, signature, MethodSignature
 
 using JavaCall.JNI
 
@@ -9,7 +9,10 @@ struct MethodSignature
     parametertypes::Vector{Any}
 end
 
-fullyqualifiedname(name::String) = string("L", replace(name, "." => "/"), ";")
+searchname(name::String) = replace(name, "." => "/")
+searchname(name::Symbol) = searchname(string(name))
+
+fullyqualifiedname(name::String) = string("L", searchname(name), ";")
 
 signature(::Type{jboolean}) = "Z"
 signature(::Type{jbyte}) = "B"

@@ -1,4 +1,8 @@
 using Test
+import JavaCall: JNI
+JNI.init_new_vm(JAVA_LIBPATH, ["-Djava.class.path=$(@__DIR__)/java"])
+@test JNI.is_jni_loaded()
+@test JNI.is_env_loaded()
 
 macro test_false(expr)
     esc(:(@test !($expr)))

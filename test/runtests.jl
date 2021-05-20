@@ -1,8 +1,12 @@
-include("setup.jl")
 # Configuration file for test variables
 # Not synched to github as each environment can have different configurations
 # See baseconfig.jl to see the expected variables
 include("config.jl")
+
+# Setup initializes single VM used by the tests
+# Will be destroyed in teardown
+# Tests only include the JNI package and the jvm will be running
+include("setup.jl")
 
 @testset verbose=true "JavaCall" begin
     # Test init options
@@ -20,4 +24,10 @@ include("config.jl")
     # Test code generation
     @info "Test Code Generation"
     include("codegeneration.jl")
+
+    # Test reflection api
+    @info "Test Reflection API"
+    include("reflection.jl")
 end
+
+include("teardown.jl")
