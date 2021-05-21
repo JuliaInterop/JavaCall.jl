@@ -25,6 +25,10 @@ include("setup.jl")
     @info "Test Code Generation"
     include("codegeneration.jl")
 
+    # Test java lang
+    @info "Test Java Lang"
+    include("javalang.jl")
+
     # Test reflection api
     @info "Test Reflection API"
     include("reflection.jl")

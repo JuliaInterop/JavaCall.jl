@@ -5,4 +5,6 @@
 export 
 # Init Options
     defaultopts, fromcurrentvm, forjavahome, setfromcurrentvm!, unsetfromcurrentvm!,
-    setjavahome!, unsetjavahome!, pushclasspath!, pushoptions!
+    setjavahome!, unsetjavahome!, pushclasspath!, pushoptions!,
+# Java Lang
+    JObject, JString, new_string, equals
