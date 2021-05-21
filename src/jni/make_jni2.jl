@@ -82,9 +82,13 @@ end
 function to_julia_fnname(fn)::String
   #lowercase(fn)
   stringbuilder = IOBuffer()
+  inuppercase = false
   for c in fn
-    if isuppercase(c)
+    if !inuppercase && isuppercase(c)
       print(stringbuilder, '_')
+      inuppercase = true
+    elseif inuppercase && islowercase(c)
+      inuppercase = false
     end
     print(stringbuilder, lowercase(c))
   end

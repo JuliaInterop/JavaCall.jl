@@ -81,7 +81,7 @@ get_object_class(obj::jobject, penv=jnienvptrs[]) =
 is_instance_of(obj::jobject, clazz::jclass, penv=jnienvptrs[]) =
   ccall(jninativeinterfaceref[].IsInstanceOf, jboolean, (Ptr{JNIEnv}, jobject, jclass,), penv, obj, clazz)
 
-get_method_i_d(clazz::jclass, name::AbstractString, sig::AbstractString, penv=jnienvptrs[]) =
+get_method_id(clazz::jclass, name::AbstractString, sig::AbstractString, penv=jnienvptrs[]) =
   ccall(jninativeinterfaceref[].GetMethodID, jmethodID, (Ptr{JNIEnv}, jclass, Cstring, Cstring,), penv, clazz, name, sig)
 
 call_object_method_a(obj::jobject, methodID::jmethodID, args::Array{jvalue,1}, penv=jnienvptrs[]) =
@@ -144,7 +144,7 @@ call_nonvirtual_double_method_a(obj::jobject, clazz::jclass, methodID::jmethodID
 call_nonvirtual_void_method_a(obj::jobject, clazz::jclass, methodID::jmethodID, args::Array{jvalue,1}, penv=jnienvptrs[]) =
   ccall(jninativeinterfaceref[].CallNonvirtualVoidMethodA, Nothing, (Ptr{JNIEnv}, jobject, jclass, jmethodID, Ptr{jvalue},), penv, obj, clazz, methodID, args)
 
-get_field_i_d(clazz::jclass, name::AbstractString, sig::AbstractString, penv=jnienvptrs[]) =
+get_field_id(clazz::jclass, name::AbstractString, sig::AbstractString, penv=jnienvptrs[]) =
   ccall(jninativeinterfaceref[].GetFieldID, jfieldID, (Ptr{JNIEnv}, jclass, Cstring, Cstring,), penv, clazz, name, sig)
 
 get_object_field(obj::jobject, fieldID::jfieldID, penv=jnienvptrs[]) =
@@ -201,7 +201,7 @@ set_float_field(obj::jobject, fieldID::jfieldID, val::jfloat, penv=jnienvptrs[])
 set_double_field(obj::jobject, fieldID::jfieldID, val::jdouble, penv=jnienvptrs[]) =
   ccall(jninativeinterfaceref[].SetDoubleField, Nothing, (Ptr{JNIEnv}, jobject, jfieldID, jdouble,), penv, obj, fieldID, val)
 
-get_static_method_i_d(clazz::jclass, name::AbstractString, sig::AbstractString, penv=jnienvptrs[]) =
+get_static_method_id(clazz::jclass, name::AbstractString, sig::AbstractString, penv=jnienvptrs[]) =
   ccall(jninativeinterfaceref[].GetStaticMethodID, jmethodID, (Ptr{JNIEnv}, jclass, Cstring, Cstring,), penv, clazz, name, sig)
 
 call_static_object_method_a(clazz::jclass, methodID::jmethodID, args::Array{jvalue,1}, penv=jnienvptrs[]) =
@@ -234,7 +234,7 @@ call_static_double_method_a(clazz::jclass, methodID::jmethodID, args::Array{jval
 call_static_void_method_a(cls::jclass, methodID::jmethodID, args::Array{jvalue,1}, penv=jnienvptrs[]) =
   ccall(jninativeinterfaceref[].CallStaticVoidMethodA, Nothing, (Ptr{JNIEnv}, jclass, jmethodID, Ptr{jvalue},), penv, cls, methodID, args)
 
-get_static_field_i_d(clazz::jclass, name::AbstractString, sig::AbstractString, penv=jnienvptrs[]) =
+get_static_field_id(clazz::jclass, name::AbstractString, sig::AbstractString, penv=jnienvptrs[]) =
   ccall(jninativeinterfaceref[].GetStaticFieldID, jfieldID, (Ptr{JNIEnv}, jclass, Cstring, Cstring,), penv, clazz, name, sig)
 
 get_static_object_field(clazz::jclass, fieldID::jfieldID, penv=jnienvptrs[]) =
@@ -303,16 +303,16 @@ get_string_chars(str::jstring, isCopy::Ptr{jboolean}, penv=jnienvptrs[]) =
 release_string_chars(str::jstring, chars::Array{jchar,1}, penv=jnienvptrs[]) =
   ccall(jninativeinterfaceref[].ReleaseStringChars, Nothing, (Ptr{JNIEnv}, jstring, Ptr{jchar},), penv, str, chars)
 
-new_string_u_t_f(utf::AbstractString, penv=jnienvptrs[]) =
+new_string_utf(utf::AbstractString, penv=jnienvptrs[]) =
   ccall(jninativeinterfaceref[].NewStringUTF, jstring, (Ptr{JNIEnv}, Cstring,), penv, utf)
 
-get_string_u_t_f_length(str::jstring, penv=jnienvptrs[]) =
+get_string_utflength(str::jstring, penv=jnienvptrs[]) =
   ccall(jninativeinterfaceref[].GetStringUTFLength, jsize, (Ptr{JNIEnv}, jstring,), penv, str)
 
-get_string_u_t_f_chars(str::jstring, isCopy::Ptr{jboolean}, penv=jnienvptrs[]) =
+get_string_utfchars(str::jstring, isCopy::Ptr{jboolean}, penv=jnienvptrs[]) =
   ccall(jninativeinterfaceref[].GetStringUTFChars, Cstring, (Ptr{JNIEnv}, jstring, Ptr{jboolean},), penv, str, isCopy)
 
-release_string_u_t_f_chars(str::jstring, chars::AbstractString, penv=jnienvptrs[]) =
+release_string_utfchars(str::jstring, chars::AbstractString, penv=jnienvptrs[]) =
   ccall(jninativeinterfaceref[].ReleaseStringUTFChars, Nothing, (Ptr{JNIEnv}, jstring, Cstring,), penv, str, chars)
 
 get_array_length(array::jarray, penv=jnienvptrs[]) =
@@ -459,13 +459,13 @@ monitor_enter(obj::jobject, penv=jnienvptrs[]) =
 monitor_exit(obj::jobject, penv=jnienvptrs[]) =
   ccall(jninativeinterfaceref[].MonitorExit, jint, (Ptr{JNIEnv}, jobject,), penv, obj)
 
-get_java_v_m(vm::Array{JavaVM,1}, penv=jnienvptrs[]) =
+get_java_vm(vm::Array{JavaVM,1}, penv=jnienvptrs[]) =
   ccall(jninativeinterfaceref[].GetJavaVM, jint, (Ptr{JNIEnv}, Array{JavaVM,1},), penv, vm)
 
 get_string_region(str::jstring, start::Integer, len::Integer, buf::Array{jchar,1}, penv=jnienvptrs[]) =
   ccall(jninativeinterfaceref[].GetStringRegion, Nothing, (Ptr{JNIEnv}, jstring, jsize, jsize, Ptr{jchar},), penv, str, start, len, buf)
 
-get_string_u_t_f_region(str::jstring, start::Integer, len::Integer, buf::AbstractString, penv=jnienvptrs[]) =
+get_string_utfregion(str::jstring, start::Integer, len::Integer, buf::AbstractString, penv=jnienvptrs[]) =
   ccall(jninativeinterfaceref[].GetStringUTFRegion, Nothing, (Ptr{JNIEnv}, jstring, jsize, jsize, Cstring,), penv, str, start, len, buf)
 
 get_primitive_array_critical(array::jarray, isCopy::Ptr{jboolean}, penv=jnienvptrs[]) =

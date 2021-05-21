@@ -10,6 +10,7 @@ include("CodeGeneration.jl")
 include("InitOptions.jl")
 include("jni/JNI.jl")
 include("Signatures.jl")
+include("reflection/Reflection.jl")
 
 using .InitOptions
 end
