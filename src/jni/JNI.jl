@@ -5,7 +5,9 @@ export init_new_vm, destroy_vm, is_jni_loaded, is_env_loaded,
     jint, jlong, jbyte, jboolean, jchar, jshort, jfloat, jdouble, jsize,
     jvoid, jobject, jclass, jthrowable, jweak, jmethodID, jfieldID, jstring, jarray,
     JNINativeMethod, jobjectArray, jbooleanArray, jbyteArray, jshortArray, jintArray,
-    jlongArray, jfloatArray, jdoubleArray, jcharArray, jvalue, jobjectRefType
+    jlongArray, jfloatArray, jdoubleArray, jcharArray, jvalue, jobjectRefType,
+    # Constants.jl
+    JNI_FALSE, JNI_TRUE
 
 include("Threads.jl")
 include("Constants.jl")

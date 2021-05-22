@@ -35,31 +35,37 @@
 
     @testset "Find methods" begin
         methods = Reflection.classmethods(Symbol("java.lang.String"))
-        @test_not_cnull methods
-        @test_isa methods JNI.jobjectArray
+        @test length(methods) > 0
+        @test_isa methods Vector{Reflection.MethodDescriptor}
 
         found_getbytes = false
+        found_equals = false
+        found_format = false
 
-        getname_id = jni_getmethodid(
-            jni_findclass("java/lang/reflect/Method"),
-            "getName",
-            "()Ljava/lang/String;")
-        equals_id = jni_getmethodid(
-            jni_findclass("java/lang/String"),
-            "equals",
-            "(Ljava/lang/Object;)Z"
+        # byte[] getBytes()
+        getbytes = Reflection.MethodDescriptor("getBytes", Vector{JNI.jbyte}, [])
+        
+        # boolean equals(Object)
+        equals = Reflection.MethodDescriptor("equals", jboolean, [Symbol("java.lang.Object")])
+        
+        # static String format(String, Object...)
+        format = Reflection.MethodDescriptor(
+            "format", 
+            Symbol("java.lang.String"), 
+            [Symbol("java.lang.String"), Vector{Symbol("java.lang.Object")}]
         )
 
-        expected_name = jni_newstring(['g', 'e', 't', 'B', 'y', 't', 'e', 's'])
-
-        num_methods = JNI.get_array_length(methods)
-        for i in 1:num_methods
-            m = JNI.get_object_array_element(methods, i-1)
-            m_name = JNI.call_object_method_a(m, getname_id, JNI.jvalue[])
-            if JNI.call_boolean_method_a(m_name, equals_id, JNI.jvalue[expected_name]) == true
+        for m in methods
+            if getbytes == m
                 found_getbytes = true
+            elseif equals == m
+                found_equals = true
+            elseif format == m
+                found_format = true
             end
         end
         @test found_getbytes
+        @test found_equals
+        @test found_format
     end
 end

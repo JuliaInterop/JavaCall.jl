@@ -7,8 +7,7 @@ export JString, JObject, new_string, equals
 using JavaCall.JNI
 using JavaCall.Core
 using JavaCall.CodeGeneration
-
-convert(::Type{Bool}, x::jboolean) = (x == true)
+using JavaCall.Conversions
 
 # Replace by dynamic generation of JObject. Just to show that it is possible.
 eval(generateblock(
@@ -20,7 +19,7 @@ eval(generateblock(
         quote
             obj = convert(jobject, x)
             result = callinstancemethod(obj, :equals, jboolean, Any[Symbol("java.lang.Object")], convert(jobject, y))
-            convert(Bool, result)
+            Base.convert(Bool, result)
         end
     )
 ))

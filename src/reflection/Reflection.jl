@@ -4,7 +4,7 @@ export
     # Classes.jl
     findclass, findmetaclass,
     # Methods.jl
-    classmethods
+    classmethods, MethodDescriptor
 
 include("Classes.jl")
 include("Methods.jl")
