@@ -2,7 +2,7 @@ module Reflection
 
 export 
     # Classes.jl
-    findclass, findmetaclass,
+    findclass, ClassDescriptor,
     # Methods.jl
     classmethods, MethodDescriptor
 

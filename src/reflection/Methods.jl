@@ -9,14 +9,24 @@ using JavaCall.Core
 
 using JavaCall.Reflection: Classes
 
-# Struct to hold information aboud java methods
-# used to generate functions that call the jni
-# This should not be a replacement of java.lang.reflect.Method
-# as it should only store essential information
+#=
+Struct to hold information aboud java methods
+used to generate functions that call the jni
+This should not be a replacement of java.lang.reflect.Method
+as it should only store essential information
+
+name:       Name of the method
+
+rettype:    Descriptor for the return class (void methods also
+            have a descriptor with Nothing as the juliatype,
+            jvoid as the jni type and V signature)
+
+paramtypes: List of descriptors with the parameter types
+=#
 struct MethodDescriptor
     name::String
-    rettype::Any
-    paramtypes::Vector{Any}
+    rettype::Classes.ClassDescriptor
+    paramtypes::Vector{Classes.ClassDescriptor}
 end
 
 function Base.show(io::IO, m::MethodDescriptor)
@@ -24,7 +34,7 @@ function Base.show(io::IO, m::MethodDescriptor)
 end
 
 function Base.:(==)(x::MethodDescriptor, y::MethodDescriptor)
-    x.name == y.name && x.rettype == y.rettype && x.rettype == y.rettype 
+    x.name == y.name && x.rettype == y.rettype && x.paramtypes == y.paramtypes 
 end
 
 function descriptorfrommethod(method::jobject)
@@ -33,13 +43,13 @@ function descriptorfrommethod(method::jobject)
     paramtypes = callinstancemethod(method, :getParameterTypes, Vector{Symbol("java.lang.Class")}, [])
     MethodDescriptor(
         convert(String, name), 
-        Classes.juliatypefromclass(rettype),
-        map(Classes.juliatypefromclass, convert(Vector{jclass}, paramtypes)))
+        Classes.descriptorfromclass(rettype),
+        map(Classes.descriptorfromclass, convert(Vector{jclass}, paramtypes)))
 end
 
 function classmethods(classname::Symbol)
     array = convert(Vector{jobject}, callinstancemethod(
-        Classes.findmetaclass(classname), 
+        Classes.findclass(classname).jniclass, 
         :getMethods, 
         Vector{Symbol("java.lang.reflect.Method")}, 
         []))
