@@ -65,10 +65,10 @@
             "getChars",
             Reflection.ClassDescriptor(C_NULL, :Nothing, :jvoid, "V"),
             [
-                Reflection.ClassDescriptor(C_NULL, :Int64, :jint, "I"),
-                Reflection.ClassDescriptor(C_NULL, :Int64, :jint, "I"),
+                Reflection.ClassDescriptor(C_NULL, :Int32, :jint, "I"),
+                Reflection.ClassDescriptor(C_NULL, :Int32, :jint, "I"),
                 Reflection.ClassDescriptor(C_NULL, :(Vector{Char}), :jcharArray, "[C"),
-                Reflection.ClassDescriptor(C_NULL, :Int64, :jint, "I")
+                Reflection.ClassDescriptor(C_NULL, :Int32, :jint, "I")
             ]
         )
 

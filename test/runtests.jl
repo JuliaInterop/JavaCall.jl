@@ -21,6 +21,10 @@ include("setup.jl")
     @info "Test signatures"
     include("signatures.jl")
 
+    # Test conversions
+    @info "Test conversions"
+    include("convertions.jl")
+
     # Test code generation
     @info "Test Code Generation"
     include("codegeneration.jl")

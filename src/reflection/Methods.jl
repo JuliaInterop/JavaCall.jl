@@ -42,13 +42,13 @@ function descriptorfrommethod(method::jobject)
     rettype = callinstancemethod(method, :getReturnType, Symbol("java.lang.Class"), [])
     paramtypes = callinstancemethod(method, :getParameterTypes, Vector{Symbol("java.lang.Class")}, [])
     MethodDescriptor(
-        convert(String, name), 
+        convert_to_string(String, name), 
         Classes.descriptorfromclass(rettype),
-        map(Classes.descriptorfromclass, convert(Vector{jclass}, paramtypes)))
+        map(Classes.descriptorfromclass, convert_to_vector(Vector{jclass}, paramtypes)))
 end
 
 function classmethods(classname::Symbol)
-    array = convert(Vector{jobject}, callinstancemethod(
+    array = convert_to_vector(Vector{jobject}, callinstancemethod(
         Classes.findclass(classname).jniclass, 
         :getMethods, 
         Vector{Symbol("java.lang.reflect.Method")}, 

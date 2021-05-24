@@ -42,14 +42,14 @@ end
 JavaVMOption(optionString::Ptr{Char}) = JavaVMOption(optionString, C_NULL)
 
 struct JavaVMInitArgs
-    version::Cint
-    nOptions::Cint
+    version::jint
+    nOptions::jint
     options::Ptr{JavaVMOption}
-    ignoreUnrecognized::Cchar
+    ignoreUnrecognized::jboolean
 end
 
-JavaVMInitArgs(version::Cint, jopts::Vector{JavaVMOption}, ignoreUnrecognized::Cchar) =
-    JavaVMInitArgs(version, convert(Cint, length(jopts)), convert(Ptr{JavaVMOption}, pointer(jopts)), ignoreUnrecognized)
+JavaVMInitArgs(version::jint, jopts::Vector{JavaVMOption}, ignoreUnrecognized::jboolean) =
+    JavaVMInitArgs(version, convert(jint, length(jopts)), convert(Ptr{JavaVMOption}, pointer(jopts)), ignoreUnrecognized)
 
 struct JNIError <: Exception
     msg::String

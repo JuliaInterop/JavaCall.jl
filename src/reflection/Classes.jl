@@ -61,9 +61,9 @@ const _JULIA_TYPES_FROM_NAME = Dict(
     "boolean" => :Bool,
     "byte" => :Int8,
     "char" => :Char,
-    "short" => :Int32,
-    "int" => :Int64,
-    "long" => :Int128,
+    "short" => :Int16,
+    "int" => :Int32,
+    "long" => :Int64,
     "float" => :Float32,
     "double" => :Float64,
     "void" => :Nothing
@@ -104,17 +104,17 @@ const _SIGNATURES_FROM_NAME = Dict(
     "void" => signature(jvoid)
 )
 
-isprimitive(class::jclass) = convert(
+isprimitive(class::jclass) = convert_to_julia(
     Bool, 
     callinstancemethod(class, :isPrimitive, jboolean, [])
 )
 
-isarray(class::jclass) = convert(
+isarray(class::jclass) = convert_to_julia(
     Bool, 
     callinstancemethod(class, :isArray, jboolean, [])
 )
 
-classname(class::jclass) = convert(
+classname(class::jclass) = convert_to_string(
     String, 
     callinstancemethod(class, :getCanonicalName, Symbol("java.lang.String"), [])
 )
