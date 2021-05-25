@@ -65,6 +65,34 @@ for (julia_type, jni_type, jni_arraytype, jni_function) in [
     ))
 end
 
+for (julia_type, jni_type, jni_arraytype, jni_create_array_fn, jni_set_array_region_fn) in [
+    (:Bool, :jboolean, :jbooleanArray, :new_boolean_array, :set_boolean_array_region),
+    (:Int8, :jbyte, :jbyteArray, :new_byte_array, :set_byte_array_region),
+    (:Char, :jchar, :jcharArray, :new_char_array, :set_char_array_region),
+    (:Int16, :jshort, :jshortArray, :new_short_array, :set_short_array_region),
+    (:Int32, :jint, :jintArray, :new_int_array, :set_int_array_region),
+    (:Int64, :jlong, :jlongArray, :new_long_array, :set_long_array_region),
+    (:Float32, :jfloat, :jfloatArray, :new_float_array, :set_float_array_region),
+    (:Float64, :jdouble, :jdoubleArray, :new_double_array, :set_double_array_region)
+]
+    params = [
+        :(::Type{$jni_arraytype}),
+        :(vec::Vector{$julia_type})
+    ]
+    body = quote
+        vec_len = length(vec)
+        array = JNI.$jni_create_array_fn(vec_len)
+        jni_types_vec = map(x -> convert($jni_type, x), vec)
+        JNI.$jni_set_array_region_fn(array, 0, vec_len, jni_types_vec)
+        array
+    end
+    eval(generatemethod(
+        :convert_to_jni,
+        params,
+        body
+    ))
+end
+
 
 # Auxiliary conversions for simplifying types interface
 # between languages
