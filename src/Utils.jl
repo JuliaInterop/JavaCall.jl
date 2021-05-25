@@ -1,6 +1,6 @@
 module Utils
 
-export chain, flatmap
+export chain, flatmap, snakecase_from_camelcase
 
 function chain(itrs...)
     Base.Iterators.flatten(itrs)

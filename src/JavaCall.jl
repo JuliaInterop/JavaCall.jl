@@ -14,6 +14,7 @@ include("Conversions.jl")
 include("Core.jl")
 include("JavaLang.jl")
 include("reflection/Reflection.jl")
+include("JavaCodeGeneration.jl")
 
 using .InitOptions
 using .JavaLang

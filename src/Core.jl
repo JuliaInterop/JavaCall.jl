@@ -49,4 +49,34 @@ for (type, method) in [
     eval(generatemethod(:callinstancemethod, params, body, :N))
 end
 
+callinstancemethod(receiver::jobject, methodname::Symbol, rettype::Any, signature::String, args::Vararg{Any, N}) where N =
+    callinstancemethod(Val(dispatch_rettype(rettype)), receiver, methodname, signature, args...)
+
+for (type, method) in [
+        (:jboolean, :call_boolean_method_a),
+        (:jbyte, :call_byte_method_a),
+        (:jchar, :call_char_method_a),
+        (:jshort, :call_short_method_a),
+        (:jint, :call_int_method_a),
+        (:jlong, :call_long_method_a),
+        (:jfloat, :call_float_method_a),
+        (:jdouble, :call_double_method_a),
+        (:jobject, :call_object_method_a),
+        (:jvoid, :call_void_method_a)
+    ]  
+    params = [
+        :(::Val{$type}), 
+        :(receiver::Any), 
+        :(methodname::Symbol), 
+        :(signature::String),
+        :(args::Vararg{Any, N})
+    ]
+    body = quote
+        receiver_class = JNI.get_object_class(receiver)
+        method = JNI.get_method_id(receiver_class, string(methodname), signature)
+        JNI.$method(receiver, method, jvalue[args...])
+    end
+    eval(generatemethod(:callinstancemethod, params, body, :N))
+end
+
 end

@@ -1,6 +1,7 @@
 module CodeGeneration
 
-export generatetype, generatestruct, generateblock, generatemethod, generatemodule
+export generatetype, generatestruct, generateimport, 
+    generateblock, generatemethod, generatemodule
 
 # Generate abstract types
 
@@ -19,6 +20,11 @@ generatestruct(name::Symbol, supertype::Symbol, fields::Vararg{Tuple{Symbol, Sym
         $(map(x -> :($(x[1])::$(x[2])), fields)...) 
     end)
 
+# Generate import
+
+generateimport(mod::Expr, ::Vararg{Symbol,0}) = :(import $mod)
+generateimport(mod::Expr, objs::Vararg{Symbol,N}) where {N} = :(import $mod; $(objs...))
+
 # Generate blocks
 
 generateblock(exprs::Expr...) = Expr(:block, exprs...)
@@ -28,7 +34,7 @@ generateblock(exprs::Expr...) = Expr(:block, exprs...)
 const SymbolOrExpr = Union{Expr, Symbol}
 
 function generatemethod(
-    name::Symbol, 
+    name::SymbolOrExpr, 
     parameters::Vector{T}, 
     code::Expr, 
     ::Vararg{SymbolOrExpr, 0}
@@ -40,7 +46,7 @@ function generatemethod(
 end
 
 function generatemethod(
-    name::Symbol, 
+    name::SymbolOrExpr, 
     parameters::Vector{T}, 
     code::Expr, 
     whereparams::Vararg{SymbolOrExpr, N}
