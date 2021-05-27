@@ -23,7 +23,7 @@ generatestruct(name::Symbol, supertype::Symbol, fields::Vararg{Tuple{Symbol, Sym
 # Generate import
 
 generateimport(mod::Expr, ::Vararg{Symbol,0}) = :(import $mod)
-generateimport(mod::Expr, objs::Vararg{Symbol,N}) where {N} = :(import $mod; $(objs...))
+generateimport(mod::Expr, objs::Vararg{Symbol,N}) where {N} = :(import $mod: $(objs...))
 
 # Generate blocks
 

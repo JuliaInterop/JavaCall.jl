@@ -159,7 +159,7 @@ function signaturefromclass(class::jclass)
     elseif isarray(class)
         string("[", signaturefromclass(componenttype(class)))
     else
-        string("L", replace(classname(class), "." => "/"), ";")
+        fullyqualifiedname(classname(class))
     end
 end
 

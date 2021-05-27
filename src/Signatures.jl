@@ -1,6 +1,6 @@
 module Signatures
 
-export searchname, signature, MethodSignature
+export searchname, signature, fullyqualifiedname, MethodSignature
 
 using JavaCall.JNI
 

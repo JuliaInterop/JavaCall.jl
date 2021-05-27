@@ -56,7 +56,7 @@ for (julia_type, jni_type, jni_arraytype, jni_function) in [
         iscopy = Ref(JNI_TRUE)
         iscopyptr = convert(Ptr{jboolean}, pointer_from_objref(iscopy))
         returnptr = JNI.$jni_function(array, iscopyptr)
-        collect(map(x -> convert($julia_type, x), unsafe_wrap(Vector{$jni_type}, returnptr, (array_len,))))
+        map(x -> convert_to_julia($julia_type, x), unsafe_wrap(Vector{$jni_type}, returnptr, (array_len,)))
     end
     eval(generatemethod(
         :convert_to_julia,
@@ -82,7 +82,7 @@ for (julia_type, jni_type, jni_arraytype, jni_create_array_fn, jni_set_array_reg
     body = quote
         vec_len = length(vec)
         array = JNI.$jni_create_array_fn(vec_len)
-        jni_types_vec = map(x -> convert($jni_type, x), vec)
+        jni_types_vec = map(x -> convert_to_jni($jni_type, x), vec)
         JNI.$jni_set_array_region_fn(array, 0, vec_len, jni_types_vec)
         array
     end
@@ -97,7 +97,7 @@ end
 # Auxiliary conversions for simplifying types interface
 # between languages
 
-function convert_to_string(::Type{String}, str::jobject)
+function convert_to_string(::Type{String}, str::jstring)
     iscopy = Ref(JNI_TRUE)
     iscopyptr = convert(Ptr{jboolean}, pointer_from_objref(iscopy))
     unsafe_string(JNI.get_string_utfchars(str, iscopyptr))
