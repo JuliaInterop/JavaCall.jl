@@ -32,10 +32,10 @@ function methodfromdescriptors(
 )   
     paramtypes = map(paramexprfromtuple, enumerate(methoddescriptor.paramtypes))
     signature = string(
-        methoddescriptor.rettype.signature,
         '(',
         map(x->x.signature, methoddescriptor.paramtypes)...,
-        ')')
+        ')',
+        methoddescriptor.rettype.signature)
     body = quote
         args = jvalue[]
         $(map(generateconvertarg, enumerate(methoddescriptor.paramtypes))...)
@@ -61,11 +61,11 @@ function methodfromdescriptors(
     paramtypes = map(paramexprfromtuple, enumerate(descriptor.paramtypes))
     pushfirst!(paramtypes, :(receiver::$(receiverdescriptor.juliatype)))
     signature = string(
-        descriptor.rettype.signature,
         '(',
         receiverdescriptor.signature,
         map(x->x.signature, descriptor.paramtypes)...,
-        ')')
+        ')',
+        descriptor.rettype.signature)
     
     body = quote
         obj = convert_to_jni(jobject, receiver)
