@@ -15,6 +15,46 @@ function generateconvertarg(x::Tuple{Int64, ClassDescriptor})
 end
 
 function methodfromdescriptors(
+    classdescriptor::ClassDescriptor,
+    methoddescriptor::MethodDescriptor
+)   
+    methodfromdescriptors(
+        Val(isstatic(methoddescriptor)),
+        classdescriptor,
+        methoddescriptor
+    )
+end
+
+function methodfromdescriptors(
+    ::Val{true},
+    classdescriptor::ClassDescriptor,
+    methoddescriptor::MethodDescriptor
+)   
+    paramtypes = map(paramexprfromtuple, enumerate(methoddescriptor.paramtypes))
+    signature = string(
+        methoddescriptor.rettype.signature,
+        '(',
+        map(x->x.signature, methoddescriptor.paramtypes)...,
+        ')')
+    body = quote
+        args = jvalue[]
+        $(map(generateconvertarg, enumerate(methoddescriptor.paramtypes))...)
+        result = callinstancemethod(
+            $(classdescriptor.jnitype),
+            $(QuoteNode(Symbol(methoddescriptor.name))),
+            $(methoddescriptor.rettype.jnitype),
+            $signature,
+            args...)
+        convert_to_julia($(methoddescriptor.rettype.juliatype), result)
+    end
+    generatemethod(
+        Symbol(snakecase_from_camelcase(methoddescriptor.name)),
+        paramtypes,
+        body)
+end
+
+function methodfromdescriptors(
+    ::Val{false},
     receiverdescriptor::ClassDescriptor,
     descriptor::MethodDescriptor
 )
@@ -45,7 +85,7 @@ function methodfromdescriptors(
         body)
 end
 
-function codeforclass(classname::Symbol)
+function loadclass(classname::Symbol)
     classdescriptor = findclass(classname)
     typeid = classdescriptor.juliatype
     structid = structidfromtypeid(typeid)
@@ -54,7 +94,7 @@ function codeforclass(classname::Symbol)
         generatestruct(structid, typeid, (:ref, :jobject)),
         generatemethod(:(JavaCall.Conversions.convert_to_julia), [:(::Type{$typeid}), :(x::jobject)], :($structid(x))),
         generatemethod(:(JavaCall.Conversions.convert_to_jni), [:(::Type{jobject}), :(x::$typeid)], :(x.ref)),
-        map(x -> methodfromdescriptors(classdescriptor, x), classmethods(classname))...
+        map(x -> methodfromdescriptors(classdescriptor, x), classmethods(classdescriptor))...
     )
 end
 

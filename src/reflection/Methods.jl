@@ -1,13 +1,13 @@
 module Methods
 
-export classmethods, MethodDescriptor
+export classmethods, isstatic, MethodDescriptor
 
 using JavaCall.JNI
 using JavaCall.Signatures
 using JavaCall.Conversions
 using JavaCall.Core
 
-using JavaCall.Reflection: Classes
+using JavaCall.Reflection: Classes, Modifiers
 
 #=
 Struct to hold information aboud java methods
@@ -22,20 +22,34 @@ rettype:    Descriptor for the return class (void methods also
             jvoid as the jni type and V signature)
 
 paramtypes: List of descriptors with the parameter types
+
+modifiers:  Information about the method modifiers
 =#
 struct MethodDescriptor
     name::String
     rettype::Classes.ClassDescriptor
     paramtypes::Vector{Classes.ClassDescriptor}
+    modifiers::Modifiers.ModifiersDescriptor
 end
 
 function Base.show(io::IO, m::MethodDescriptor)
-    print(io, "MethodDescriptor{name: ", m.name, ", ret: ", string(m.rettype), ", params: ", string(m.paramtypes), "}")
+    print(
+        io, 
+        "MethodDescriptor{name: ", m.name, 
+        ", ret: ", string(m.rettype), 
+        ", params: ", string(m.paramtypes), 
+        ", modifiers: ", string(m.modifiers),
+        "}")
 end
 
 function Base.:(==)(x::MethodDescriptor, y::MethodDescriptor)
-    x.name == y.name && x.rettype == y.rettype && x.paramtypes == y.paramtypes 
+    x.name == y.name && 
+    x.rettype == y.rettype && 
+    x.paramtypes == y.paramtypes  &&
+    x.modifiers == y.modifiers
 end
+
+isstatic(m::MethodDescriptor) = m.modifiers.static
 
 function descriptorfrommethod(method::jobject)
     name = callinstancemethod(method, :getName, Symbol("java.lang.String"), [])
@@ -44,12 +58,24 @@ function descriptorfrommethod(method::jobject)
     MethodDescriptor(
         convert_to_string(String, name), 
         Classes.descriptorfromclass(rettype),
-        map(Classes.descriptorfromclass, convert_to_vector(Vector{jclass}, paramtypes)))
+        map(Classes.descriptorfromclass, convert_to_vector(Vector{jclass}, paramtypes)),
+        Modifiers.methodmodifiers(method))
 end
 
-function classmethods(classname::Symbol)
+# function classmethods(classname::Symbol)
+#     array = convert_to_vector(Vector{jobject}, callinstancemethod(
+#         Classes.findclass(classname).jniclass, 
+#         :getMethods, 
+#         Vector{Symbol("java.lang.reflect.Method")}, 
+#         []))
+#     map(descriptorfrommethod, array)
+# end
+
+classmethods(classname::Symbol) = classmethods(Classes.findclass(classname))
+
+function classmethods(classdescriptor::Classes.ClassDescriptor)
     array = convert_to_vector(Vector{jobject}, callinstancemethod(
-        Classes.findclass(classname).jniclass, 
+        classdescriptor.jniclass, 
         :getMethods, 
         Vector{Symbol("java.lang.reflect.Method")}, 
         []))

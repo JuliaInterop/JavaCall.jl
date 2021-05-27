@@ -1,24 +1,5 @@
 @testset verbose = true "Test Reflection API" begin
     using JavaCall: Reflection
-    using JavaCall: JNI
-
-    function jni_findclass(name::String)
-        class = JNI.find_class(name)
-        @test_not_cnull class
-        @test_isa class JNI.jclass
-        class
-    end
-
-    function jni_getmethodid(class::JNI.jclass, name::String, signature::String)::JNI.jmethodID
-        method = JNI.get_method_id(class, name, signature)
-        @test_not_cnull method
-        @test_isa method JNI.jmethodID
-        method
-    end
-
-    function jni_newstring(vector::Vector{Char})
-        JNI.new_string(map(JNI.jchar, vector), length(vector))
-    end
 
     @testset "Find class" begin
         class = Reflection.findclass(Symbol("java.lang.Integer"))
@@ -41,13 +22,16 @@
         getbytes = Reflection.MethodDescriptor(
             "getBytes", 
             Reflection.ClassDescriptor(C_NULL, :(Vector{Int8}), :jbyteArray, "[B"), 
-            [])
+            [],
+            Reflection.ModifiersDescriptor(false)
+        )
         
         # boolean equals(Object)
         equals = Reflection.MethodDescriptor(
             "equals", 
             Reflection.ClassDescriptor(C_NULL, :Bool, :jboolean, "Z"), 
-            [Reflection.ClassDescriptor(C_NULL, :JObject, :jobject, "Ljava/lang/Object;")]
+            [Reflection.ClassDescriptor(C_NULL, :JObject, :jobject, "Ljava/lang/Object;")],
+            Reflection.ModifiersDescriptor(false)
         )
         
         # static String format(String, Object...)
@@ -57,7 +41,8 @@
             [
                 Reflection.ClassDescriptor(C_NULL, :JString, :jobject, "Ljava/lang/String;"), 
                 Reflection.ClassDescriptor(C_NULL, :(Vector{JObject}), :jobjectArray, "[Ljava/lang/Object;")
-            ]
+            ],
+            Reflection.ModifiersDescriptor(true)
         )
 
         # void getChars(int, int, char[], int)
@@ -69,7 +54,8 @@
                 Reflection.ClassDescriptor(C_NULL, :Int32, :jint, "I"),
                 Reflection.ClassDescriptor(C_NULL, :(Vector{Char}), :jcharArray, "[C"),
                 Reflection.ClassDescriptor(C_NULL, :Int32, :jint, "I")
-            ]
+            ],
+            Reflection.ModifiersDescriptor(false)
         )
 
         for m in methods
