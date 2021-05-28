@@ -1,6 +1,6 @@
 module Classes
 
-export ClassDescriptor, findclass
+export ClassDescriptor, findclass, isarray
 
 using JavaCall.JNI
 using JavaCall.Signatures
@@ -31,13 +31,22 @@ signature:  holds the signature of this symbol to be
             used in calls (ex: Ljava.lang.Object; for
             java.lang.Object, I for int and [Ljava.lang.Object;
             for java.lang.Object[])
+
+component:  holds information about the component type if the
+            corresponding java class is an array
 =#
 struct ClassDescriptor
     jniclass::jclass
     juliatype::SymbolOrExpr
     jnitype::Symbol
     signature::String
+    component::Union{ClassDescriptor, Nothing}
 end
+
+ClassDescriptor(jniclass, juliatype, jnitype, signature) = 
+    ClassDescriptor(jniclass, juliatype, jnitype, signature, nothing)
+
+isarray(d::ClassDescriptor) = d.component !== nothing
 
 function Base.show(io::IO, c::ClassDescriptor)
     print(
@@ -45,12 +54,16 @@ function Base.show(io::IO, c::ClassDescriptor)
         "ClassDescriptor{juliatype: ", c.juliatype, 
         ", jnitype: ", c.jnitype, 
         ", signature: ", c.signature, 
+        (c.component !== nothing ? string(", component: ", c.component) : ""),
         "}"
     )
 end
 
 function Base.:(==)(x::ClassDescriptor, y::ClassDescriptor)
-    x.juliatype == y.juliatype && x.jnitype == y.jnitype && x.signature == y.signature 
+    x.juliatype == y.juliatype && 
+    x.jnitype == y.jnitype && 
+    x.signature == y.signature &&
+    x.component == y.component
 end
     
 const _CLASS_FOR_NAME_SIGNATURE = signature(
@@ -163,11 +176,16 @@ function signaturefromclass(class::jclass)
     end
 end
 
+function getcomponenttype(class::jclass)
+    (isarray(class) ? descriptorfromclass(componenttype(class)) : nothing)
+end
+
 descriptorfromclass(class::jclass) = ClassDescriptor(
     class,
     juliatypefromclass(class),
     jnitypefromclass(class),
-    signaturefromclass(class)
+    signaturefromclass(class),
+    getcomponenttype(class)
 )
 
 findclass(classname::Symbol)::ClassDescriptor = 
