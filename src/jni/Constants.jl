@@ -13,8 +13,8 @@ const JNI_VERSION_1_8 = convert(Cint, 0x00010008)
 const JNI_VERSION_9   = convert(Cint, 0x00090000)
 const JNI_VERSION_10  = convert(Cint, 0x000a0000)
 
-const JNI_TRUE = convert(Cchar, 1)
-const JNI_FALSE = convert(Cchar, 0)
+const JNI_TRUE = convert(Cuchar, 1)
+const JNI_FALSE = convert(Cuchar, 0)
 
 # Return Values
 const JNI_OK           = convert(Cint, 0)               #/* success */

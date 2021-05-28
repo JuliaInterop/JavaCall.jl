@@ -59,15 +59,46 @@
     end
 
     @testset "Generate method" begin
-        name = :method
-        params = [:a, :b]
-        body = [
-            :(a = a + 1),
-            :(b += a),
-            :(a, b)
-        ]
-        eval(CodeGeneration.generatemethod(name, params, Expr(:block, body...)))
-        @test method(1, 2) == (2, 4)
+        @testset "Generate simple method" begin
+            name = :method
+            params = [:a, :b]
+            body = [
+                :(a = a + 1),
+                :(b += a),
+                :(a, b)
+            ]
+            eval(CodeGeneration.generatemethod(name, params, Expr(:block, body...)))
+            @test method(1, 2) == (2, 4)
+        end
+
+        @testset "Generate method with types" begin
+            name = :method
+            params = [:(a::Int64), :(b::Int64)]
+            body = [
+                :(a = a + 1),
+                :(b += a),
+                :(a, b)
+            ]
+            eval(CodeGeneration.generatemethod(name, params, Expr(:block, body...)))
+            @test method(1, 2) == (2, 4)
+        end
+
+        @testset "Generate method with parametric types" begin
+            name = :method
+            params = [:(a::T), :(b::N)]
+            body = [
+                :(a = a + 1),
+                :(b += a),
+                :(a, b)
+            ]
+            whereparams = [:(T <: Int64), :(N <: Int64)]
+            eval(CodeGeneration.generatemethod(
+                name, 
+                params, 
+                Expr(:block, body...),
+                whereparams...))
+            @test method(1, 2) == (2, 4)
+        end
     end
 
     @testset "Generate module" begin

@@ -5,7 +5,9 @@ export init_new_vm, destroy_vm, is_jni_loaded, is_env_loaded,
     jint, jlong, jbyte, jboolean, jchar, jshort, jfloat, jdouble, jsize,
     jvoid, jobject, jclass, jthrowable, jweak, jmethodID, jfieldID, jstring, jarray,
     JNINativeMethod, jobjectArray, jbooleanArray, jbyteArray, jshortArray, jintArray,
-    jlongArray, jfloatArray, jdoubleArray, jcharArray, jvalue, jobjectRefType
+    jlongArray, jfloatArray, jdoubleArray, jcharArray, jvalue, jobjectRefType,
+    # Constants.jl
+    JNI_FALSE, JNI_TRUE
 
 include("Threads.jl")
 include("Constants.jl")
@@ -40,14 +42,14 @@ end
 JavaVMOption(optionString::Ptr{Char}) = JavaVMOption(optionString, C_NULL)
 
 struct JavaVMInitArgs
-    version::Cint
-    nOptions::Cint
+    version::jint
+    nOptions::jint
     options::Ptr{JavaVMOption}
-    ignoreUnrecognized::Cchar
+    ignoreUnrecognized::jboolean
 end
 
-JavaVMInitArgs(version::Cint, jopts::Vector{JavaVMOption}, ignoreUnrecognized::Cchar) =
-    JavaVMInitArgs(version, convert(Cint, length(jopts)), convert(Ptr{JavaVMOption}, pointer(jopts)), ignoreUnrecognized)
+JavaVMInitArgs(version::jint, jopts::Vector{JavaVMOption}, ignoreUnrecognized::jboolean) =
+    JavaVMInitArgs(version, convert(jint, length(jopts)), convert(Ptr{JavaVMOption}, pointer(jopts)), ignoreUnrecognized)
 
 struct JNIError <: Exception
     msg::String

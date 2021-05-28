@@ -1,36 +1,85 @@
 module Methods
 
-export findmethod, classmethods
+export classmethods, isstatic, MethodDescriptor
 
 using JavaCall.JNI
 using JavaCall.Signatures
+using JavaCall.Conversions
+using JavaCall.Core
 
-using JavaCall.Reflection: Classes
+using JavaCall.Reflection: Classes, Modifiers
 
-const _GET_METHODS_SIGNATURE = signature(MethodSignature(
-    Vector{Symbol("java.lang.reflect.Method")},
-    []
-))
+#=
+Struct to hold information aboud java methods
+used to generate functions that call the jni
+This should not be a replacement of java.lang.reflect.Method
+as it should only store essential information
 
-_getmethods_id = nothing
+name:       Name of the method
 
-function getmethods_id()
-    global _getmethods_id
-    if _getmethods_id === nothing
-        _getmethods_id = JNI.get_method_id(
-            Classes.class_obj(), 
-            "getMethods", 
-            _GET_METHODS_SIGNATURE)
-    end
-    _getmethods_id
+rettype:    Descriptor for the return class (void methods also
+            have a descriptor with Nothing as the juliatype,
+            jvoid as the jni type and V signature)
+
+paramtypes: List of descriptors with the parameter types
+
+modifiers:  Information about the method modifiers
+=#
+struct MethodDescriptor
+    name::String
+    rettype::Classes.ClassDescriptor
+    paramtypes::Vector{Classes.ClassDescriptor}
+    modifiers::Modifiers.ModifiersDescriptor
 end
 
-function classmethods(classname::Symbol)
-    metaclass = Classes.findmetaclass(classname)
-    JNI.call_object_method_a(
-        metaclass,
-        getmethods_id(),
-        jvalue[])
+function Base.show(io::IO, m::MethodDescriptor)
+    print(
+        io, 
+        "MethodDescriptor{name: ", m.name, 
+        ", ret: ", string(m.rettype), 
+        ", params: ", string(m.paramtypes), 
+        ", modifiers: ", string(m.modifiers),
+        "}")
+end
+
+function Base.:(==)(x::MethodDescriptor, y::MethodDescriptor)
+    x.name == y.name && 
+    x.rettype == y.rettype && 
+    x.paramtypes == y.paramtypes  &&
+    x.modifiers == y.modifiers
+end
+
+isstatic(m::MethodDescriptor) = m.modifiers.static
+
+function descriptorfrommethod(method::jobject)
+    name = callinstancemethod(method, :getName, Symbol("java.lang.String"), [])
+    rettype = callinstancemethod(method, :getReturnType, Symbol("java.lang.Class"), [])
+    paramtypes = callinstancemethod(method, :getParameterTypes, Vector{Symbol("java.lang.Class")}, [])
+    MethodDescriptor(
+        convert_to_string(String, name), 
+        Classes.descriptorfromclass(rettype),
+        map(Classes.descriptorfromclass, convert_to_vector(Vector{jclass}, paramtypes)),
+        Modifiers.methodmodifiers(method))
+end
+
+# function classmethods(classname::Symbol)
+#     array = convert_to_vector(Vector{jobject}, callinstancemethod(
+#         Classes.findclass(classname).jniclass, 
+#         :getMethods, 
+#         Vector{Symbol("java.lang.reflect.Method")}, 
+#         []))
+#     map(descriptorfrommethod, array)
+# end
+
+classmethods(classname::Symbol) = classmethods(Classes.findclass(classname))
+
+function classmethods(classdescriptor::Classes.ClassDescriptor)
+    array = convert_to_vector(Vector{jobject}, callinstancemethod(
+        classdescriptor.jniclass, 
+        :getMethods, 
+        Vector{Symbol("java.lang.reflect.Method")}, 
+        []))
+    map(descriptorfrommethod, array)
 end
 
 end

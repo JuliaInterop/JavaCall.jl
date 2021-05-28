@@ -1,65 +1,77 @@
 @testset verbose = true "Test Reflection API" begin
     using JavaCall: Reflection
-    using JavaCall: JNI
-
-    function jni_findclass(name::String)
-        class = JNI.find_class(name)
-        @test_not_cnull class
-        @test_isa class JNI.jclass
-        class
-    end
-
-    function jni_getmethodid(class::JNI.jclass, name::String, signature::String)::JNI.jmethodID
-        method = JNI.get_method_id(class, name, signature)
-        @test_not_cnull method
-        @test_isa method JNI.jmethodID
-        method
-    end
-
-    function jni_newstring(vector::Vector{Char})
-        JNI.new_string(map(JNI.jchar, vector), length(vector))
-    end
 
     @testset "Find class" begin
-        class = Reflection.findclass(Symbol("java.lang.String"))
-        @test_not_cnull class
-        @test_isa class JNI.jclass
-        @test unsafe_load(class) == unsafe_load(jni_findclass("java/lang/String"))
-    end
-
-    @testset "Find meta class" begin
-        class = Reflection.findmetaclass(Symbol("java.lang.String"))
-        @test_not_cnull class
-        @test_isa class JNI.jclass
+        class = Reflection.findclass(Symbol("java.lang.Integer"))
+        @test class.juliatype == :JInteger
+        @test class.jnitype == :jobject
+        @test class.signature == "Ljava/lang/Integer;"
     end
 
     @testset "Find methods" begin
         methods = Reflection.classmethods(Symbol("java.lang.String"))
-        @test_not_cnull methods
-        @test_isa methods JNI.jobjectArray
+        @test length(methods) > 0
+        @test_isa methods Vector{Reflection.MethodDescriptor}
 
         found_getbytes = false
+        found_equals = false
+        found_format = false
+        found_getchars = false
 
-        getname_id = jni_getmethodid(
-            jni_findclass("java/lang/reflect/Method"),
-            "getName",
-            "()Ljava/lang/String;")
-        equals_id = jni_getmethodid(
-            jni_findclass("java/lang/String"),
-            "equals",
-            "(Ljava/lang/Object;)Z"
+        # byte[] getBytes()
+        getbytes = Reflection.MethodDescriptor(
+            "getBytes", 
+            Reflection.ClassDescriptor(C_NULL, :(Vector{Int8}), :jbyteArray, "[B"), 
+            [],
+            Reflection.ModifiersDescriptor(false)
+        )
+        
+        # boolean equals(Object)
+        equals = Reflection.MethodDescriptor(
+            "equals", 
+            Reflection.ClassDescriptor(C_NULL, :Bool, :jboolean, "Z"), 
+            [Reflection.ClassDescriptor(C_NULL, :JObject, :jobject, "Ljava/lang/Object;")],
+            Reflection.ModifiersDescriptor(false)
+        )
+        
+        # static String format(String, Object...)
+        format = Reflection.MethodDescriptor(
+            "format", 
+            Reflection.ClassDescriptor(C_NULL, :JString, :jobject, "Ljava/lang/String;"), 
+            [
+                Reflection.ClassDescriptor(C_NULL, :JString, :jobject, "Ljava/lang/String;"), 
+                Reflection.ClassDescriptor(C_NULL, :(Vector{JObject}), :jobjectArray, "[Ljava/lang/Object;")
+            ],
+            Reflection.ModifiersDescriptor(true)
         )
 
-        expected_name = jni_newstring(['g', 'e', 't', 'B', 'y', 't', 'e', 's'])
+        # void getChars(int, int, char[], int)
+        getchars = Reflection.MethodDescriptor(
+            "getChars",
+            Reflection.ClassDescriptor(C_NULL, :Nothing, :jvoid, "V"),
+            [
+                Reflection.ClassDescriptor(C_NULL, :Int32, :jint, "I"),
+                Reflection.ClassDescriptor(C_NULL, :Int32, :jint, "I"),
+                Reflection.ClassDescriptor(C_NULL, :(Vector{Char}), :jcharArray, "[C"),
+                Reflection.ClassDescriptor(C_NULL, :Int32, :jint, "I")
+            ],
+            Reflection.ModifiersDescriptor(false)
+        )
 
-        num_methods = JNI.get_array_length(methods)
-        for i in 1:num_methods
-            m = JNI.get_object_array_element(methods, i-1)
-            m_name = JNI.call_object_method_a(m, getname_id, JNI.jvalue[])
-            if JNI.call_boolean_method_a(m_name, equals_id, JNI.jvalue[expected_name]) == true
+        for m in methods
+            if getbytes == m
                 found_getbytes = true
+            elseif equals == m
+                found_equals = true
+            elseif format == m
+                found_format = true
+            elseif getchars == m
+                found_getchars = true
             end
         end
         @test found_getbytes
+        @test found_equals
+        @test found_format
+        @test found_getchars
     end
 end

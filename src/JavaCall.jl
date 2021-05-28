@@ -5,12 +5,17 @@ include("exports.jl")
 
 # Include Submodules
 # ------------------
-include("IteratorUtils.jl")
+include("Utils.jl")
 include("CodeGeneration.jl")
 include("InitOptions.jl")
 include("jni/JNI.jl")
 include("Signatures.jl")
+include("Conversions.jl")
+include("Core.jl")
+include("JavaLang.jl")
 include("reflection/Reflection.jl")
+include("JavaCodeGeneration.jl")
 
 using .InitOptions
+using .JavaLang
 end
