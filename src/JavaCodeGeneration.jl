@@ -39,7 +39,7 @@ function methodfromdescriptors(
     body = quote
         args = jvalue[]
         $(map(generateconvertarg, enumerate(methoddescriptor.paramtypes))...)
-        result = callinstancemethod(
+        result = callstaticmethod(
             $(classdescriptor.jnitype),
             $(QuoteNode(Symbol(methoddescriptor.name))),
             $(methoddescriptor.rettype.jnitype),
@@ -62,7 +62,6 @@ function methodfromdescriptors(
     pushfirst!(paramtypes, :(receiver::$(receiverdescriptor.juliatype)))
     signature = string(
         '(',
-        receiverdescriptor.signature,
         map(x->x.signature, descriptor.paramtypes)...,
         ')',
         descriptor.rettype.signature)
@@ -73,7 +72,7 @@ function methodfromdescriptors(
         $(map(generateconvertarg, enumerate(descriptor.paramtypes))...)
         result = callinstancemethod(
             obj, 
-            $(Symbol(descriptor.name)), 
+            $(QuoteNode(Symbol(descriptor.name))), 
             $(descriptor.rettype.jnitype),
             $signature,
             args...)
