@@ -80,7 +80,10 @@ end
 
 function superclass(descriptor::ClassDescriptor)
     # Lazy load superclass
-    if descriptor.superclass === nothing && descriptor.juliatype != :JObject
+    if descriptor.superclass === nothing && 
+        descriptor.juliatype != :JObject &&
+        !isprimitive(descriptor.jniclass)
+        
         descriptor.superclass = descriptorfromclass(
             JNI.get_superclass(descriptor.jniclass)
         )

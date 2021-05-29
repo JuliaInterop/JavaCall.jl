@@ -6,7 +6,8 @@ export
     # Modifiers.jl
     ModifiersDescriptor,
     # Methods.jl
-    classmethods, isstatic, MethodDescriptor,
+    classmethods, classdeclaredmethods,
+    isstatic, ispublic, MethodDescriptor,
     # Constructors.jl
     classconstructors, ConstructorDescriptor
 
