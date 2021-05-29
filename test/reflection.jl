@@ -2,10 +2,36 @@
     using JavaCall: Reflection
 
     @testset "Find class" begin
-        class = Reflection.findclass(Symbol("java.lang.Integer"))
-        @test class.juliatype == :JInteger
-        @test class.jnitype == :jobject
-        @test class.signature == "Ljava/lang/Integer;"
+        @testset "Object Class" begin
+            expected = Reflection.ClassDescriptor(
+                C_NULL,
+                :JObject,
+                :jobject,
+                "Ljava/lang/Object;"
+            )
+            objclass = Reflection.findclass(Symbol("java.lang.Object"))
+
+            @test objclass == expected
+            @test Reflection.superclass(objclass) === nothing
+        end
+
+        @testset "Integer Class" begin
+            expected = Reflection.ClassDescriptor(
+                C_NULL,
+                :JInteger,
+                :jobject,
+                "Ljava/lang/Integer;"
+            )
+            expectedsuperclass = Reflection.ClassDescriptor(
+                C_NULL,
+                :JNumber,
+                :jobject,
+                "Ljava/lang/Number;"
+            )
+            integerclass = Reflection.findclass(Symbol("java.lang.Integer"))
+            @test integerclass == expected
+            @test Reflection.superclass(integerclass) == expectedsuperclass
+        end 
     end
 
     @testset "Find methods" begin

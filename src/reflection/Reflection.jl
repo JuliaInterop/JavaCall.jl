@@ -2,7 +2,7 @@ module Reflection
 
 export 
     # Classes.jl
-    findclass, isarray, ClassDescriptor,
+    findclass, isarray, superclass, ClassDescriptor,
     # Modifiers.jl
     ModifiersDescriptor,
     # Methods.jl
