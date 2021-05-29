@@ -62,15 +62,6 @@ function descriptorfrommethod(method::jobject)
         Modifiers.methodmodifiers(method))
 end
 
-# function classmethods(classname::Symbol)
-#     array = convert_to_vector(Vector{jobject}, callinstancemethod(
-#         Classes.findclass(classname).jniclass, 
-#         :getMethods, 
-#         Vector{Symbol("java.lang.reflect.Method")}, 
-#         []))
-#     map(descriptorfrommethod, array)
-# end
-
 classmethods(classname::Symbol) = classmethods(Classes.findclass(classname))
 
 function classmethods(classdescriptor::Classes.ClassDescriptor)

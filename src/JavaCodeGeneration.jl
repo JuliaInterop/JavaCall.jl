@@ -62,7 +62,7 @@ function methodfromdescriptors(
         convert_to_julia($(methoddescriptor.rettype.juliatype), result)
     end
     generatemethod(
-        Symbol(snakecase_from_camelcase(methoddescriptor.name)),
+        Symbol(classdescriptor.juliatype, "_", snakecase_from_camelcase(methoddescriptor.name)),
         paramtypes,
         body)
 end
@@ -93,7 +93,33 @@ function methodfromdescriptors(
             convert_to_julia($(descriptor.rettype.juliatype), result)
     end
     generatemethod(
-        Symbol(snakecase_from_camelcase(descriptor.name)),
+        Symbol(receiverdescriptor.juliatype, "_", snakecase_from_camelcase(descriptor.name)),
+        paramtypes,
+        body)
+end
+
+function constructorfromdescriptors(
+    classdescriptor::ClassDescriptor,
+    constructordescriptor::ConstructorDescriptor
+)
+    paramtypes = map(paramexprfromtuple, enumerate(constructordescriptor.paramtypes))
+    # As specified in the JNI reference object contructor methods signatures
+    # should return void(V)
+    signature = string(
+        '(',
+        map(x->x.signature, constructordescriptor.paramtypes)...,
+        ")V")
+    body = quote
+        args = jvalue[]
+        $(map(generateconvertarg, enumerate(constructordescriptor.paramtypes))...)
+        result = JavaCall.Core.callconstructor(
+            $(classdescriptor.jniclass),
+            $signature,
+            args...)
+        convert_to_julia($(classdescriptor.juliatype), result)
+    end
+    generatemethod(
+        classdescriptor.juliatype,
         paramtypes,
         body)
 end
@@ -105,7 +131,7 @@ function loadclass(classdescriptor::ClassDescriptor, shallow=false)
     typeid = classdescriptor.juliatype
 
     if isarray(classdescriptor)
-        return generateblock(loadclass(classdescriptor.component))
+        return generateblock(loadclass(classdescriptor.component, true))
     end
 
     structid = structidfromtypeid(typeid)
@@ -123,18 +149,22 @@ function loadclass(classdescriptor::ClassDescriptor, shallow=false)
 
     if !shallow && !(typeid in FULLY_LOADED_SYMBOLS)
         methoddescriptors = classmethods(classdescriptor)
-        shallowtypes = flatmap(m -> [m.rettype, m.paramtypes...], methoddescriptors)
+        constructordescriptors = classconstructors(classdescriptor)
+        shallowtypes = collect(flatmap(m -> [m.rettype, m.paramtypes...], methoddescriptors))
+        push!(shallowtypes, flatmap(c -> c.paramtypes, constructordescriptors)...)
         push!(
             exprstoeval,
             map(x -> loadclass(x, true), shallowtypes)...
         )
+        to_string_fn = Symbol(typeid, "_to_string")
         push!(
             exprstoeval,
             generatemethod(
                 :(Base.show), 
                 [:(io::IO), :(o::$typeid)],
-                :(print(io, JavaCall.Conversions.convert_to_string(String, to_string(o).ref)))),
-            map(x -> methodfromdescriptors(classdescriptor, x), methoddescriptors)...
+                :(print(io, JavaCall.Conversions.convert_to_string(String, $to_string_fn(o).ref)))),
+            map(x -> methodfromdescriptors(classdescriptor, x), methoddescriptors)...,
+            map(x -> constructorfromdescriptors(classdescriptor, x), constructordescriptors)...
         )
         push!(FULLY_LOADED_SYMBOLS, typeid)
     end

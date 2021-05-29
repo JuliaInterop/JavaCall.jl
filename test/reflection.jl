@@ -91,4 +91,68 @@
         @test found_format
         @test found_getchars
     end
+
+    @testset "Find Constructors" begin
+        constructors = Reflection.classconstructors(Symbol("java.lang.String"))
+
+        @test length(constructors) > 0 
+        @test_isa constructors Vector{Reflection.ConstructorDescriptor}
+
+        found_bytes = false
+        found_chars = false
+        found_string = false
+        found_builder = false
+
+        # String(byte[] bytes, int offset, int length, Charset charset)
+        bytes = Reflection.ConstructorDescriptor([
+            Reflection.ClassDescriptor(
+                C_NULL, 
+                :(Vector{Int8}), 
+                :jbyteArray, 
+                "[B", 
+                Reflection.ClassDescriptor(C_NULL, :Int8, :jbyte, "B")),
+            Reflection.ClassDescriptor(C_NULL, :Int32, :jint, "I"),
+            Reflection.ClassDescriptor(C_NULL, :Int32, :jint, "I"),
+            Reflection.ClassDescriptor(C_NULL, :JCharset, :jobject, "Ljava/nio/charset/Charset;")
+        ])
+
+        # String(char[] value, int offset, int count)
+        chars = Reflection.ConstructorDescriptor([
+            Reflection.ClassDescriptor(
+                C_NULL, 
+                :(Vector{Char}), 
+                :jcharArray, 
+                "[C", 
+                Reflection.ClassDescriptor(C_NULL, :Char, :jchar, "C")),
+            Reflection.ClassDescriptor(C_NULL, :Int32, :jint, "I"),
+            Reflection.ClassDescriptor(C_NULL, :Int32, :jint, "I")
+        ])
+
+        # String(String original)
+        string = Reflection.ConstructorDescriptor([
+            Reflection.ClassDescriptor(C_NULL, :JString, :jobject, "Ljava/lang/String;")
+        ])
+
+        # String(StringBuilder builder)
+        builder = Reflection.ConstructorDescriptor([
+            Reflection.ClassDescriptor(C_NULL, :JStringBuilder, :jobject, "Ljava/lang/StringBuilder;")
+        ])
+
+        for c in constructors
+            if c == bytes
+                found_bytes = true
+            elseif c == chars
+                found_chars = true
+            elseif c == string
+                found_string = true
+            elseif c == builder
+                found_builder = true
+            end
+        end
+
+        @test found_bytes
+        @test found_chars
+        @test found_string
+        @test found_builder
+    end
 end

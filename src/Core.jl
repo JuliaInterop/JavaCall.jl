@@ -1,6 +1,6 @@
 module Core
 
-export callinstancemethod, callstaticmethod
+export callinstancemethod, callstaticmethod, callconstructor
 
 using JavaCall.JNI
 using JavaCall.Signatures
@@ -143,4 +143,11 @@ for (type, method) in [
     end
     eval(generatemethod(:callstaticmethod, params, body, :N))
 end
+
+function callconstructor(class::jclass, signature::String, args::Vararg{Any, N}) where N
+    # Construct name is always <init> as specified by the JNI reference
+    constructor = JNI.get_method_id(class, "<init>", signature)
+    JNI.new_object_a(class, constructor, jvalue[args...])
+end
+
 end
