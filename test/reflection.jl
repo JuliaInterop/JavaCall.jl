@@ -21,7 +21,13 @@
         # byte[] getBytes()
         getbytes = Reflection.MethodDescriptor(
             "getBytes", 
-            Reflection.ClassDescriptor(C_NULL, :(Vector{Int8}), :jbyteArray, "[B"), 
+            Reflection.ClassDescriptor(
+                C_NULL, 
+                :(Vector{Int8}), 
+                :jbyteArray, 
+                "[B", 
+                Reflection.ClassDescriptor(C_NULL, :Int8, :jbyte, "B")
+            ), 
             [],
             Reflection.ModifiersDescriptor(false)
         )
@@ -40,7 +46,13 @@
             Reflection.ClassDescriptor(C_NULL, :JString, :jobject, "Ljava/lang/String;"), 
             [
                 Reflection.ClassDescriptor(C_NULL, :JString, :jobject, "Ljava/lang/String;"), 
-                Reflection.ClassDescriptor(C_NULL, :(Vector{JObject}), :jobjectArray, "[Ljava/lang/Object;")
+                Reflection.ClassDescriptor(
+                    C_NULL, 
+                    :(Vector{JObject}), 
+                    :jobjectArray, 
+                    "[Ljava/lang/Object;",
+                    Reflection.ClassDescriptor(C_NULL, :JObject, :jobject, "Ljava/lang/Object;")    
+                )
             ],
             Reflection.ModifiersDescriptor(true)
         )
@@ -52,7 +64,12 @@
             [
                 Reflection.ClassDescriptor(C_NULL, :Int32, :jint, "I"),
                 Reflection.ClassDescriptor(C_NULL, :Int32, :jint, "I"),
-                Reflection.ClassDescriptor(C_NULL, :(Vector{Char}), :jcharArray, "[C"),
+                Reflection.ClassDescriptor(
+                    C_NULL, 
+                    :(Vector{Char}), 
+                    :jcharArray, 
+                    "[C",
+                    Reflection.ClassDescriptor(C_NULL, :Char, :jchar, "C")),
                 Reflection.ClassDescriptor(C_NULL, :Int32, :jint, "I")
             ],
             Reflection.ModifiersDescriptor(false)

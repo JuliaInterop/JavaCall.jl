@@ -4,6 +4,20 @@ using JavaCall.CodeGeneration
 using JavaCall.Reflection
 using JavaCall.Utils
 
+const SHALLOW_LOADED_SYMBOLS = Set([
+    :Bool, 
+    :Int8, 
+    :Char,
+    :Int16,
+    :Int32,
+    :Int64,
+    :Float32,
+    :Float64,
+    :Nothing
+])
+
+const FULLY_LOADED_SYMBOLS = copy(SHALLOW_LOADED_SYMBOLS)
+
 structidfromtypeid(typeid::Symbol) = Symbol(typeid, "Impl")
 
 paramnamefromindex(i::Int64) = Symbol("param", i)
@@ -39,8 +53,8 @@ function methodfromdescriptors(
     body = quote
         args = jvalue[]
         $(map(generateconvertarg, enumerate(methoddescriptor.paramtypes))...)
-        result = callstaticmethod(
-            $(classdescriptor.jnitype),
+        result = JavaCall.Core.callstaticmethod(
+            $(classdescriptor.jniclass),
             $(QuoteNode(Symbol(methoddescriptor.name))),
             $(methoddescriptor.rettype.jnitype),
             $signature,
@@ -70,7 +84,7 @@ function methodfromdescriptors(
         obj = convert_to_jni(jobject, receiver)
         args = jvalue[]
         $(map(generateconvertarg, enumerate(descriptor.paramtypes))...)
-        result = callinstancemethod(
+        result = JavaCall.Core.callinstancemethod(
             obj, 
             $(QuoteNode(Symbol(descriptor.name))), 
             $(descriptor.rettype.jnitype),
@@ -84,17 +98,48 @@ function methodfromdescriptors(
         body)
 end
 
-function loadclass(classname::Symbol)
-    classdescriptor = findclass(classname)
+loadclass(classname::Symbol, shallow=false) = loadclass(findclass(classname), shallow)
+
+function loadclass(classdescriptor::ClassDescriptor, shallow=false)
+    exprstoeval = []
     typeid = classdescriptor.juliatype
+
+    if isarray(classdescriptor)
+        return generateblock(loadclass(classdescriptor.component))
+    end
+
     structid = structidfromtypeid(typeid)
-    generateblock(
-        generatetype(typeid),
-        generatestruct(structid, typeid, (:ref, :jobject)),
-        generatemethod(:(JavaCall.Conversions.convert_to_julia), [:(::Type{$typeid}), :(x::jobject)], :($structid(x))),
-        generatemethod(:(JavaCall.Conversions.convert_to_jni), [:(::Type{jobject}), :(x::$typeid)], :(x.ref)),
-        map(x -> methodfromdescriptors(classdescriptor, x), classmethods(classdescriptor))...
-    )
+    
+    if !(typeid in SHALLOW_LOADED_SYMBOLS)
+        push!(
+            exprstoeval, 
+            generatetype(typeid),
+            generatestruct(structid, typeid, (:ref, :jobject)),
+            generatemethod(:(JavaCall.Conversions.convert_to_julia), [:(::Type{$typeid}), :(x::jobject)], :($structid(x))),
+            generatemethod(:(JavaCall.Conversions.convert_to_jni), [:(::Type{jobject}), :(x::$typeid)], :(x.ref))
+        )
+        push!(SHALLOW_LOADED_SYMBOLS, typeid)
+    end
+
+    if !shallow && !(typeid in FULLY_LOADED_SYMBOLS)
+        methoddescriptors = classmethods(classdescriptor)
+        shallowtypes = flatmap(m -> [m.rettype, m.paramtypes...], methoddescriptors)
+        push!(
+            exprstoeval,
+            map(x -> loadclass(x, true), shallowtypes)...
+        )
+        push!(
+            exprstoeval,
+            generatemethod(
+                :(Base.show), 
+                [:(io::IO), :(o::$typeid)],
+                :(print(io, JavaCall.Conversions.convert_to_string(String, to_string(o).ref)))),
+            map(x -> methodfromdescriptors(classdescriptor, x), methoddescriptors)...
+        )
+        push!(FULLY_LOADED_SYMBOLS, typeid)
+    end
+
+    generateblock(exprstoeval...)
 end
 
 end
