@@ -200,7 +200,8 @@ end
 fullcomponentsloaded(d::ClassDescriptor) = d.juliatype in FULLY_LOADED_SYMBOLS
 
 function loadfullcomponents!(exprstoeval, class::ClassDescriptor)
-    methods = classmethods(class)
+    loadsuperclass!(exprstoeval, class)
+    methods = classdeclaredmethods(class)
     constructors = classconstructors(class)
     loaddependencies!(exprstoeval, methods)
     loaddependencies!(exprstoeval, constructors)
@@ -208,6 +209,12 @@ function loadfullcomponents!(exprstoeval, class::ClassDescriptor)
     loadconstructors!(exprstoeval, class, constructors)
     loadjuliamethods!(exprstoeval, class)
     push!(FULLY_LOADED_SYMBOLS, class.juliatype)
+end
+
+function loadsuperclass!(exprstoeval, class)
+    if !isinterface(class) && superclass(class) !== nothing
+        push!(exprstoeval, loadclass(superclass(class)))
+    end
 end
 
 function loaddependencies!(exprstoeval, methods::Vector{MethodDescriptor})
