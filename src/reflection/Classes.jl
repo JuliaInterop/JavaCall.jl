@@ -1,6 +1,6 @@
 module Classes
 
-export ClassDescriptor, findclass, isarray, superclass
+export ClassDescriptor, findclass, isarray, isinterface, superclass
 
 using JavaCall.JNI
 using JavaCall.Signatures
@@ -59,6 +59,11 @@ ClassDescriptor(jniclass, juliatype, jnitype, signature, component) =
     ClassDescriptor(jniclass, juliatype, jnitype, signature, component, nothing)
 
 isarray(d::ClassDescriptor) = d.component !== nothing
+
+isinterface(d::ClassDescriptor) = convert_to_julia(
+    Bool, 
+    callinstancemethod(d.jniclass, :isInterface, jboolean, [])
+)
 
 function Base.show(io::IO, c::ClassDescriptor)
     print(

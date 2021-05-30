@@ -13,6 +13,7 @@
 
             @test objclass == expected
             @test Reflection.superclass(objclass) === nothing
+            @test_false Reflection.isinterface(objclass)
         end
 
         @testset "Integer Class" begin
@@ -31,7 +32,20 @@
             integerclass = Reflection.findclass(Symbol("java.lang.Integer"))
             @test integerclass == expected
             @test Reflection.superclass(integerclass) == expectedsuperclass
-        end 
+            @test_false Reflection.isinterface(integerclass)
+        end
+
+        @testset "Runnable Interface" begin
+            expected = Reflection.ClassDescriptor(
+                C_NULL, 
+                :JRunnable, 
+                :jobject, 
+                "Ljava/lang/Runnable;"
+            )
+            runnableinterface = Reflection.findclass(Symbol("java.lang.Runnable"))
+            @test runnableinterface == expected
+            @test Reflection.isinterface(runnableinterface)
+        end
     end
 
     @testset "Find methods" begin

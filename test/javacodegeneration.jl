@@ -59,5 +59,10 @@
         for (i, c) in enumerate(helloworldchars)
             @test JString_char_at(helloworld, Int32(i-1)) == c
         end
+
+        @test JString_equals(hello1, hello2)
+        @test_false JString_equals(hello1, helloworld)
+        @test hello1 == hello2
+        @test hello1 != helloworld
     end
 end
