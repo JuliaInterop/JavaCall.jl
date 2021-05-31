@@ -64,7 +64,7 @@ function methodfromdescriptors(
         convert_to_julia($(methoddescriptor.rettype.juliatype), result)
     end
     generatemethod(
-        Symbol(classdescriptor.juliatype, "_", snakecase_from_camelcase(methoddescriptor.name)),
+        Symbol("j_", snakecase_from_camelcase(methoddescriptor.name)),
         paramtypes,
         body)
 end
@@ -95,7 +95,7 @@ function methodfromdescriptors(
             convert_to_julia($(descriptor.rettype.juliatype), result)
     end
     generatemethod(
-        Symbol(receiverdescriptor.juliatype, "_", snakecase_from_camelcase(descriptor.name)),
+        Symbol("j_", snakecase_from_camelcase(descriptor.name)),
         paramtypes,
         body)
 end
@@ -243,18 +243,16 @@ end
 
 function loadjuliamethods!(exprstoeval, class)
     typeid = class.juliatype
-    to_string_fn = Symbol(typeid, "_to_string")
-    equals_fn = Symbol(typeid, "_equals")
     push!(
         exprstoeval,
         generatemethod(
             :(Base.show), 
             [:(io::IO), :(o::$typeid)],
-            :(print(io, JavaCall.Conversions.convert_to_string(String, $to_string_fn(o).ref)))),
+            :(print(io, JavaCall.Conversions.convert_to_string(String, j_to_string(o).ref)))),
         generatemethod(
             :(Base.:(==)),
             [:(o1::$typeid), :(o2::$typeid)],
-            :($equals_fn(o1, o2))
+            :(j_equals(o1, o2))
         )
     )
 end
