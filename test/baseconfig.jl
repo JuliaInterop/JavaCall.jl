@@ -1,3 +1,1 @@
-export JAVA_LIBPATH
-
-const JAVA_LIBPATH="<include full path to the java libpath>"
+const JAVA_HOME="<path to java home>"

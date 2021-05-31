@@ -1,6 +1,12 @@
 using Test
+
+import JavaCall
 import JavaCall: JNI
-JNI.init_new_vm(JAVA_LIBPATH, ["-Djava.class.path=$(@__DIR__)/java"])
+
+opts = JavaCall.forjavahome(JAVA_HOME)
+JavaCall.pushclasspath!(opts, "$(@__DIR__)/java")
+JavaCall.init(opts)
+
 @test JNI.is_jni_loaded()
 @test JNI.is_env_loaded()
 

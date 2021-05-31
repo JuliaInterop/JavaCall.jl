@@ -1,6 +1,6 @@
 module Classes
 
-export ClassDescriptor, findclass, isarray
+export ClassDescriptor, findclass, isarray, isinterface, superclass
 
 using JavaCall.JNI
 using JavaCall.Signatures
@@ -13,7 +13,9 @@ const SymbolOrExpr = Union{Expr, Symbol}
 Struct to hold information aboud java classes
 used to generate functions that call the jni
 This should not be a replacement of java.lang.Class
-as it should only store essential information
+as it should only store essential information.
+
+This struct is mutable as it has lazy loaded fields
 
 jniclass:   object returned by the JNI for the class
             that this descriptor represents
@@ -34,19 +36,34 @@ signature:  holds the signature of this symbol to be
 
 component:  holds information about the component type if the
             corresponding java class is an array
+
+superclass: holds information about the super class of the
+            represented java class (has the value of nothing
+            for object) this attribute is not always required
+            and so it is lazy loaded
+
 =#
-struct ClassDescriptor
+mutable struct ClassDescriptor
     jniclass::jclass
     juliatype::SymbolOrExpr
     jnitype::Symbol
     signature::String
     component::Union{ClassDescriptor, Nothing}
+    superclass::Union{ClassDescriptor, Nothing}
 end
 
 ClassDescriptor(jniclass, juliatype, jnitype, signature) = 
-    ClassDescriptor(jniclass, juliatype, jnitype, signature, nothing)
+    ClassDescriptor(jniclass, juliatype, jnitype, signature, nothing, nothing)
+
+ClassDescriptor(jniclass, juliatype, jnitype, signature, component) = 
+    ClassDescriptor(jniclass, juliatype, jnitype, signature, component, nothing)
 
 isarray(d::ClassDescriptor) = d.component !== nothing
+
+isinterface(d::ClassDescriptor) = convert_to_julia(
+    Bool, 
+    callinstancemethod(d.jniclass, :isInterface, jboolean, [])
+)
 
 function Base.show(io::IO, c::ClassDescriptor)
     print(
@@ -64,6 +81,19 @@ function Base.:(==)(x::ClassDescriptor, y::ClassDescriptor)
     x.jnitype == y.jnitype && 
     x.signature == y.signature &&
     x.component == y.component
+end
+
+function superclass(descriptor::ClassDescriptor)
+    # Lazy load superclass
+    if descriptor.superclass === nothing && 
+        descriptor.juliatype != :JObject &&
+        !isprimitive(descriptor.jniclass)
+        
+        descriptor.superclass = descriptorfromclass(
+            JNI.get_superclass(descriptor.jniclass)
+        )
+    end
+    descriptor.superclass
 end
     
 const _CLASS_FOR_NAME_SIGNATURE = signature(
@@ -185,7 +215,8 @@ descriptorfromclass(class::jclass) = ClassDescriptor(
     juliatypefromclass(class),
     jnitypefromclass(class),
     signaturefromclass(class),
-    getcomponenttype(class)
+    getcomponenttype(class),
+    nothing
 )
 
 findclass(classname::Symbol)::ClassDescriptor = 

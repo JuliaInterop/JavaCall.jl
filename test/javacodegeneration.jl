@@ -59,5 +59,23 @@
         for (i, c) in enumerate(helloworldchars)
             @test JString_char_at(helloworld, Int32(i-1)) == c
         end
+
+        @test JString_equals(hello1, hello2)
+        @test_false JString_equals(hello1, helloworld)
+        @test hello1 == hello2
+        @test hello1 != helloworld
+    end
+
+    @testset "Test Load Superclass" begin
+        eval(JavaCodeGeneration.loadclass(Symbol("java.lang.Integer")))
+        @test @isdefined JInteger
+        @test @isdefined JIntegerImpl
+        @test @isdefined JNumber
+        @test @isdefined JNumberImpl
+
+        a = JInteger(Int32(1))
+        b = JInteger(Int32(1))
+        @test 1 == JNumber_long_value(a)
+        @test a == b
     end
 end

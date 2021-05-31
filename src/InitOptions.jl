@@ -1,7 +1,7 @@
 module InitOptions
 
 export defaultopts, fromcurrentvm, forjavahome, setfromcurrentvm!, unsetfromcurrentvm!,
-       setjavahome!, unsetjavahome!, pushclasspath!, pushoptions!
+       setjavahome!, unsetjavahome!, pushclasspath!, pushoptions!, JavaCallInitOptions
 
 #=
 Struct to configure the JavaCall package when initializing
@@ -20,8 +20,8 @@ jvmopts defines a vector of options to send the jvm
 mutable struct JavaCallInitOptions
     fromcurrentvm::Bool
     javahome::Union{String, Nothing}
-    jvmclasspath::AbstractVector{String}
-    jvmopts::AbstractVector{String}
+    jvmclasspath::Vector{String}
+    jvmopts::Vector{String}
 end
 
 defaultopts()::JavaCallInitOptions = JavaCallInitOptions(false, nothing, [], [])

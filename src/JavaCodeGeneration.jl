@@ -1,5 +1,7 @@
 module JavaCodeGeneration
 
+using Base.Iterators
+
 using JavaCall.CodeGeneration
 using JavaCall.Reflection
 using JavaCall.Utils
@@ -127,49 +129,134 @@ end
 loadclass(classname::Symbol, shallow=false) = loadclass(findclass(classname), shallow)
 
 function loadclass(classdescriptor::ClassDescriptor, shallow=false)
-    exprstoeval = []
-    typeid = classdescriptor.juliatype
-
     if isarray(classdescriptor)
         return generateblock(loadclass(classdescriptor.component, true))
     end
 
-    structid = structidfromtypeid(typeid)
+    exprstoeval = []
     
-    if !(typeid in SHALLOW_LOADED_SYMBOLS)
-        push!(
-            exprstoeval, 
-            generatetype(typeid),
-            generatestruct(structid, typeid, (:ref, :jobject)),
-            generatemethod(:(JavaCall.Conversions.convert_to_julia), [:(::Type{$typeid}), :(x::jobject)], :($structid(x))),
-            generatemethod(:(JavaCall.Conversions.convert_to_jni), [:(::Type{jobject}), :(x::$typeid)], :(x.ref))
-        )
-        push!(SHALLOW_LOADED_SYMBOLS, typeid)
+    if !shallowcomponentsloeaded(classdescriptor)
+        loadshallowcomponents!(exprstoeval, classdescriptor)
     end
 
-    if !shallow && !(typeid in FULLY_LOADED_SYMBOLS)
-        methoddescriptors = classmethods(classdescriptor)
-        constructordescriptors = classconstructors(classdescriptor)
-        shallowtypes = collect(flatmap(m -> [m.rettype, m.paramtypes...], methoddescriptors))
-        push!(shallowtypes, flatmap(c -> c.paramtypes, constructordescriptors)...)
-        push!(
-            exprstoeval,
-            map(x -> loadclass(x, true), shallowtypes)...
-        )
-        to_string_fn = Symbol(typeid, "_to_string")
-        push!(
-            exprstoeval,
-            generatemethod(
-                :(Base.show), 
-                [:(io::IO), :(o::$typeid)],
-                :(print(io, JavaCall.Conversions.convert_to_string(String, $to_string_fn(o).ref)))),
-            map(x -> methodfromdescriptors(classdescriptor, x), methoddescriptors)...,
-            map(x -> constructorfromdescriptors(classdescriptor, x), constructordescriptors)...
-        )
-        push!(FULLY_LOADED_SYMBOLS, typeid)
+    if !shallow && !fullcomponentsloaded(classdescriptor)
+        loadfullcomponents!(exprstoeval, classdescriptor)
     end
 
     generateblock(exprstoeval...)
+end
+
+## Loading of shallow components (minimal components required for the code to function)
+
+shallowcomponentsloeaded(d::ClassDescriptor) = d.juliatype in SHALLOW_LOADED_SYMBOLS
+
+function loadshallowcomponents!(exprstoeval, classdescriptor)
+    loadtype!(exprstoeval, classdescriptor)
+    loadstruct!(exprstoeval, classdescriptor)
+    loadconversions!(exprstoeval, classdescriptor)
+    push!(SHALLOW_LOADED_SYMBOLS, classdescriptor.juliatype)
+end
+
+function loadtype!(exprstoeval, classdescriptor)
+    typeid = classdescriptor.juliatype
+    
+    if !isinterface(classdescriptor) &&
+        superclass(classdescriptor) !== nothing
+
+        loadshallowcomponents!(exprstoeval, superclass(classdescriptor))
+        push!(exprstoeval, generatetype(typeid, superclass(classdescriptor).juliatype))
+    else
+        push!(exprstoeval, generatetype(typeid))
+    end
+end
+
+function loadstruct!(exprstoeval, classdescriptor)
+    typeid = classdescriptor.juliatype
+    structid = structidfromtypeid(typeid)
+    push!(exprstoeval, generatestruct(structid, typeid, (:ref, :jobject)))
+end
+
+function loadconversions!(exprstoeval, classdescriptor)
+    typeid = classdescriptor.juliatype
+    structid = structidfromtypeid(typeid)
+    push!(
+        exprstoeval,
+        generatemethod(
+            :(JavaCall.Conversions.convert_to_julia), 
+            [:(::Type{$typeid}), :(x::jobject)], 
+            :($structid(x))
+        ),
+        generatemethod(
+            :(JavaCall.Conversions.convert_to_jni),
+            [:(::Type{jobject}), :(x::$typeid)], 
+            :(x.ref)
+        )
+    )
+end
+
+## Loading of full components (fully generate the code for the class 
+## such as methods and constructors)
+
+fullcomponentsloaded(d::ClassDescriptor) = d.juliatype in FULLY_LOADED_SYMBOLS
+
+function loadfullcomponents!(exprstoeval, class::ClassDescriptor)
+    loadsuperclass!(exprstoeval, class)
+    methods = classdeclaredmethods(class)
+    constructors = classconstructors(class)
+    loaddependencies!(exprstoeval, methods)
+    loaddependencies!(exprstoeval, constructors)
+    loadmethods!(exprstoeval, class, methods)
+    loadconstructors!(exprstoeval, class, constructors)
+    loadjuliamethods!(exprstoeval, class)
+    push!(FULLY_LOADED_SYMBOLS, class.juliatype)
+end
+
+function loadsuperclass!(exprstoeval, class)
+    if !isinterface(class) && superclass(class) !== nothing
+        push!(exprstoeval, loadclass(superclass(class)))
+    end
+end
+
+function loaddependencies!(exprstoeval, methods::Vector{MethodDescriptor})
+    dependencies = 
+        flatmap(m -> [m.rettype, m.paramtypes...], methods) |>
+        l -> map(x -> loadclass(x, true), l)
+    
+    push!(exprstoeval, dependencies...)
+end
+
+function loaddependencies!(exprstoeval, constructors::Vector{ConstructorDescriptor})
+    dependencies = 
+        flatmap(c -> c.paramtypes, constructors) |>
+        l -> map(x -> loadclass(x, true), l)
+    
+    push!(exprstoeval, dependencies...)
+end
+
+function loadmethods!(exprstoeval, class, methods)
+    push!(exprstoeval, map(x -> methodfromdescriptors(class, x), methods)...)
+end
+
+function loadconstructors!(exprstoeval, class, constructors)
+    push!(exprstoeval, map(x -> constructorfromdescriptors(class, x), constructors)...)
+end
+
+function loadjuliamethods!(exprstoeval, class)
+    typeid = class.juliatype
+    to_string_fn = Symbol(typeid, "_to_string")
+    equals_fn = Symbol(typeid, "_equals")
+    push!(
+        exprstoeval,
+        generatemethod(
+            :(Base.show), 
+            [:(io::IO), :(o::$typeid)],
+            :(print(io, JavaCall.Conversions.convert_to_string(String, $to_string_fn(o).ref)))),
+        generatemethod(
+            :(Base.:(==)),
+            [:(o1::$typeid), :(o2::$typeid)],
+            :($equals_fn(o1, o2))
+        )
+    )
 end
 
 end

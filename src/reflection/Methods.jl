@@ -1,6 +1,7 @@
 module Methods
 
-export classmethods, isstatic, MethodDescriptor
+export classmethods, classdeclaredmethods,
+    isstatic, ispublic, MethodDescriptor
 
 using JavaCall.JNI
 using JavaCall.Signatures
@@ -51,6 +52,8 @@ end
 
 isstatic(m::MethodDescriptor) = m.modifiers.static
 
+ispublic(m::MethodDescriptor) = m.modifiers.public
+
 function descriptorfrommethod(method::jobject)
     name = callinstancemethod(method, :getName, Symbol("java.lang.String"), [])
     rettype = callinstancemethod(method, :getReturnType, Symbol("java.lang.Class"), [])
@@ -68,6 +71,17 @@ function classmethods(classdescriptor::Classes.ClassDescriptor)
     array = convert_to_vector(Vector{jobject}, callinstancemethod(
         classdescriptor.jniclass, 
         :getMethods, 
+        Vector{Symbol("java.lang.reflect.Method")}, 
+        []))
+    map(descriptorfrommethod, array)
+end
+
+classdeclaredmethods(classname::Symbol) = classdeclaredmethods(Classes.findclass(classname))
+
+function classdeclaredmethods(classdescriptor::Classes.ClassDescriptor)
+    array = convert_to_vector(Vector{jobject}, callinstancemethod(
+        classdescriptor.jniclass, 
+        :getDeclaredMethods, 
         Vector{Symbol("java.lang.reflect.Method")}, 
         []))
     map(descriptorfrommethod, array)
