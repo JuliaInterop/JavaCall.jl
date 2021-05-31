@@ -1,6 +1,6 @@
 module Utils
 
-export chain, flatmap, snakecase_from_camelcase
+export chain, flatmap, snakecase_from_camelcase, @verify
 
 function chain(itrs...)
     Base.Iterators.flatten(itrs)
@@ -23,6 +23,11 @@ function snakecase_from_camelcase(str::String)
         print(stringbuilder, lowercase(c))
     end
     String(take!(stringbuilder))
+end
+
+macro verify(expr, msgs...)
+    msg = isempty(msgs) ? string(expr) : :(join($(esc(msgs)), " "))
+    :($(esc(expr)) ? nothing : error($msg))
 end
 
 end

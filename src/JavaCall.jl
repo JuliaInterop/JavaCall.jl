@@ -9,6 +9,7 @@ include("Utils.jl")
 include("CodeGeneration.jl")
 include("InitOptions.jl")
 include("jni/JNI.jl")
+include("JavaVM.jl")
 include("Signatures.jl")
 include("Conversions.jl")
 include("Core.jl")
@@ -17,5 +18,6 @@ include("reflection/Reflection.jl")
 include("JavaCodeGeneration.jl")
 
 using .InitOptions
+using .JavaVM
 using .JavaLang
 end

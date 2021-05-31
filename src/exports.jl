@@ -6,5 +6,7 @@ export
 # Init Options
     defaultopts, fromcurrentvm, forjavahome, setfromcurrentvm!, unsetfromcurrentvm!,
     setjavahome!, unsetjavahome!, pushclasspath!, pushoptions!,
+# Java VM
+    init, destroy,
 # Java Lang
     JObject, JString, new_string, equals
