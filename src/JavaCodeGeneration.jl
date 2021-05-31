@@ -135,7 +135,7 @@ function loadclass(classdescriptor::ClassDescriptor, shallow=false)
 
     exprstoeval = []
     
-    if !shallowcomponeentsloeaded(classdescriptor)
+    if !shallowcomponentsloeaded(classdescriptor)
         loadshallowcomponents!(exprstoeval, classdescriptor)
     end
 
@@ -148,7 +148,7 @@ end
 
 ## Loading of shallow components (minimal components required for the code to function)
 
-shallowcomponeentsloeaded(d::ClassDescriptor) = d.juliatype in SHALLOW_LOADED_SYMBOLS
+shallowcomponentsloeaded(d::ClassDescriptor) = d.juliatype in SHALLOW_LOADED_SYMBOLS
 
 function loadshallowcomponents!(exprstoeval, classdescriptor)
     loadtype!(exprstoeval, classdescriptor)
