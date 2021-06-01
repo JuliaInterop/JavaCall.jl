@@ -1,3 +1,4 @@
+using Base: Float32
 # Configuration file for test variables
 # Not synched to github as each environment can have different configurations
 # See baseconfig.jl to see the expected variables
@@ -36,6 +37,10 @@ include("setup.jl")
     # Test java code generation
     @info "Test Java Code Generation"
     include("javacodegeneration.jl")
+
+    # Test jimport
+    @info "Test Import Statements"
+    include("jimport.jl")
 
     # Test java lang
     @info "Test Java Lang"
