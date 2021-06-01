@@ -1,6 +1,7 @@
 module Classes
 
-export ClassDescriptor, findclass, isarray, isinterface, superclass
+export ClassDescriptor, findclass, isarray, isinterface, superclass,
+       descriptorfromclass
 
 using JavaCall.JNI
 using JavaCall.Signatures

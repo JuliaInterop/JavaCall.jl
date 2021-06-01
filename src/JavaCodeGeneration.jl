@@ -9,6 +9,8 @@ using JavaCall.CodeGeneration
 using JavaCall.Reflection
 using JavaCall.Utils
 
+using JavaCall.JNI
+
 const SHALLOW_LOADED_SYMBOLS = Set([
     :Bool, 
     :Int8, 
@@ -31,6 +33,11 @@ paramexprfromtuple(x::Tuple{Int64, ClassDescriptor}) = :($(paramnamefromindex(x[
 
 function generateconvertarg(x::Tuple{Int64, ClassDescriptor})
     :(push!(args, JavaCall.Conversions.convert_to_jni($(x[2].jnitype), $(paramnamefromindex(x[1])))))
+end
+
+function loadclassfromobject(object::jobject)
+    class = JNI.get_object_class(object)
+    loadclass(Reflection.descriptorfromclass(class))
 end
 
 function methodfromdescriptors(
@@ -64,6 +71,9 @@ function methodfromdescriptors(
             $(methoddescriptor.rettype.jnitype),
             $signature,
             args...)
+        if isa(result, jobject)
+            eval(JavaCall.JavaCodeGeneration.loadclassfromobject(result))
+        end
         JavaCall.Conversions.convert_to_julia($(methoddescriptor.rettype.juliatype), result)
     end
     generatemethod(
@@ -95,6 +105,9 @@ function methodfromdescriptors(
             $(descriptor.rettype.jnitype),
             $signature,
             args...)
+        if isa(result, jobject)
+            eval(JavaCall.JavaCodeGeneration.loadclassfromobject(result))
+        end
         JavaCall.Conversions.convert_to_julia($(descriptor.rettype.juliatype), result)
     end
     generatemethod(
