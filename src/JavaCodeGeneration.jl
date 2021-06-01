@@ -1,5 +1,8 @@
 module JavaCodeGeneration
 
+using Core: print
+export loadclass
+
 using Base.Iterators
 
 using JavaCall.CodeGeneration
@@ -27,7 +30,7 @@ paramnamefromindex(i::Int64) = Symbol("param", i)
 paramexprfromtuple(x::Tuple{Int64, ClassDescriptor}) = :($(paramnamefromindex(x[1]))::$(x[2].juliatype)) 
 
 function generateconvertarg(x::Tuple{Int64, ClassDescriptor})
-    :(push!(args, convert_to_jni($(x[2].jnitype), $(paramnamefromindex(x[1])))))
+    :(push!(args, JavaCall.Conversions.convert_to_jni($(x[2].jnitype), $(paramnamefromindex(x[1])))))
 end
 
 function methodfromdescriptors(
@@ -61,7 +64,7 @@ function methodfromdescriptors(
             $(methoddescriptor.rettype.jnitype),
             $signature,
             args...)
-        convert_to_julia($(methoddescriptor.rettype.juliatype), result)
+        JavaCall.Conversions.convert_to_julia($(methoddescriptor.rettype.juliatype), result)
     end
     generatemethod(
         Symbol("j_", snakecase_from_camelcase(methoddescriptor.name)),
@@ -83,7 +86,7 @@ function methodfromdescriptors(
         descriptor.rettype.signature)
     
     body = quote
-        obj = convert_to_jni(jobject, receiver)
+        obj = JavaCall.Conversions.convert_to_jni(jobject, receiver)
         args = jvalue[]
         $(map(generateconvertarg, enumerate(descriptor.paramtypes))...)
         result = JavaCall.Core.callinstancemethod(
@@ -92,7 +95,7 @@ function methodfromdescriptors(
             $(descriptor.rettype.jnitype),
             $signature,
             args...)
-            convert_to_julia($(descriptor.rettype.juliatype), result)
+        JavaCall.Conversions.convert_to_julia($(descriptor.rettype.juliatype), result)
     end
     generatemethod(
         Symbol("j_", snakecase_from_camelcase(descriptor.name)),
@@ -118,7 +121,7 @@ function constructorfromdescriptors(
             $(classdescriptor.jniclass),
             $signature,
             args...)
-        convert_to_julia($(classdescriptor.juliatype), result)
+        JavaCall.Conversions.convert_to_julia($(classdescriptor.juliatype), result)
     end
     generatemethod(
         classdescriptor.juliatype,
@@ -245,10 +248,10 @@ function loadjuliamethods!(exprstoeval, class)
     typeid = class.juliatype
     push!(
         exprstoeval,
-        generatemethod(
-            :(Base.show), 
-            [:(io::IO), :(o::$typeid)],
-            :(print(io, JavaCall.Conversions.convert_to_string(String, j_to_string(o).ref)))),
+        # generatemethod(
+        #     :(Base.show), 
+        #     [:(io::IO), :(o::$typeid)],
+        #     :(print(io, JavaCall.Conversions.convert_to_string(String, j_to_string(o).ref)))),
         generatemethod(
             :(Base.:(==)),
             [:(o1::$typeid), :(o2::$typeid)],
