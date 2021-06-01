@@ -5,7 +5,7 @@
     @testset "Import Float" begin
         @jimport "java.lang.Float"
         @test @isdefined JFloat
-        @test @isdefined JFloatImpl
+        @test @isdefined JFloatJuliaImpl
 
         a = JFloat(Float32(2.2))
         b = JFloat(Float32(2.2))

@@ -23,7 +23,7 @@ const SHALLOW_LOADED_SYMBOLS = Set([
 
 const FULLY_LOADED_SYMBOLS = copy(SHALLOW_LOADED_SYMBOLS)
 
-structidfromtypeid(typeid::Symbol) = Symbol(typeid, "Impl")
+structidfromtypeid(typeid::Symbol) = Symbol(typeid, "JuliaImpl")
 
 paramnamefromindex(i::Int64) = Symbol("param", i)
 

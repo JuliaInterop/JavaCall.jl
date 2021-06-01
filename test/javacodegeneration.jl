@@ -4,9 +4,9 @@
     @testset "Test Simple Object" begin
         eval(JavaCodeGeneration.loadclass(Symbol("java.lang.Object")))
         @test @isdefined JObject
-        @test @isdefined JObjectImpl
+        @test @isdefined JObjectJuliaImpl
         @test @isdefined JString
-        @test @isdefined JStringImpl
+        @test @isdefined JStringJuliaImpl
         @test @isdefined j_equals
         @test @isdefined j_to_string
     end
@@ -69,9 +69,9 @@
     @testset "Test Load Superclass" begin
         eval(JavaCodeGeneration.loadclass(Symbol("java.lang.Integer")))
         @test @isdefined JInteger
-        @test @isdefined JIntegerImpl
+        @test @isdefined JIntegerJuliaImpl
         @test @isdefined JNumber
-        @test @isdefined JNumberImpl
+        @test @isdefined JNumberJuliaImpl
 
         a = JInteger(Int32(1))
         b = JInteger(Int32(1))
