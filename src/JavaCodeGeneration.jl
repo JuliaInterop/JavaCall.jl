@@ -81,7 +81,7 @@ function methodfromdescriptors(
     end
     generatemethod(
         Symbol("j_", snakecase_from_camelcase(methoddescriptor.name)),
-        paramtypes,
+        [:(::Type{$(classdescriptor.juliatype)}), paramtypes...],
         body)
 end
 
