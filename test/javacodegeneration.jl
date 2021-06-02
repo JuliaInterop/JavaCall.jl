@@ -82,9 +82,7 @@
     @testset "Test Load Return Value" begin
         eval(JavaCodeGeneration.loadclass(Symbol("javax.net.SocketFactory")))
         socketfactory = j_get_default()
-        @test @isdefined(JSocketJuliaImpl)
-        @test @isdefined(__JSocketFactory_loaded)
         socket = j_create_socket(socketfactory)
-        @test @isdefined(j_bind)
+        @test @isdefined(j_bind) # Socket.bind
     end
 end
