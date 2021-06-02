@@ -16,12 +16,12 @@
             eval(JavaCodeGeneration.loadclass(Symbol("java.util.Arrays")))
     
             a = [1, 2, 3, 4, 5]
-            @test 1 == j_binary_search(a, 2) # Java Indexes at 0
+            @test 1 == j_binary_search(JArrays, a, 2) # Java Indexes at 0
         end
 
         @testset "Test Dates" begin
             eval(JavaCodeGeneration.loadclass(Symbol("java.time.LocalDate")))
-            a = j_of(Int32(2000), Int32(1), Int32(1))
+            a = j_of(JLocalDate, Int32(2000), Int32(1), Int32(1))
             b = j_plus_days(a, 1)
             c = j_plus_months(b, 1)
             @test j_get_year(a) == 2000
