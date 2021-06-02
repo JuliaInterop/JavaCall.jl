@@ -9,12 +9,12 @@
 
         invalidnumber = JString(Char['1', '!', '3'])
 
-        @test_throws JNumberFormatExceptionJuliaImpl j_parse_int(invalidnumber)
-        @test_throws JNumberFormatException j_parse_int(invalidnumber)
-        @test_throws JRuntimeException j_parse_int(invalidnumber)
+        @test_throws JNumberFormatExceptionJuliaImpl j_parse_int(JInteger, invalidnumber)
+        @test_throws JNumberFormatException j_parse_int(JInteger, invalidnumber)
+        @test_throws JRuntimeException j_parse_int(JInteger, invalidnumber)
 
         try
-            j_parse_int(invalidnumber)
+            j_parse_int(JInteger, invalidnumber)
         catch e
             @test isa(e, JNumberFormatException)
             @test isa(e, JThrowable)
