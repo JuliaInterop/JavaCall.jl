@@ -26,6 +26,10 @@ include("setup.jl")
     @info "Test conversions"
     include("convertions.jl")
 
+    # Test exceptions
+    @info "Test exceptions"
+    include("exceptions.jl")
+
     # Test code generation
     @info "Test Code Generation"
     include("codegeneration.jl")

@@ -71,6 +71,9 @@ function methodfromdescriptors(
             $(methoddescriptor.rettype.jnitype),
             $signature,
             args...)
+
+        $(generateexceptionhandling())
+
         if isa(result, jobject)
             eval(JavaCall.JavaCodeGeneration.loadclassfromobject(result))
         end
@@ -105,6 +108,9 @@ function methodfromdescriptors(
             $(descriptor.rettype.jnitype),
             $signature,
             args...)
+
+        $(generateexceptionhandling())
+
         if isa(result, jobject)
             eval(JavaCall.JavaCodeGeneration.loadclassfromobject(result))
         end
@@ -271,6 +277,25 @@ function loadjuliamethods!(exprstoeval, class)
             :(j_equals(o1, o2))
         )
     )
+end
+
+function generateexceptionhandling()
+    quote
+        if JNI.exception_check() === JNI_TRUE
+            exception = JNI.exception_occurred()
+            class = JNI.get_object_class(exception)
+            desc = JavaCall.Reflection.descriptorfromclass(class)
+            eval(JavaCall.JavaCodeGeneration.loadclass(desc))
+            JNI.exception_clear()
+            throw(eval(quote
+                JavaCall.Conversions.convert_to_julia(
+                    $(desc.juliatype),
+                    $exception
+                )
+                end
+            ))
+        end
+    end
 end
 
 end
