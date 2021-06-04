@@ -10,6 +10,8 @@ function conventional_name(name::AbstractString)
         return "boolean"
     elseif name == "B"
         return "byte"
+    elseif name == "S"
+        return "short"
     elseif name == "C"
         return "char"
     elseif name == "I"
