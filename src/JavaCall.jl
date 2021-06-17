@@ -7,7 +7,7 @@ module JavaCall
     Base.Experimental.@optlevel 1
 end
 
-export JavaObject, JavaMetaClass,
+export JavaObject, JavaMetaClass, JNIArray,
        jint, jlong, jbyte, jboolean, jchar, jshort, jfloat, jdouble, jvoid,
        JObject, JClass, JMethod, JConstructor, JField, JString,
        JavaRef, JavaLocalRef, JavaGlobalRef, JavaNullRef,

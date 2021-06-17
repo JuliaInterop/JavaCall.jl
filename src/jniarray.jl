@@ -34,6 +34,14 @@ signature(::Type{JNIArray{T}}) where T = string("[", signature(T))
 jvalue(jarr::JNIArray) = jarr.ref.ptr
 JNIArray{T}(ptr::Ptr{Nothing}) where {T} = JNIArray{T}(JavaLocalRef(ptr))
 
+function convert(::Type{JNIArray{T}}, vec::Vector{T}) where {T}
+    arr = JNIArray{T}(length(vec))
+    arr .= vec
+    return arr
+end
+
+JNIArray(vec::Vector{T}) where {T} = convert(JNIArray{T}, vec)
+
 for primitive in [:jboolean, :jchar, :jbyte, :jshort, :jint, :jlong, :jfloat, :jdouble]
     name = jniname(eval(primitive))
     get_elements = :(JNI.$(Symbol("Get$(name)ArrayElements")))
