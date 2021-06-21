@@ -23,7 +23,7 @@ Base.setindex!(jarr::JNIArray, args...) = setindex!(jarr.arr, args...)
 Base.size(jarr::JNIArray, args...; kwargs...) = size(jarr.arr, args...; kwargs...)
 
 function deleteref(x::JNIArray{T}) where T
-    if !isnothing(x.arr)
+    if x.arr !== nothing
         release_elements(x)
     end
     deleteref(x.ref)
