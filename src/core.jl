@@ -260,11 +260,8 @@ const JString = JavaObject{Symbol("java.lang.String")}
 
 function JString(str::AbstractString)
     jstring = JNI.NewStringUTF(String(str))
-    if jstring == C_NULL
-        geterror()
-    else
-        return JString(jstring)
-    end
+    checknull(jstring)
+    return JString(jstring)
 end
 
 # jvalue(v::Integer) = int64(v) << (64-8*sizeof(v))
@@ -327,57 +324,44 @@ isarray(juliaclass::String) = endswith(juliaclass, "[]")
 
 function jnew(T::Symbol, argtypes::Tuple = () , args...)
     assertroottask_or_goodenv() && assertloaded()
-    sig = method_signature(Nothing, argtypes...)
-    jmethodId = JNI.GetMethodID(Ptr(metaclass(T)), String("<init>"), sig)
-    if jmethodId == C_NULL
-        throw(JavaCallError("No constructor for $T with signature $sig"))
-    end
-    return  _jcall(metaclass(T), jmethodId, JavaObject{T}, argtypes, args...; callmethod=JNI.NewObjectA)
+    jmethodId = checknull(get_method_id(JNI.GetMethodID, Ptr(metaclass(T)), "<init>", Nothing, argtypes))
+    return _jcall(metaclass(T), jmethodId, JavaObject{T}, argtypes, args...; callmethod=JNI.NewObjectA)
 end
 
 _jcallable(typ::Type{JavaObject{T}}) where T = metaclass(T)
-_jcallable(obj::JavaObject) = obj
+function _jcallable(obj::JavaObject)
+    isnull(obj) && throw(JavaCallError("Attempt to call method on Java NULL"))
+    obj
+end
 
-# Call static methods
 function jcall(ref, method::AbstractString, rettype::Type, argtypes::Tuple = (), args...)
     assertroottask_or_goodenv() && assertloaded()
-    jmethodId = get_method_id(ref, method, rettype, argtypes)
-    jmethodId==C_NULL && geterror(true)
+    jmethodId = checknull(get_method_id(ref, method, rettype, argtypes))
     _jcall(_jcallable(ref), jmethodId, rettype, argtypes, args...)
 end
 
-function get_method_id(typ::Type{JavaObject{T}}, method::AbstractString, rettype::Type, argtypes::Tuple) where T
+function jcall(ref, method::JMethod, args...)
+    assertroottask_or_goodenv() && assertloaded()
+    jmethodId = checknull(get_method_id(method))
+    rettype = jimport(getreturntype(method))
+    argtypes = Tuple(jimport.(getparametertypes(method)))
+    _jcall(_jcallable(ref), jmethodId, rettype, argtypes, args...)
+end
+
+function get_method_id(jnifun, ptr, method::AbstractString, rettype::Type, argtypes::Tuple)
     sig = method_signature(rettype, argtypes...)
-    JNI.GetStaticMethodID(Ptr(metaclass(T)), String(method), sig)
+    jnifun(ptr, String(method), sig)
+end
+
+function get_method_id(typ::Type{JavaObject{T}}, method::AbstractString, rettype::Type, argtypes::Tuple) where T
+    get_method_id(JNI.GetStaticMethodID, Ptr(metaclass(T)), method, rettype, argtypes)
 end
 
 function get_method_id(obj::JavaObject, method::AbstractString, rettype::Type, argtypes::Tuple)
-    sig = method_signature(rettype, argtypes...)
-    JNI.GetMethodID(Ptr(metaclass(obj)), String(method), sig)
+    get_method_id(JNI.GetMethodID, Ptr(metaclass(obj)), method, rettype, argtypes)
 end
 
-function get_method_id(obj::JavaObject, method::JMethod)
-    sig = method_signature(rettype, argtypes...)
-    JNI.FromReflectedMethod(method)
-end
-
-function jcall(ref, method::JMethod, args...) where T
-    jmethodId = JNI.FromReflectedMethod(method)
-    rettype = jimport(getreturntype(method))
-    argtypes = Tuple(jimport.(getparametertypes(method)))
-    jmethodId==C_NULL && geterror(true)
-    _jcall(metaclass(T), jmethodId, rettype, argtypes, args...)
-end
-
-function jcall(obj::JavaObject, method::JMethod, args... )
-    assertroottask_or_goodenv() && assertloaded()
-    isnull(obj) && throw(JavaCallError("Attempt to call method on Java NULL"))
-    jmethodId = JNI.FromReflectedMethod(method)
-    rettype = jimport(getreturntype(method))
-    argtypes = Tuple(jimport.(getparametertypes(method)))
-    jmethodId==C_NULL && geterror(true)
-    _jcall(obj, jmethodId, rettype,  argtypes, args...)
-end
+get_method_id(method::JMethod) = JNI.FromReflectedMethod(method)
 
 # JMethod invoke
 (m::JMethod)(obj, args...) = jcall(obj, m, args...)
@@ -385,8 +369,14 @@ end
 
 function jfield(ref, field, fieldType)
     assertroottask_or_goodenv() && assertloaded()
-    jfieldID = get_field_id(ref, field, fieldType)
-    jfieldID==C_NULL && geterror(true)
+    jfieldID = checknull(get_field_id(ref, field, fieldType))
+    _jfield(_jcallable(ref), jfieldID, fieldType)
+end
+
+function jfield(ref, field)
+    assertroottask_or_goodenv() && assertloaded()
+    fieldType = jimport(gettype(field))
+    jfieldID = checknull(get_field_id(ref, field, fieldType))
     _jfield(_jcallable(ref), jfieldID, fieldType)
 end
 
@@ -403,8 +393,7 @@ function get_field_id(obj::JavaObject, field::AbstractString, fieldType::Type)
     JNI.GetFieldID(Ptr(metaclass(obj)), String(field), signature(fieldType))
 end
 
-function get_field_id(obj::JavaObject, field::JField)
-    fieldType = jimport(gettype(field))
+function get_field_id(obj::JavaObject, field::JField, fieldType::Type)
     JNI.FromReflectedField(field)
 end
 
@@ -428,7 +417,7 @@ for (x, name) in [(:Type,             "Object"),
         m = quote
             function _jfield(obj::T, jfieldID::Ptr{Nothing}, fieldType::$x) where T <: $t
                 result = $fieldmethod(Ptr(obj), jfieldID)
-                result==C_NULL && geterror()
+                geterror()
                 return convert_result(fieldType, result)
             end
             function _jcall(obj::T, jmethodId::Ptr{Nothing}, rettype::$x,
@@ -438,7 +427,7 @@ for (x, name) in [(:Type,             "Object"),
                     result = callmethod(Ptr(obj), jmethodId, Array{JNI.jvalue}(jvalue.(convertedArgs)))
                 end
                 cleanup_arg.(convertedArgs)
-                result==C_NULL && geterror()
+                geterror()
                 return convert_result(rettype, result)
             end
         end
@@ -453,8 +442,7 @@ global const _jmc_cache = [ Dict{Symbol, JavaMetaClass}() ]
 
 function _metaclass(class::Symbol)
     jclass=javaclassname(class)
-    jclassptr = JNI.FindClass(jclass)
-    jclassptr == C_NULL && throw(JavaCallError("Class Not Found $jclass"))
+    jclassptr = checknull(JNI.FindClass(jclass))
     return JavaMetaClass(class, jclassptr)
 end
 
@@ -474,28 +462,32 @@ javaclassname(class::Symbol) = replace(string(class), "."=>"/")
 javaclassname(class::AbstractString) = replace(class, "."=>"/")
 javaclassname(::Type{T}) where T <: AbstractVector = JavaCall.signature(T)
 
-function geterror(allow=false)
+function checknull(ptr)
+    if isnull(ptr) && geterror() === nothing
+        throw(JavaCallError("Null from Java. Not known how"))
+    end
+    ptr
+end
+
+function geterror()
     isexception = JNI.ExceptionCheck()
 
     if isexception == JNI_TRUE
         jthrow = JNI.ExceptionOccurred()
-        jthrow==C_NULL && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
-        JNI.ExceptionDescribe() #Print java stackstrace to stdout
-        JNI.ExceptionClear()
-        jclass = JNI.FindClass("java/lang/Throwable")
-        jclass==C_NULL && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
-        jmethodId=JNI.GetMethodID(jclass, "toString", "()Ljava/lang/String;")
-        jmethodId==C_NULL && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
-        res = JNI.CallObjectMethodA(jthrow, jmethodId, Int[])
-        res==C_NULL && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
-        msg = unsafe_string(JString(res))
-        JNI.DeleteLocalRef(jthrow)
-        throw(JavaCallError(string("Error calling Java: ",msg)))
-    else
-        if allow==false
-            return #No exception pending, legitimate NULL returned from Java
-        else
-            throw(JavaCallError("Null from Java. Not known how"))
+        isnull(jthrow) && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
+        try
+            JNI.ExceptionDescribe() #Print java stackstrace to stdout
+            jclass = JNI.FindClass("java/lang/Throwable")
+            isnull(jclass) && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
+            jmethodId=JNI.GetMethodID(jclass, "toString", "()Ljava/lang/String;")
+            isnull(jmethodId) && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
+            res = JNI.CallObjectMethodA(jthrow, jmethodId, Int[])
+            isnull(res) && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
+            msg = unsafe_string(JString(res))
+            throw(JavaCallError(string("Error calling Java: ", msg)))
+        finally
+            JNI.ExceptionClear()
+            JNI.DeleteLocalRef(jthrow)
         end
     end
 end
