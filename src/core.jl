@@ -249,9 +249,22 @@ isnull(obj::JavaMetaClass) = Ptr(obj) == C_NULL
 
 macro checknull(expr, msg="")
     if expr isa Expr && expr.head == :call
-        return esc(:( checknull($expr, $msg, $(expr.args[1])) ))
+        jnifun = "$(expr.args[1])"
+        quote
+            local ptr = $(esc(expr))
+            if isnull(ptr) && geterror() === nothing
+                throw(JavaCallError("JavaCall."*$jnifun*": "*$(esc(msg))))
+            end
+            ptr
+        end
     else
-        return esc(:( checknull($expr, $msg) ))
+        quote
+            local ptr = $(esc(expr))
+            if isnull(ptr) && geterror() === nothing
+                throw(JavaCallError($(esc(msg))))
+            end
+            ptr
+        end
     end
 end
 
@@ -342,7 +355,7 @@ isarray(juliaclass::String) = endswith(juliaclass, "[]")
 
 function jnew(T::Symbol, argtypes::Tuple = () , args...)
     assertroottask_or_goodenv() && assertloaded()
-    jmethodId = get_method_id(JNI.GetMethodID, Ptr(metaclass(T)), "<init>", Nothing, argtypes)
+    jmethodId = get_method_id(JNI.GetMethodID, T, "<init>", Nothing, argtypes)
     return _jcall(metaclass(T), jmethodId, JavaObject{T}, argtypes, args...; callmethod=JNI.NewObjectA)
 end
 
@@ -366,17 +379,18 @@ function jcall(ref, method::JMethod, args...)
     _jcall(_jcallable(ref), jmethodId, rettype, argtypes, args...)
 end
 
-function get_method_id(jnifun, ptr, method::AbstractString, rettype::Type, argtypes::Tuple)
+function get_method_id(jnifun::Function, obj, method::AbstractString, rettype::Type, argtypes::Tuple)
     sig = method_signature(rettype, argtypes...)
-    @checknull jnifun(ptr, String(method), sig) "$method"
+    ptr = Ptr(metaclass(obj))
+    @checknull jnifun(ptr, String(method), sig) "Problem getting method id for $obj.$method with signature $sig"
 end
 
 function get_method_id(typ::Type{JavaObject{T}}, method::AbstractString, rettype::Type, argtypes::Tuple) where T
-    @checknull get_method_id(JNI.GetStaticMethodID, Ptr(metaclass(T)), method, rettype, argtypes)
+    get_method_id(JNI.GetStaticMethodID, T, method, rettype, argtypes)
 end
 
 function get_method_id(obj::JavaObject, method::AbstractString, rettype::Type, argtypes::Tuple)
-    @checknull get_method_id(JNI.GetMethodID, Ptr(metaclass(obj)), method, rettype, argtypes)
+    get_method_id(JNI.GetMethodID, obj, method, rettype, argtypes)
 end
 
 get_method_id(method::JMethod) = @checknull JNI.FromReflectedMethod(method)
