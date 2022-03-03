@@ -1,8 +1,9 @@
 # JavaCall
 
-[![Build Statusi v0.7](https://travis-ci.com/JuliaInterop/JavaCall.jl.png?branch=v0.7)](https://travis-ci.com/github/JuliaInterop/JavaCall.jl)
-[![Build Status master](https://travis-ci.com/JuliaInterop/JavaCall.jl.svg)](https://travis-ci.com/github/JuliaInterop/JavaCall.jl)
+<!-- [![Build Statusi v0.7](https://travis-ci.com/JuliaInterop/JavaCall.jl.png?branch=v0.7)](https://travis-ci.com/github/JuliaInterop/JavaCall.jl) -->
+<!-- [![Build Status master](https://travis-ci.com/JuliaInterop/JavaCall.jl.svg)](https://travis-ci.com/github/JuliaInterop/JavaCall.jl) -->
 [![Build status](https://ci.appveyor.com/api/projects/status/qeu6ul9o9s6t5tiw?svg=true)](https://ci.appveyor.com/project/aviks/javacall-jl-6c24s)
+[![Gitter](https://badges.gitter.im/JavaCall-jl/community.svg)](https://gitter.im/JavaCall-jl/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 
 Call Java programs from Julia.
