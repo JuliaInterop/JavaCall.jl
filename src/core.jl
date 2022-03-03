@@ -410,10 +410,12 @@ for (x, name) in [(:Type,             "Object"),
                   (:(Type{jfloat}),   "Float"  ),
                   (:(Type{jdouble}),  "Double" ),
                   (:(Type{jvoid}),    "Void"   )]
-    for (t, cstr, fstr) in [(:JavaObject,    "Call$(name)MethodA",      "Get$(name)Field"),
-                            (:JavaMetaClass, "CallStatic$(name)MethodA", "GetStatic$(name)Field")]
-        callmethod = :(JNI.$(Symbol(cstr)))
-        fieldmethod = :(JNI.$(Symbol(fstr)))
+    for (t, callprefix, getprefix) in [
+        (:JavaObject,    :(JNI.Call), :(JNI.Get) ),
+        (:JavaMetaClass, :(JNI.CallStatic), :(JNI.GetStatic) )
+    ]
+        callmethod = Symbol(callprefix, name, :MethodA)
+        fieldmethod = Symbol(getprefix, name, :Field)
         m = quote
             function _jfield(obj::T, jfieldID::Ptr{Nothing}, fieldType::$x) where T <: $t
                 result = $fieldmethod(Ptr(obj), jfieldID)
