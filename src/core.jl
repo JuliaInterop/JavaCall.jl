@@ -293,7 +293,7 @@ end
 
 for (x, y, z) in [(:jboolean, :(JNI.GetBooleanField), :(JNI.GetStaticBooleanField)),
                   (:jchar,    :(JNI.GetCharField),    :(JNI.GetStaticCharField))   ,
-                  (:jbyte,    :(JNI.GetByteField),    :(JNI.GetStaticBypeField))   ,
+                  (:jbyte,    :(JNI.GetByteField),    :(JNI.GetStaticByteField))   ,
                   (:jshort,   :(JNI.GetShortField),   :(JNI.GetStaticShortField))  ,
                   (:jint,     :(JNI.GetIntField),     :(JNI.GetStaticIntField))    ,
                   (:jlong,    :(JNI.GetLongField),    :(JNI.GetStaticLongField))   ,
