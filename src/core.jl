@@ -496,22 +496,33 @@ javaclassname(class::Symbol) = replace(string(class), "."=>"/")
 javaclassname(class::AbstractString) = replace(class, "."=>"/")
 javaclassname(::Type{T}) where T <: AbstractVector = JavaCall.signature(T)
 
+function _notnull_assert(ptr)
+    isnull(ptr) && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
+end
+
+function get_exception_string(jthrow)
+    jthrowable = JNI.FindClass("java/lang/Throwable")
+    _notnull_assert(jthrowable)
+
+    tostring_method = JNI.GetMethodID(jthrowable, "toString", "()Ljava/lang/String;")
+    _notnull_assert(tostring_method)
+
+    res = JNI.CallObjectMethodA(jthrow, tostring_method, Int[])
+    _notnull_assert(res)
+
+    return unsafe_string(JString(res))
+end
 
 function geterror()
     isexception = JNI.ExceptionCheck()
 
     if isexception == JNI_TRUE
         jthrow = JNI.ExceptionOccurred()
-        isnull(jthrow) && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
+        _notnull_assert(jthrow)
         try
             JNI.ExceptionDescribe() #Print java stackstrace to stdout
-            jclass = JNI.FindClass("java/lang/Throwable")
-            isnull(jclass) && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
-            jmethodId=JNI.GetMethodID(jclass, "toString", "()Ljava/lang/String;")
-            isnull(jmethodId) && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
-            res = JNI.CallObjectMethodA(jthrow, jmethodId, Int[])
-            isnull(res) && throw(JavaCallError("Java Exception thrown, but no details could be retrieved from the JVM"))
-            msg = unsafe_string(JString(res))
+
+            msg = get_exception_string(jthrow)
             throw(JavaCallError(string("Error calling Java: ", msg)))
         finally
             JNI.ExceptionClear()
