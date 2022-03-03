@@ -462,9 +462,21 @@ javaclassname(class::Symbol) = replace(string(class), "."=>"/")
 javaclassname(class::AbstractString) = replace(class, "."=>"/")
 javaclassname(::Type{T}) where T <: AbstractVector = JavaCall.signature(T)
 
-function checknull(ptr)
+macro checknull(expr, msg="")
+    if expr isa Expr && expr.head == :call
+        :( checknull($expr, $msg, $(expr.args[1])) )
+    else
+        :( checknull($expr, $msg) )
+    end
+end 
+
+function checknull(ptr, msg="Unexpected null pointer from Java Native Interface", jnifun=nothing)
     if isnull(ptr) && geterror() === nothing
-        throw(JavaCallError("Null from Java. Not known how"))
+        if jnifun === nothing
+            throw(JavaCallError(msg))
+        else    
+            throw(JavaCallError("JavaCall.JNI.$jnifun: $msg"))
+        end
     end
     ptr
 end
