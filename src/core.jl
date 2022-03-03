@@ -432,16 +432,16 @@ end
 # JField invoke
 (f::JField)(obj) = jfield(obj, f)
 
-for (x, name) in [(:Type,             "Object"),
-                  (:(Type{jboolean}), "Boolean"),
-                  (:(Type{jchar}),    "Char"   ),
-                  (:(Type{jbyte}),    "Byte"   ),
-                  (:(Type{jshort}),   "Short"  ),
-                  (:(Type{jint}),     "Int"    ),
-                  (:(Type{jlong}),    "Long"   ),
-                  (:(Type{jfloat}),   "Float"  ),
-                  (:(Type{jdouble}),  "Double" ),
-                  (:(Type{jvoid}),    "Void"   )]
+for (x, name) in [(:(<:Any),  :Object),
+                  (:jboolean, :Boolean),
+                  (:jchar,    :Char   ),
+                  (:jbyte,    :Byte   ),
+                  (:jshort,   :Short  ),
+                  (:jint,     :Int    ),
+                  (:jlong,    :Long   ),
+                  (:jfloat,   :Float  ),
+                  (:jdouble,  :Double ),
+                  (:jvoid,    :Void   )]
     for (t, callprefix, getprefix) in [
         (:JavaObject,    :Call, :Get ),
         (:JavaMetaClass, :CallStatic, :GetStatic )
@@ -449,12 +449,12 @@ for (x, name) in [(:Type,             "Object"),
         callmethod = :(JNI.$(Symbol(callprefix, name, :MethodA)))
         fieldmethod = :(JNI.$(Symbol(getprefix, name, :Field)))
         m = quote
-            function _jfield(obj::T, jfieldID::Ptr{Nothing}, fieldType::$x) where T <: $t
+            function _jfield(obj::T, jfieldID::Ptr{Nothing}, fieldType::Type{$x}) where T <: $t
                 result = $fieldmethod(Ptr(obj), jfieldID)
                 geterror()
                 return convert_result(fieldType, result)
             end
-            function _jcall(obj::T, jmethodId::Ptr{Nothing}, rettype::$x,
+            function _jcall(obj::T, jmethodId::Ptr{Nothing}, rettype::Type{$x},
                             argtypes::Tuple, args...; callmethod=$callmethod) where T <: $t
                 savedArgs, convertedArgs = convert_args(argtypes, args...)
                 GC.@preserve savedArgs begin
