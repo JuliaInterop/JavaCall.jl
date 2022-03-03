@@ -324,7 +324,10 @@ isarray(juliaclass::String) = endswith(juliaclass, "[]")
 
 function jnew(T::Symbol, argtypes::Tuple = () , args...)
     assertroottask_or_goodenv() && assertloaded()
-    jmethodId = checknull(get_method_id(JNI.GetMethodID, Ptr(metaclass(T)), "<init>", Nothing, argtypes))
+    jmethodId = checknull(
+         get_method_id(JNI.GetMethodID, Ptr(metaclass(T)), "<init>", Nothing, argtypes),
+         "No constructor for $T with signature $sig"
+    )
     return _jcall(metaclass(T), jmethodId, JavaObject{T}, argtypes, args...; callmethod=JNI.NewObjectA)
 end
 
