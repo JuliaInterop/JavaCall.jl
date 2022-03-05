@@ -33,6 +33,8 @@ System = @jimport java.lang.System
 System_out = jfield(System, "out", @jimport java.io.PrintStream )
 @info "Java Version: ", jcall(System, "getProperty", JString, (JString,), "java.version")
 
+@testset "JavaCall" begin
+
 @testset "unsafe_strings_1" begin
     a=JString("how are you")
     @test Ptr(a) != C_NULL
@@ -92,11 +94,102 @@ end
     @test typeof(h)==jint
 end
 
+@testset "method_styles_1" begin
+    method_dict(x) = map(listmethods(x)) do m
+        param_t = Tuple(JavaCall.jimport.(getparametertypes(m)))
+        ret_t = JavaCall.jimport(getreturntype(m))
+        (getname(m), ret_t, param_t) => m
+    end |> Dict
+
+
+    jmath = @jimport java.lang.Math 
+    methods = method_dict(jmath)
+    for (method_key, params) in [(("hypot", jdouble, (jdouble, jdouble)), (2.0, 3.0)),
+                                 (("getExponent", jint, (jfloat,)), (1.0))
+                                ]
+        res = jcall(jmath, method_key..., params...)
+        @test res == methods[method_key](jmath, params...)
+        @test res == jcall(jmath, methods[method_key], params...)
+    end
+
+    jnu = @jimport java.net.URL
+    gurl = jnu((JString,), "https://en.wikipedia.org")
+    methods = method_dict(gurl)
+    for (method_key, params) in [(("getProtocol", JString, ()), ()),
+                                 (("getHost", JString, ()), ())
+                                ]
+        res = jcall(gurl, method_key..., params...)
+        @test res == methods[method_key](gurl, params...)
+        @test res == jcall(gurl, methods[method_key], params...)
+    end
+end
+
+@testset "exceptions_1" begin
+    j_u_arrays = @jimport java.util.Arrays
+    j_math = @jimport java.lang.Math
+    j_is = @jimport java.io.InputStream
+    
+    # JavaCall.JavaCallError("Error calling Java: java.lang.ArithmeticException: / by zero")
+    @test_throws JavaCall.JavaCallError jcall(j_math, "floorDiv", jint, (jint, jint), 1, 0)
+    @test JavaCall.geterror() === nothing
+
+    # JavaCall.JavaCallError("Error calling Java: java.lang.ArrayIndexOutOfBoundsException: Array index out of range: -1")
+    @test_throws JavaCall.JavaCallError jcall(j_u_arrays, "sort", Nothing, (Array{jint,1}, jint, jint), [10,20], -1, -1)
+    @test JavaCall.geterror() === nothing
+
+    # JavaCall.JavaCallError("Error calling Java: java.lang.IllegalArgumentException: fromIndex(1) > toIndex(0)")
+    @test_throws JavaCall.JavaCallError jcall(j_u_arrays, "sort", Nothing, (Array{jint,1}, jint, jint), [10,20], 1, 0)
+    @test JavaCall.geterror() === nothing
+
+    # JavaCall.JavaCallError("Error calling Java: java.lang.InstantiationException: java.util.AbstractCollection")
+    @test_throws JavaCall.JavaCallError (@jimport java.util.AbstractCollection)()
+    @test JavaCall.geterror() === nothing
+
+    # JavaCall.JavaCallError("Error calling Java: java.lang.NoClassDefFoundError: java/util/Lis")
+    @test_throws JavaCall.JavaCallError (@jimport java.util.Lis)()
+    @test JavaCall.geterror() === nothing
+
+    # JavaCall.JavaCallError("Error calling Java: java.lang.NoSuchMethodError: <init>")
+    @test_throws JavaCall.JavaCallError (@jimport java.util.ArrayList)((jboolean,), true)
+    @test JavaCall.geterror() === nothing
+end
+
+@testset "fields_1" begin
+    JTest = @jimport(Test)
+    t=JTest(())
+    t_fields = Dict(getname(f) => f for f in listfields(t))
+
+    @testset "$ftype" for (name, ftype, valtest) in [ ("booleanField", jboolean, ==(true)) ,
+                                ("integerField", jint, ==(100)) ,
+                                ("stringField", JString, ==("A STRING")) ,
+                                ("objectField", JObject, x -> Ptr(x) == C_NULL) ]
+        @test valtest(jfield(t, name, ftype))
+        @test valtest(t_fields[name](t))
+        @test valtest(jfield(t, t_fields[name]))
+    end
+
+    @test jfield(@jimport(java.lang.Math), "E", jdouble) == 2.718281828459045
+    @test jfield(@jimport(java.lang.Math), "PI", jdouble) == 3.141592653589793
+    @test jfield(@jimport(java.lang.Byte), "MAX_VALUE", jbyte) == 1<<7-1
+    @test jfield(@jimport(java.lang.Integer), "MAX_VALUE", jint) == 1<<31-1
+    @test jfield(@jimport(java.lang.Long), "MAX_VALUE", jlong) == 1<<63-1
+
+    j_l_bool = @jimport(java.lang.Boolean)
+    @test jcall(jfield(j_l_bool, "TRUE", j_l_bool), "booleanValue", jboolean, ()) == true
+    @test jcall(jfield(j_l_bool, "FALSE", j_l_bool), "booleanValue", jboolean, ()) == false
+
+    @test jfield(@jimport(java.text.NumberFormat), "INTEGER_FIELD", jint) == 0
+    @test jfield(@jimport(java.util.logging.Logger), "GLOBAL_LOGGER_NAME", JString ) == "global"
+    locale = @jimport java.util.Locale
+    lc = jfield(locale, "CANADA", locale)
+    @test jcall(lc, "getCountry", JString, ()) == "CA"
+end
+
 #Test NULL
 @testset "null_1" begin
     H=@jimport java.util.HashMap
     a=jcall(T, "testNull", H, ())
-    @test_throws ErrorException jcall(a, "toString", JString, ())
+    @test_throws JavaCall.JavaCallError jcall(a, "toString", JString, ())
 
     jlist = @jimport java.util.ArrayList
     @test jcall( jlist(), "add", jboolean, (JObject,), JObject(C_NULL)) === 0x01
@@ -171,17 +264,6 @@ end
     t=JTest(())
     inner = TestInner((JTest,), t)
     @test jcall(inner, "innerString", JString, ()) == "from inner"
-    @test jfield(@jimport(java.lang.Math), "E", jdouble) == 2.718281828459045
-    @test jfield(@jimport(java.lang.Math), "PI", jdouble) == 3.141592653589793
-    @test jfield(@jimport(java.text.NumberFormat), "INTEGER_FIELD", jint) == 0
-    Locale = @jimport java.util.Locale
-    lc = jfield(@jimport(java.util.Locale), "CANADA", @jimport(java.util.Locale))
-    #Instance field access
-    #Disabled for now. Need to verify stability
-    @test jfield(@jimport(java.util.logging.Logger), "GLOBAL_LOGGER_NAME", JString ) == "global"
-    @test jcall(lc, "getCountry", JString, ()) == "CA"
-    @test jfield(t, "integerField", jint) == 100
-    @test jfield(t, "stringField", JString) == "A STRING"
 end
 
 # Test Memory allocation and de-allocatios
@@ -317,6 +399,8 @@ end
     @test_throws ErrorException jlocalframe(Nothing) do 
         error("Error within jlocalframe f")
     end
+end
+
 end
 
 # Test downstream dependencies
