@@ -136,21 +136,21 @@ end
 @testset "jni_arrays_1" begin
     j_u_arrays = @jimport java.util.Arrays
     arr = jint[10,20,30,40,50,60]
-    jniarr = JNIArray(arr)
+    jniarr = JNIVector(arr)
     @test length(arr) == length(jniarr)
     @test size(arr) == size(jniarr)
     @test all(arr .== jniarr)
-    @test 3 == jcall(j_u_arrays, "binarySearch", jint, (JNIArray{jint}, jint), jniarr, 40)
-    @test "[10, 20, 30, 40, 50, 60]" == jcall(j_u_arrays, "toString", JString, (JavaCall.JNIArray{jint},), jniarr)
+    @test 3 == jcall(j_u_arrays, "binarySearch", jint, (JNIVector{jint}, jint), jniarr, 40)
+    @test "[10, 20, 30, 40, 50, 60]" == jcall(j_u_arrays, "toString", JString, (JavaCall.JNIVector{jint},), jniarr)
 
     JCharBuffer = @jimport(java.nio.CharBuffer)
-    buf = jcall(JCharBuffer, "wrap", JCharBuffer, (JNIArray{jchar},), JNIArray(jchar.(collect("array"))))
+    buf = jcall(JCharBuffer, "wrap", JCharBuffer, (JNIVector{jchar},), JNIVector(jchar.(collect("array"))))
     @test "array" == jcall(buf, "toString", JString, ())
 
-    # Ensure JNIArrays are garbage collected properly
+    # Ensure JNIVectors are garbage collected properly
     for i in 1:100000
-        a = JNIArray(jchar[j == i ? 0 : 1 for j in 1:10000])
-        buf = jcall(JCharBuffer, "wrap", JCharBuffer, (JNIArray{jchar},), a)
+        a = JNIVector(jchar[j == i ? 0 : 1 for j in 1:10000])
+        buf = jcall(JCharBuffer, "wrap", JCharBuffer, (JNIVector{jchar},), a)
     end
 end
 
