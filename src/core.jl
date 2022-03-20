@@ -399,6 +399,14 @@ get_method_id(method::JMethod) = @checknull JNI.FromReflectedMethod(method)
 (m::JMethod)(obj, args...) = jcall(obj, m, args...)
 
 
+"""
+    jfield(ref, field, [fieldType])
+
+Get a pointer to a field of of a Java class or object.
+* `ref` could be a JavaObject{T} type or a JavaObject
+* `field` can be an AbstractString or JField
+* `fieldType` is a Type
+"""
 function jfield(ref, field, fieldType)
     assertroottask_or_goodenv() && assertloaded()
     jfieldID = get_field_id(ref, field, fieldType)
@@ -407,6 +415,14 @@ end
 
 function jfield(ref, field)
     assertroottask_or_goodenv() && assertloaded()
+    fieldType = jimport(gettype(field))
+    jfieldID = get_field_id(ref, field, fieldType)
+    _jfield(_jcallable(ref), jfieldID, fieldType)
+end
+
+function jfield(ref, field::AbstractString)
+    assertroottask_or_goodenv() && assertloaded()
+    field = listfields(ref, field)[]
     fieldType = jimport(gettype(field))
     jfieldID = get_field_id(ref, field, fieldType)
     _jfield(_jcallable(ref), jfieldID, fieldType)
