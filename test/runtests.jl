@@ -233,6 +233,7 @@ end
 end
 
 @testset "jni_arrays_1" begin
+    #=
     j_u_arrays = @jimport java.util.Arrays
     arr = jint[10,20,30,40,50,60]
     jniarr = JNIVector(arr)
@@ -251,6 +252,7 @@ end
         a = JNIVector(jchar[j == i ? 0 : 1 for j in 1:10000])
         buf = jcall(JCharBuffer, "wrap", JCharBuffer, (JNIVector{jchar},), a)
     end
+    =#
 end
 
 @testset "dates_1" begin
