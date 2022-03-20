@@ -21,15 +21,15 @@ jobs:
           - 'nightly'
         os:
           - ubuntu-latest
-          - macOS-latest
+          - macos-10.15
           - windows-latest
         arch:
           - x64
-        include:
-          - os: ubuntu-latest
-            env:
-              JULIA_COPY_STACKS: 1
-          - os: macOS-latest
+        env:
+          - JULIA_COPY_STACKS: 0
+          - JULIA_COPY_STACKS: 1
+        exclude:
+          - os: windows-latest
             env:
               JULIA_COPY_STACKS: 1
     steps:
