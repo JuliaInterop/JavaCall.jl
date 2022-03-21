@@ -11,7 +11,7 @@ export JavaObject, JavaMetaClass, JNIVector,
        jint, jlong, jbyte, jboolean, jchar, jshort, jfloat, jdouble, jvoid,
        JObject, JClass, JMethod, JConstructor, JField, JString,
        JavaRef, JavaLocalRef, JavaGlobalRef, JavaNullRef,
-       @jimport, jcall, jfield, jlocalframe, isnull,
+       @jimport, @jcall, jcall, jfield, jlocalframe, isnull,
        getname, getclass, listmethods, getreturntype, getparametertypes, classforname,
        listfields, gettype,
        narrow
@@ -40,6 +40,7 @@ include("core.jl")
 include("convert.jl")
 include("reflect.jl")
 include("jniarray.jl")
+include("jcall_macro.jl")
 
 Base.@deprecate_binding jnifunc JavaCall.JNI.jniref[]
 
