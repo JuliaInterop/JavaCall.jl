@@ -68,11 +68,11 @@ Julia 1.3.0 through Julia 1.6.2 are tested and guaranteed to work on Linux, macO
 
 ## Apple macOS
 
-JavaCall works on on Julia 1.3 to Julia 1.6.2. Please set the environment variable `JULIA_COPY_STACKS = 1`. 
+JavaCall works on Julia 1.0 and Julia 1.3 to Julia 1.6.2. Please set the environment variable `JULIA_COPY_STACKS = 1`. 
 
 As of Julia 1.6.3, JavaCall fails on macOS due to a fatal segmentation fault, signal (11). See [JavaCall#151](https://github.com/JuliaInterop/JavaCall.jl/issues/151) and [JuliaLang/julia#40056](https://github.com/JuliaLang/julia/pull/40056).
 
-The current developers of JavaCall do not posess current Apple hardware to debug this issue. Help is needed.
+The current developers of JavaCall do not posess current Apple hardware to debug this issue. [Help is needed.](https://github.com/JuliaInterop/JavaCall.jl/issues/151)
 
 Julia 1.0 and Julia 1.6.2 are tested via Github Actions continuous integration on macOS.
 
