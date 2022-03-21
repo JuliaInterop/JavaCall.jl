@@ -129,6 +129,8 @@ end
     j_math = @jimport java.lang.Math
     j_is = @jimport java.io.InputStream
 
+@static if Sys.isapple()
+
     # JavaCall.JavaCallError("Error calling Java: java.lang.ArithmeticException: / by zero")
     @info "Expecting: \"Error calling Java: java.lang.ArithmeticException: / by zero\""
     @test_throws JavaCall.JavaCallError jcall(j_math, "floorDiv", jint, (jint, jint), 1, 0)
@@ -158,6 +160,8 @@ end
     @info "Expecting: \"Error calling Java: java.lang.NoSuchMethodError: <init>\""
     @test_throws JavaCall.JavaCallError (@jimport java.util.ArrayList)((jboolean,), true)
     @test JavaCall.geterror() === nothing
+end
+
 end
 
 @testset "fields_1" begin
