@@ -39,12 +39,12 @@ OrderedCollections.OrderedSet{String} with 2 elements:
   "-Xmx1024M"
   "-Xrs"
 
-julia> JavaCall.init() # Optionally, explicitly initialize the JVM. Do not use this in package `__init__()` to allow other packages to add class paths or options.
+julia> JavaCall.init() # Call before using `jcall` or `jfield`. Do not use this in package `__init__()` to allow other packages to add classpaths or options.
 
 julia> jls = @jimport java.lang.System
 JavaObject{Symbol("java.lang.System")}
 
-julia> out = jfield(jls, "out", @jimport java.io.PrintStream)
+julia> out = jfield(jls, "out", @jimport java.io.PrintStream) # Third arg is optional, but helps type stability.
 JavaObject{Symbol("java.io.PrintStream")}(JavaCall.JavaLocalRef(Ptr{Nothing} @0x0000000003ecda38))
 
 julia> jcall(out, "println", Nothing, (JString,), "Hello World")
