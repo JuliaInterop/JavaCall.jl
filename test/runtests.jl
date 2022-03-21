@@ -129,7 +129,7 @@ end
     j_math = @jimport java.lang.Math
     j_is = @jimport java.io.InputStream
 
-@static if Sys.isapple()
+@static if !Sys.isapple()
 
     # JavaCall.JavaCallError("Error calling Java: java.lang.ArithmeticException: / by zero")
     @info "Expecting: \"Error calling Java: java.lang.ArithmeticException: / by zero\""
