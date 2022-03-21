@@ -26,6 +26,12 @@ jobs:
         env:
           - JULIA_COPY_STACKS: 0
           - JULIA_COPY_STACKS: 1
+        include:
+          - version: '1.6.2'
+            os: macos-latest
+            env:
+              JULIA_COPY_STACKS: 1
+            arch: x64
         exclude:
           - os: windows-latest
             env:
