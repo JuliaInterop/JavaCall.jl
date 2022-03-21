@@ -1,7 +1,7 @@
 # JavaCall.jl
 
 ![master GHA CI](https://github.com/JuliaInterop/JavaCall.jl/actions/workflows/CI.yml/badge.svg)
-![v0.7 GHA CI](https://github.com/JuliaInterop/JavaCall.jl/actions/workflows/CI.yml/badge.svg?branch=v0.7)
+![v0.7 GHA CI](https://github.com/JuliaInterop/JavaCall.jl/actions/workflows/v0.7_CI.yml/badge.svg?branch=v0.7)
 [![Windows x86 CI](https://ci.appveyor.com/api/projects/status/qeu6ul9o9s6t5tiw?svg=true)](https://ci.appveyor.com/project/aviks/javacall-jl-6c24s)
 [![Gitter](https://badges.gitter.im/JavaCall-jl/community.svg)](https://gitter.im/JavaCall-jl/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
