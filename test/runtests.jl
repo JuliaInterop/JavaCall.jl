@@ -128,30 +128,40 @@ end
     j_u_arrays = @jimport java.util.Arrays
     j_math = @jimport java.lang.Math
     j_is = @jimport java.io.InputStream
-    
+
+@static if !Sys.isapple()
+
     # JavaCall.JavaCallError("Error calling Java: java.lang.ArithmeticException: / by zero")
+    @info "Expecting: \"Error calling Java: java.lang.ArithmeticException: / by zero\""
     @test_throws JavaCall.JavaCallError jcall(j_math, "floorDiv", jint, (jint, jint), 1, 0)
     @test JavaCall.geterror() === nothing
 
     # JavaCall.JavaCallError("Error calling Java: java.lang.ArrayIndexOutOfBoundsException: Array index out of range: -1")
+    @info "Expecting: \"Error calling Java: java.lang.ArrayIndexOutOfBoundsException: Array index out of range: -1\""
     @test_throws JavaCall.JavaCallError jcall(j_u_arrays, "sort", Nothing, (Array{jint,1}, jint, jint), [10,20], -1, -1)
     @test JavaCall.geterror() === nothing
 
     # JavaCall.JavaCallError("Error calling Java: java.lang.IllegalArgumentException: fromIndex(1) > toIndex(0)")
+    @info "Expecting: \"Error calling Java: java.lang.IllegalArgumentException: fromIndex(1) > toIndex(0)\""
     @test_throws JavaCall.JavaCallError jcall(j_u_arrays, "sort", Nothing, (Array{jint,1}, jint, jint), [10,20], 1, 0)
     @test JavaCall.geterror() === nothing
 
     # JavaCall.JavaCallError("Error calling Java: java.lang.InstantiationException: java.util.AbstractCollection")
+    @info "Expecting: \"Error calling Java: java.lang.InstantiationException: java.util.AbstractCollection\""
     @test_throws JavaCall.JavaCallError (@jimport java.util.AbstractCollection)()
     @test JavaCall.geterror() === nothing
 
     # JavaCall.JavaCallError("Error calling Java: java.lang.NoClassDefFoundError: java/util/Lis")
+    @info "Expecting: \"Error calling Java: java.lang.NoClassDefFoundError: java/util/Lis\""
     @test_throws JavaCall.JavaCallError (@jimport java.util.Lis)()
     @test JavaCall.geterror() === nothing
 
     # JavaCall.JavaCallError("Error calling Java: java.lang.NoSuchMethodError: <init>")
+    @info "Expecting: \"Error calling Java: java.lang.NoSuchMethodError: <init>\""
     @test_throws JavaCall.JavaCallError (@jimport java.util.ArrayList)((jboolean,), true)
     @test JavaCall.geterror() === nothing
+end
+
 end
 
 @testset "fields_1" begin
@@ -227,6 +237,7 @@ end
 end
 
 @testset "jni_arrays_1" begin
+    #=
     j_u_arrays = @jimport java.util.Arrays
     arr = jint[10,20,30,40,50,60]
     jniarr = JNIVector(arr)
@@ -245,6 +256,7 @@ end
         a = JNIVector(jchar[j == i ? 0 : 1 for j in 1:10000])
         buf = jcall(JCharBuffer, "wrap", JCharBuffer, (JNIVector{jchar},), a)
     end
+    =#
 end
 
 @testset "dates_1" begin
