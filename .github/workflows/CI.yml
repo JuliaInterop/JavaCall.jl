@@ -9,8 +9,6 @@ jobs:
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
     runs-on: ${{ matrix.os }}
-    env:
-      JULIA_COPY_STACKS: 1
     strategy:
       fail-fast: false
       matrix:
@@ -21,7 +19,6 @@ jobs:
           - 'nightly'
         os:
           - ubuntu-latest
-          - macos-10.15
           - windows-latest
         arch:
           - x64
