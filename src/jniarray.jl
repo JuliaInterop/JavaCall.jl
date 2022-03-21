@@ -50,12 +50,21 @@ for primitive in [:jboolean, :jchar, :jbyte, :jshort, :jint, :jlong, :jfloat, :j
     m = quote
         function get_elements!(jarr::JNIVector{$primitive})
             sz = Int(JNI.GetArrayLength(jarr.ref.ptr))
-            jarr.arr = unsafe_wrap(Array, $get_elements(jarr.ref.ptr, Ptr{jboolean}(C_NULL)), sz)
+            # Free the array in release_elements rather than directly via GC
+            jarr.arr = unsafe_wrap(Array, $get_elements(jarr.ref.ptr, Ptr{jboolean}(C_NULL)), sz; own = false)
             jarr
         end
         JNIVector{$primitive}(sz::Int) = get_elements!(JNIVector{$primitive}($new_array(sz)))
         function release_elements(arg::JNIVector{$primitive})
-            $release_elements(arg.ref.ptr, pointer(arg.arr), jint(0))
+            # Make sure that JVM has not been destroyed
+            if JNI.ppenv[1] != C_NULL
+                arr = arg.arr
+                ref = arg.ref
+                # The correct way would be let ccall handle this by removing typing from JNI wrappers
+                GC.@preserve arg ref arr begin
+                    $release_elements(ref.ptr, pointer(arr), jint(0))
+                end
+            end
             arg.arr = nothing
         end
         function convert_result(::Type{JNIVector{$primitive}}, ptr)

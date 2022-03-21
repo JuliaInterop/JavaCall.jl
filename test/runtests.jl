@@ -237,7 +237,6 @@ end
 end
 
 @testset "jni_arrays_1" begin
-    #=
     j_u_arrays = @jimport java.util.Arrays
     arr = jint[10,20,30,40,50,60]
     jniarr = JNIVector(arr)
@@ -252,11 +251,13 @@ end
     @test "array" == jcall(buf, "toString", JString, ())
 
     # Ensure JNIVectors are garbage collected properly
-    for i in 1:100000
+    # This used to be 1:100000
+    @info "JNIVector GC test..."
+    for i in 1:1000
         a = JNIVector(jchar[j == i ? 0 : 1 for j in 1:10000])
         buf = jcall(JCharBuffer, "wrap", JCharBuffer, (JNIVector{jchar},), a)
     end
-    =#
+    @info "JNIVector GC test complete."
 end
 
 @testset "dates_1" begin
@@ -451,5 +452,7 @@ catch err
     sprint(showerror, err, backtrace())
 end
 
+# Run GC before we destroy to avoid errors
+GC.gc()
 # At the end, unload the JVM before exiting
 JavaCall.destroy()
