@@ -424,7 +424,7 @@ function jfield(ref, field::AbstractString)
     assertroottask_or_goodenv() && assertloaded()
     field = listfields(ref, field)[]
     fieldType = jimport(gettype(field))
-    jfieldID = get_field_id(ref, field, fieldType)
+    jfieldID = get_field_id(ref, field)
     _jfield(_jcallable(ref), jfieldID, fieldType)
 end
 

@@ -169,6 +169,9 @@ end
     t=JTest(())
     t_fields = Dict(getname(f) => f for f in listfields(t))
 
+    lazy_out = jfield(System, "out") # Not type stable
+    @test jcall(System_out, "equals", jboolean, (JObject,), lazy_out) == 0x01
+
     @testset "$ftype" for (name, ftype, valtest) in [ ("booleanField", jboolean, ==(true)) ,
                                 ("integerField", jint, ==(100)) ,
                                 ("stringField", JString, ==("A STRING")) ,
