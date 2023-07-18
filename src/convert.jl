@@ -155,6 +155,8 @@ function convert_result(rettype::Type{Array{JavaObject{T},1}}, result) where T
         a=JNI.GetObjectArrayElement(result, i-1)
         ret[i] = JavaObject{T}(a)
     end
+    
+    JNI.DeleteLocalRef(result)
     return ret
 end
 
@@ -169,6 +171,8 @@ function convert_result(rettype::Type{Array{T,1}}, result) where T
         a=JNI.GetObjectArrayElement(result, i-1)
         ret[i] = convert_result(T, a)
     end
+
+    JNI.DeleteLocalRef(result)
     return ret
 end
 
@@ -191,6 +195,8 @@ function convert_result(rettype::Type{Array{JavaObject{T},2}}, result) where T
             ret[i, j] = JavaObject{T}(x)
         end
     end
+
+    JNI.DeleteLocalRef(result)
     return ret
 end
 
@@ -211,6 +217,8 @@ function convert_result(rettype::Type{Array{T,2}}, result) where T
         @assert(sz_a == sz_1, "Size of $(i)th subrarray is $sz_a, but size of the 1st subarray was $sz_1")
         ret[i, :] = convert_result(Vector{T}, a)
     end
+
+    JNI.DeleteLocalRef(result)
     return ret
 end
 
