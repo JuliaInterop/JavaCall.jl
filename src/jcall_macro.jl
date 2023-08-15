@@ -3,18 +3,25 @@ macro jcall(expr)
 end
 
 function jcall_macro_lower(func, rettype, types, args, nreq)
-    @info "args: " func rettype types args nreq func.head func.args
-    obj = func.args[2]
-    if obj isa Expr && obj.head == :.
-        obj = quote
-            jfield($(obj.args[1]), string($(obj.args[2])))
-        end
+    @debug "args: " func rettype types args nreq
+    jtypes = Expr(:tuple, esc.(types)...)
+    jargs = Expr(:tuple, esc.(args)...)
+    jret = esc(rettype)
+    if func isa Expr
+        @debug "func" func.head func.args
+        obj = resolve_dots(func.args[2])
+        f = string(func.args[1].value)
+        return :(jcall($(esc(obj)), $f, $jret, $jtypes, ($jargs)...))
+    elseif func isa QuoteNode
+        return :($(esc(func.value))($jtypes, ($jargs)...))
     end
-    f = string(func.args[1].value)
-    jtypes = Expr(:tuple, types...)
-    jret = rettype
-    quote
-        jcall($(esc(obj)), $f, $jret, $jtypes, $args...)
+end
+
+function resolve_dots(obj)
+    if obj isa Expr && obj.head == :.
+        return :(jfield($(resolve_dots(obj.args[1])), string($(obj.args[2]))))
+    else
+        return obj
     end
 end
 
@@ -23,10 +30,10 @@ end
     jcall_macro_parse(expression)
 
 `jcall_macro_parse` is an implementation detail of `@jcall
-it takes an expression like `:(printf("%d"::Cstring, value::Cuint)::Cvoid)`
+it takes an expression like `:(System.out.println("Hello"::JString)::Nothing)`
 returns: a tuple of `(function_name, return_type, arg_types, args)`
 The above input outputs this:
-    (:printf, :Cvoid, [:Cstring, :Cuint], ["%d", :value])
+    (:(System.out.println), Nothing, [:JString], ["Hello])
 """
 function jcall_macro_parse(expr::Expr)
     # setup and check for errors
@@ -49,7 +56,7 @@ function jcall_macro_parse(expr::Expr)
         elseif f isa Symbol
             QuoteNode(f)
         else
-            throw(ArgumentError("@jcall function name must be a symbol, a `.` node (e.g. `libc.printf`) or an interpolated function pointer (with `\$`)"))
+            throw(ArgumentError("@jcall function name must be a symbol or a `.` node (e.g. `System.out.println`)"))
         end
     end
 

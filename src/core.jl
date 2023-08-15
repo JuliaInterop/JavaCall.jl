@@ -428,6 +428,8 @@ function jfield(ref, field::AbstractString)
     _jfield(_jcallable(ref), jfieldID, fieldType)
 end
 
+jfield(ref, field::Symbol) = jfield(ref, String(field))
+
 function get_field_id(typ::Type{JavaObject{T}}, field::AbstractString, fieldType::Type) where T
     @checknull JNI.GetStaticFieldID(Ptr(metaclass(T)), String(field), signature(fieldType))
 end
