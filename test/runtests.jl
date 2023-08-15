@@ -438,6 +438,8 @@ end
     end
 end
 
+include("jcall_macro.jl")
+
 end
 
 # Test downstream dependencies
