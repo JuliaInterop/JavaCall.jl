@@ -2,8 +2,8 @@ macro jcall(expr)
     return jcall_macro_lower(jcall_macro_parse(expr)...)
 end
 
-function jcall_macro_lower(func, rettype, types, args, nreq)
-    @debug "args: " func rettype types args nreq
+function jcall_macro_lower(func, rettype, types, args)
+    @debug "args: " func rettype types args
     jtypes = Expr(:tuple, esc.(types)...)
     jargs = Expr(:tuple, esc.(args)...)
     jret = esc(rettype)
@@ -84,19 +84,7 @@ function jcall_macro_parse(expr::Expr)
     for i in argstart:length(callargs)
         pusharg!(callargs[i])
     end
-    # Do we need this in JavaCall?
-    # add any varargs if necessary
-    nreq = 0
-    if !isnothing(varargs)
-        if length(args) == 0
-            throw(ArgumentError("C ABI prohibits vararg without one required argument"))
-        end
-        nreq = length(args)
-        for a in varargs
-            pusharg!(a)
-        end
-    end
 
-    return func, rettype, types, args, nreq
+    return func, rettype, types, args
 end
 
