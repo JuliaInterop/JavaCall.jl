@@ -2,7 +2,7 @@
 
 ![master GHA CI](https://github.com/JuliaInterop/JavaCall.jl/actions/workflows/CI.yml/badge.svg)
 
-Call Java programs from Julia.
+Call Java programs from [Julia](https://julialang.org).
 
 ## Documentation
 
@@ -11,7 +11,7 @@ Documentation is available at http://juliainterop.github.io/JavaCall.jl
 ## Quick Start Example Usage
 
 ```julia
-$ JULIA_COPY_STACKS=1 julia
+$ JULIA_NUM_THREADS=1 JULIA_COPY_STACKS=1 julia
 
 julia> using Pkg; Pkg.activate(; temp = true)
   Activating new project at `/tmp/jl_e6uPja`
