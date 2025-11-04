@@ -1,66 +1,53 @@
 name: CI
 on:
-  pull_request:
   push:
-    branches:
-      - master
-      - v0.7
-    tags: '*'
+    branches: [master]
+    tags: ['*']
+  pull_request:
+  workflow_dispatch:
 jobs:
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
     runs-on: ${{ matrix.os }}
+    env:
+      JULIA_NUM_THREADS: '1'
     strategy:
       fail-fast: false
       matrix:
         version:
-          - '1.0'
-          - '1.6'
+          - 'lts'
           - '1'
-          - 'nightly'
         os:
           - ubuntu-latest
           - windows-latest
         arch:
           - x64
         include:
-          - version: '1.0'
+          - version: '1'
             os: macos-latest
-            arch: x64
-            julia_copy_stacks: 1
-          - version: '1.6.2'
-            os: macos-latest
-            arch: x64
+            arch: aarch64
             julia_copy_stacks: 1
           - os: ubuntu-latest
             julia_copy_stacks: 1
           - os: windows-latest
             julia_copy_stacks: 0
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-java@v2
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: 'zulu'
-          java-version: '11'
-      - uses: julia-actions/setup-julia@v1
+          java-version: '17'
+      - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
-      - uses: actions/cache@v1
-        env:
-          cache-name: cache-artifacts
-        with:
-          path: ~/.julia/artifacts
-          key: ${{ runner.os }}-test-${{ env.cache-name }}-${{ hashFiles('**/Project.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-test-${{ env.cache-name }}-
-            ${{ runner.os }}-test-
-            ${{ runner.os }}-
+      - uses: julia-actions/cache@v2
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
         env:
           JULIA_COPY_STACKS: ${{ matrix.julia_copy_stacks }}
       - uses: julia-actions/julia-processcoverage@v1
-      - uses: codecov/codecov-action@v1
+      - uses: codecov/codecov-action@v5
         with:
-          file: lcov.info
+          files: lcov.info
+          token: ${{ secrets.CODECOV_TOKEN }}
