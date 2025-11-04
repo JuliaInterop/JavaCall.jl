@@ -25,6 +25,9 @@ jobs:
           - version: '1'
             os: macos-latest
             arch: aarch64
+          - os: macos-latest
+            julia_copy_stacks: 1
+          - os: ubuntu-latest
             julia_copy_stacks: 1
           - os: windows-latest
             julia_copy_stacks: 0
