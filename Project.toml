@@ -1,6 +1,6 @@
 name = "JavaCall"
 uuid = "494afd89-becb-516b-aafa-70d2670c0337"
-version = "0.8.0"
+version = "0.8.1"
 
 [deps]
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
@@ -9,8 +9,8 @@ Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
 WinReg = "1b915085-20d7-51cf-bf83-8f477d6f5128"
 
 [compat]
-DataStructures = "0.17, 0.18"
-WinReg = "0.3.1"
+DataStructures = "0.17, 0.18, 0.19"
+WinReg = "0.3.1, 1"
 julia = "1"
 
 [extras]
