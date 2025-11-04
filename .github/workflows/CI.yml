@@ -13,6 +13,7 @@ jobs:
       fail-fast: false
       matrix:
         version:
+          - 'min'
           - 'lts'
           - '1'
         os:
@@ -25,8 +26,6 @@ jobs:
             os: macos-latest
             arch: aarch64
             julia_copy_stacks: 1
-          - os: ubuntu-latest
-            julia_copy_stacks: 1
           - os: windows-latest
             julia_copy_stacks: 0
     steps:
@@ -34,7 +33,7 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: '21'
       - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ matrix.version }}
