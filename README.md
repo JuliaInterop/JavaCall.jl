@@ -1,9 +1,6 @@
 # JavaCall.jl
 
 ![master GHA CI](https://github.com/JuliaInterop/JavaCall.jl/actions/workflows/CI.yml/badge.svg)
-![v0.7 GHA CI](https://github.com/JuliaInterop/JavaCall.jl/actions/workflows/CI.yml/badge.svg?branch=v0.7)
-[![Windows x86 CI](https://ci.appveyor.com/api/projects/status/qeu6ul9o9s6t5tiw?svg=true)](https://ci.appveyor.com/project/aviks/javacall-jl-6c24s)
-[![Gitter](https://badges.gitter.im/JavaCall-jl/community.svg)](https://gitter.im/JavaCall-jl/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 Call Java programs from Julia.
 
@@ -50,11 +47,6 @@ JavaObject{Symbol("java.io.PrintStream")}(JavaCall.JavaLocalRef(Ptr{Nothing} @0x
 julia> jcall(out, "println", Nothing, (JString,), "Hello World")
 Hello World
 ```
-
-## Versions
-
-* 0.7 branch is currently being maintained for bug fixes only
-* master branch is currently proposed to be v0.8.0
 
 ## Julia version compatibility
 
