@@ -38,7 +38,7 @@ jobs:
             julia_copy_stacks: 0
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-java@v2
+      - uses: actions/setup-java@v5
         with:
           distribution: 'zulu'
           java-version: '11'
