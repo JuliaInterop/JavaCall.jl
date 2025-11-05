@@ -29,10 +29,6 @@ jobs:
             arch: aarch64
             julia_copy_stacks: 1
           - version: '1'
-            os: windows-latest
-            arch: x86
-            julia_copy_stacks: 0
-          - version: '1'
             os: macos-15-intel
             arch: x64
             julia_copy_stacks: 1            
@@ -45,7 +41,7 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: '25'
           architecture: ${{ matrix.arch }}
       - uses: julia-actions/setup-julia@v2
         with:
