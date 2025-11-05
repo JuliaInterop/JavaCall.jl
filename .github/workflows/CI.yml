@@ -46,6 +46,7 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: '17'
+          architecture: ${{ matrix.arch }}
       - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ matrix.version }}
