@@ -50,25 +50,16 @@ Hello World
 
 ## Julia version compatibility
 
-Julia 1.3.0 through Julia 1.6.2 are tested and guaranteed to work on Linux, macOS, and Windows via continuous integration. Julia 1.6.2 and newer should work on Linux and Windows. The `JULIA_COPY_STACKS` environment variable should be set to `1` on macOS and Linux, but not Windows.
+The CI tests for Julia 1.6 as `min`, Julia LTS, and the latest stable release.
 
-For Julia pre-1.5, consider the [RootTaskRepl.jl](https://github.com/mkitti/RootTaskREPL.jl) package. With RootTaskREPL.jl, JavaCall is able to execute fine without the need of `JULIA_COPY_STACKS=1` with the exception of `@async` calls. Starting with the Julia 1.5, the REPL backend now runs on the root Task by default.
+## macOS and Linux
 
-JavaCall and its dependents do not work correctly on Julia 1.1 and Julia 1.2.  On Julia 1.1 and 1.2, you may see segfaults or incorrect results. This is typically due to stack corruption.
+For Julia 1.3 onwards, please set the environment variable `JULIA_COPY_STACKS = 1`.
+For Julia 1.11 onwards, please also set `JULIA_NUM_THREADS = 1`
 
-JavaCall should continue to work with Julia 1.0.x (formerly a long term support version of Julia).
+Multithreaded access to the JVM is supported as JavaCall version `0.8.0`, but doesn't work in recent Julia versions.
 
-## Apple macOS
-
-JavaCall works on Julia 1.0 and Julia 1.3 to Julia 1.6.2. Please set the environment variable `JULIA_COPY_STACKS = 1`. 
-
-As of Julia 1.6.3, JavaCall fails on macOS due to a fatal segmentation fault, signal (11). See [JavaCall#151](https://github.com/JuliaInterop/JavaCall.jl/issues/151) and [JuliaLang/julia#40056](https://github.com/JuliaLang/julia/pull/40056).
-
-The current developers of JavaCall do not posess current Apple hardware to debug this issue. [Help is needed.](https://github.com/JuliaInterop/JavaCall.jl/issues/151)
-
-Julia 1.0 and Julia 1.6.2 are tested via Github Actions continuous integration on macOS.
-
-## Windows Operating System
+## Windows
 
 Do not set the environmental variable `JULIA_COPY_STACKS` or set the variable to `0`.
 
@@ -80,20 +71,9 @@ $ julia -i -e "using JavaCall; JavaCall.init()"
 
 Windows currently lacks support for multithreaded access to the JVM.
 
-Julia 1.0, 1.6, 1 (latest release), and nightly are tested on Windows via Github Actions continuous integration.
-x86 compatability is also tested on the latest Julia 1 release.
-
-## Linux
-
-On Julia 1.3 and newer, please set the environment variable `JULIA_COPY_STACKS = 1`.
-
-Multithreaded access to the JVM is supported as JavaCall version `0.8.0`.
-
-Julia 1.0, 1.6, 1 (latest release), and nightly are tested on Linux via Github Actions continuous integration.
-
 ## Other Operating Systems
 
 JavaCall has not been tested on operating systems other than macOS, Windows, or Linux.
-You should probably set the environment variable `JULIA_COPY_STACKS = 1`.
+You should probably set the environment variable `JULIA_COPY_STACKS = 1` and `JULIA_NUM_THREADS = 1`.
 If you have success using JavaCall on another operating system than listed above,
 please create an issue or pull request to let us know about compatability.
