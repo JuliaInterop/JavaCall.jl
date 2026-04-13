@@ -475,7 +475,7 @@ for (x, name) in [(:(<:Any),  :Object),
             function _jcall(obj::T, jmethodId::Ptr{Nothing}, rettype::Type{$x},
                             argtypes::Tuple, args...; callmethod=$callmethod) where T <: $t
                 savedArgs, convertedArgs = convert_args(argtypes, args...)
-                GC.@preserve savedArgs begin
+                GC.@preserve obj savedArgs convertedArgs begin
                     result = callmethod(Ptr(obj), jmethodId, Array{JNI.jvalue}(jvalue.(convertedArgs)))
                 end
                 cleanup_arg.(convertedArgs)
